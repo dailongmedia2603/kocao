@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { PlusCircle, ArrowLeft } from "lucide-react";
+import { PlusCircle, ArrowLeft, MoreHorizontal } from "lucide-react";
+import { showSuccess, showError } from "@/utils/toast";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,9 +22,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateTaskDialog } from "../components/tasks/CreateTaskDialog";
+import { EditTaskDialog } from "../components/tasks/EditTaskDialog";
 
 type Project = {
   name: string;
@@ -35,11 +54,15 @@ type Task = {
   type: string;
   status: string;
   created_at: string;
+  payload: { data: string[] } | null;
 };
 
 const ProjectDetails = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const [isCreateTaskOpen, setCreateTaskOpen] = useState(false);
+  const [isEditTaskOpen, setEditTaskOpen] = useState(false);
+  const [isDeleteTaskOpen, setDeleteTaskOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const queryClient = useQueryClient();
 
   const { data: project, isLoading: isProjectLoading } = useQuery<Project>({
@@ -61,13 +84,28 @@ const ProjectDetails = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tasks")
-        .select("id, name, type, status, created_at")
+        .select("id, name, type, status, created_at, payload")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
     enabled: !!projectId,
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showSuccess("Xóa tác vụ thành công!");
+      setDeleteTaskOpen(false);
+      setSelectedTask(null);
+    },
+    onError: (error) => {
+      showError(`Lỗi: ${error.message}`);
+    },
   });
 
   useEffect(() => {
@@ -83,8 +121,7 @@ const ProjectDetails = () => {
           table: "tasks",
           filter: `project_id=eq.${projectId}`,
         },
-        (payload) => {
-          console.log("Change received!", payload);
+        () => {
           queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
         }
       )
@@ -106,6 +143,12 @@ const ProjectDetails = () => {
       case "pending":
       default:
         return "secondary";
+    }
+  };
+
+  const handleDeleteTask = () => {
+    if (selectedTask) {
+      deleteTaskMutation.mutate(selectedTask.id);
     }
   };
 
@@ -146,24 +189,18 @@ const ProjectDetails = () => {
                 <TableHead>Loại</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead>Ngày tạo</TableHead>
+                <TableHead className="text-right">Hành động</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {areTasksLoading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell>
-                      <Skeleton className="h-4 w-40" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-24" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-6 w-20 rounded-full" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-32" />
-                    </TableCell>
+                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                   </TableRow>
                 ))
               ) : tasks && tasks.length > 0 ? (
@@ -179,11 +216,36 @@ const ProjectDetails = () => {
                     <TableCell>
                       {format(new Date(task.created_at), "dd/MM/yyyy HH:mm")}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Mở menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedTask(task);
+                            setEditTaskOpen(true);
+                          }}>
+                            Sửa
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-500" onClick={() => {
+                            setSelectedTask(task);
+                            setDeleteTaskOpen(true);
+                          }}>
+                            Xóa
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center">
+                  <TableCell colSpan={5} className="text-center">
                     Chưa có tác vụ nào trong dự án này.
                   </TableCell>
                 </TableRow>
@@ -199,6 +261,34 @@ const ProjectDetails = () => {
           projectId={projectId}
         />
       )}
+      <EditTaskDialog
+        isOpen={isEditTaskOpen}
+        onOpenChange={setEditTaskOpen}
+        task={selectedTask}
+      />
+      <AlertDialog
+        open={isDeleteTaskOpen}
+        onOpenChange={setDeleteTaskOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hành động này không thể hoàn tác. Thao tác này sẽ xóa vĩnh viễn tác vụ "{selectedTask?.name}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteTask}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteTaskMutation.isPending}
+            >
+              {deleteTaskMutation.isPending ? "Đang xóa..." : "Xóa"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

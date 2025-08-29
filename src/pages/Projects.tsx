@@ -27,6 +27,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -40,6 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateProjectDialog } from "../components/projects/CreateProjectDialog";
+import { EditProjectDialog } from "../components/projects/EditProjectDialog";
 
 type Project = {
   id: string;
@@ -49,6 +51,7 @@ type Project = {
 
 const Projects = () => {
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const navigate = useNavigate();
@@ -172,6 +175,15 @@ const Projects = () => {
                             Xem chi tiết
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedProject(project);
+                              setEditDialogOpen(true);
+                            }}
+                          >
+                            Sửa
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
                             className="text-red-500"
                             onClick={() => {
                               setSelectedProject(project);
@@ -199,6 +211,11 @@ const Projects = () => {
       <CreateProjectDialog
         isOpen={isCreateDialogOpen}
         onOpenChange={setCreateDialogOpen}
+      />
+      <EditProjectDialog
+        isOpen={isEditDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        project={selectedProject}
       />
       <AlertDialog
         open={isDeleteDialogOpen}
