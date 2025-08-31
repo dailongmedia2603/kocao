@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { PlusCircle, ArrowLeft, MoreHorizontal } from "lucide-react";
+import { PlusCircle, ArrowLeft, MoreHorizontal, Play } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
 import { Button } from "@/components/ui/button";
@@ -102,6 +102,23 @@ const ProjectDetails = () => {
     enabled: !!projectId,
   });
 
+  const runTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ status: "queued" })
+        .eq("id", taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showSuccess("Đã gửi yêu cầu thực hiện tác vụ!");
+      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+    },
+    onError: (error) => {
+      showError(`Lỗi: ${error.message}`);
+    },
+  });
+
   const deleteTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
       const { error } = await supabase.from("tasks").delete().eq("id", taskId);
@@ -142,11 +159,12 @@ const ProjectDetails = () => {
     };
   }, [projectId, queryClient]);
 
-  const getStatusVariant = (status: string) => {
+  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
       case "completed":
-        return "success";
+        return "secondary";
       case "running":
+      case "queued":
         return "default";
       case "failed":
         return "destructive";
@@ -232,7 +250,7 @@ const ProjectDetails = () => {
                     <TableCell className="font-medium">{task.name}</TableCell>
                     <TableCell>{getTaskTypeName(task.type)}</TableCell>
                     <TableCell>
-                      <Badge variant={getStatusVariant(task.status) as any}>
+                      <Badge variant={getStatusVariant(task.status)}>
                         {task.status}
                       </Badge>
                     </TableCell>
@@ -248,6 +266,12 @@ const ProjectDetails = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {task.status === "pending" && (
+                             <DropdownMenuItem onClick={() => runTaskMutation.mutate(task.id)}>
+                              <Play className="mr-2 h-4 w-4" />
+                              Thực hiện
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             onClick={() => {
                               setSelectedTask(task);
