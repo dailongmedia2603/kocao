@@ -60,13 +60,7 @@ type Task = {
 const getTaskTypeName = (type: string) => {
   switch (type) {
     case "FORM_FILL_AND_SUBMIT":
-      return "Điền và gửi Form";
-    case "comment":
-      return "Đăng bình luận";
-    case "like":
-      return "Thích bài viết";
-    case "share":
-      return "Chia sẻ bài viết";
+      return "Điều hướng & Tương tác";
     default:
       return type;
   }

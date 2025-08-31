@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button";
 const formSchema = z.object({
   name: z.string().min(1, "Tên tác vụ không được để trống"),
   type: z.string().min(1, "Vui lòng chọn loại tác vụ"),
+  url: z.string().url("Vui lòng nhập URL hợp lệ").optional().or(z.literal('')),
   // Fields for FORM_FILL_AND_SUBMIT
   formInputs: z.string().optional(),
   submitSelector: z.string().optional(),
@@ -67,15 +68,18 @@ export const EditTaskDialog = ({
     if (task) {
       let formInputs = "[]";
       let submitSelector = "";
+      let url = "";
 
       if (task.type === "FORM_FILL_AND_SUBMIT" && task.payload) {
         formInputs = JSON.stringify(task.payload.inputs || [], null, 2);
         submitSelector = task.payload.submitButton || "";
+        url = task.payload.url || "";
       }
 
       form.reset({
         name: task.name,
         type: task.type,
+        url: url,
         formInputs: formInputs,
         submitSelector: submitSelector,
       });
@@ -86,7 +90,7 @@ export const EditTaskDialog = ({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!task) throw new Error("No task selected");
 
-      let payloadData = null;
+      let payloadData: any = null;
       if (values.type === "FORM_FILL_AND_SUBMIT") {
         try {
           const inputs = values.formInputs ? JSON.parse(values.formInputs) : [];
@@ -98,6 +102,7 @@ export const EditTaskDialog = ({
             return;
           }
           payloadData = {
+            url: values.url,
             inputs: inputs,
             submitButton: values.submitSelector,
           };
@@ -155,6 +160,25 @@ export const EditTaskDialog = ({
             />
             <FormField
               control={form.control}
+              name="url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>URL đích (Tùy chọn)</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="https://example.com"
+                      {...field}
+                    />
+                  </FormControl>
+                   <FormDescription>
+                    Nếu được cung cấp, extension sẽ truy cập URL này trước.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="type"
               render={({ field }) => (
                 <FormItem>
@@ -167,7 +191,7 @@ export const EditTaskDialog = ({
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="FORM_FILL_AND_SUBMIT">
-                        Điền và gửi Form
+                        Điều hướng, Điền và Gửi Form
                       </SelectItem>
                     </SelectContent>
                   </Select>
