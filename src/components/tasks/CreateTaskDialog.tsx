@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
@@ -20,6 +20,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Select,
@@ -35,7 +36,9 @@ import { Button } from "@/components/ui/button";
 const formSchema = z.object({
   name: z.string().min(1, "Tên tác vụ không được để trống"),
   type: z.string().min(1, "Vui lòng chọn loại tác vụ"),
-  payload: z.string().optional(),
+  // Fields for FORM_FILL_AND_SUBMIT
+  formInputs: z.string().optional(),
+  submitSelector: z.string().optional(),
 });
 
 type CreateTaskDialogProps = {
@@ -49,7 +52,6 @@ export const CreateTaskDialog = ({
   onOpenChange,
   projectId,
 }: CreateTaskDialogProps) => {
-  const queryClient = useQueryClient();
   const { user } = useSession();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -57,16 +59,35 @@ export const CreateTaskDialog = ({
     defaultValues: {
       name: "",
       type: "",
-      payload: "",
+      formInputs: "[]",
+      submitSelector: "",
     },
   });
 
   const createTaskMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
-      
-      // Parse payload into a JSON object
-      const payloadData = values.payload ? { data: values.payload.split('\n').filter(line => line.trim() !== '') } : null;
+
+      let payloadData = null;
+      if (values.type === "FORM_FILL_AND_SUBMIT") {
+        try {
+          const inputs = values.formInputs ? JSON.parse(values.formInputs) : [];
+          if (!Array.isArray(inputs)) {
+            throw new Error("Inputs phải là một mảng JSON.");
+          }
+          if (!values.submitSelector) {
+            showError("Vui lòng nhập CSS Selector cho nút gửi.");
+            return;
+          }
+          payloadData = {
+            inputs: inputs,
+            submitButton: values.submitSelector,
+          };
+        } catch (e) {
+          showError("Dữ liệu Inputs không phải là JSON hợp lệ.");
+          throw e;
+        }
+      }
 
       const { error } = await supabase.from("tasks").insert([
         {
@@ -81,7 +102,6 @@ export const CreateTaskDialog = ({
     },
     onSuccess: () => {
       showSuccess("Tạo tác vụ thành công!");
-      // No need to invalidate here, realtime will handle it
       onOpenChange(false);
       form.reset();
     },
@@ -93,6 +113,8 @@ export const CreateTaskDialog = ({
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     createTaskMutation.mutate(values);
   };
+
+  const selectedType = form.watch("type");
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -109,7 +131,10 @@ export const CreateTaskDialog = ({
                 <FormItem>
                   <FormLabel>Tên tác vụ</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ví dụ: Bình luận bài viết nhóm A" {...field} />
+                    <Input
+                      placeholder="Ví dụ: Nhấp vào nút Start Now"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -121,39 +146,69 @@ export const CreateTaskDialog = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Loại tác vụ</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Chọn một loại tác vụ" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="comment">Đăng bình luận</SelectItem>
-                      <SelectItem value="like">Thích bài viết</SelectItem>
-                      <SelectItem value="share">Chia sẻ bài viết</SelectItem>
+                      <SelectItem value="FORM_FILL_AND_SUBMIT">
+                        Điền và gửi Form
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="payload"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Dữ liệu</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Nhập dữ liệu, mỗi dòng một mục (ví dụ: nội dung các bình luận)"
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {selectedType === "FORM_FILL_AND_SUBMIT" && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="formInputs"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Dữ liệu Inputs (JSON)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder='[{"selector": "#email", "value": "test@example.com"}]'
+                          className="resize-none h-24 font-mono"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Một mảng JSON. Để trống `[]` nếu không cần điền form.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="submitSelector"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CSS Selector của nút Gửi/Bấm</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ví dụ: a[href='/generate']"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Selector của nút để bấm sau khi điền form (hoặc để bấm
+                        ngay).
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
             <DialogFooter>
               <Button
                 type="button"
@@ -163,7 +218,9 @@ export const CreateTaskDialog = ({
                 Hủy
               </Button>
               <Button type="submit" disabled={createTaskMutation.isPending}>
-                {createTaskMutation.isPending ? "Đang thêm..." : "Thêm tác vụ"}
+                {createTaskMutation.isPending
+                  ? "Đang thêm..."
+                  : "Thêm tác vụ"}
               </Button>
             </DialogFooter>
           </form>

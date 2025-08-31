@@ -20,6 +20,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Select,
@@ -35,14 +36,16 @@ import { Button } from "@/components/ui/button";
 const formSchema = z.object({
   name: z.string().min(1, "Tên tác vụ không được để trống"),
   type: z.string().min(1, "Vui lòng chọn loại tác vụ"),
-  payload: z.string().optional(),
+  // Fields for FORM_FILL_AND_SUBMIT
+  formInputs: z.string().optional(),
+  submitSelector: z.string().optional(),
 });
 
 type Task = {
   id: string;
   name: string;
   type: string;
-  payload: { data: string[] } | null;
+  payload: any;
 };
 
 type EditTaskDialogProps = {
@@ -62,10 +65,19 @@ export const EditTaskDialog = ({
 
   useEffect(() => {
     if (task) {
+      let formInputs = "[]";
+      let submitSelector = "";
+
+      if (task.type === "FORM_FILL_AND_SUBMIT" && task.payload) {
+        formInputs = JSON.stringify(task.payload.inputs || [], null, 2);
+        submitSelector = task.payload.submitButton || "";
+      }
+
       form.reset({
         name: task.name,
         type: task.type,
-        payload: task.payload?.data?.join("\n") || "",
+        formInputs: formInputs,
+        submitSelector: submitSelector,
       });
     }
   }, [task, form]);
@@ -73,9 +85,28 @@ export const EditTaskDialog = ({
   const editTaskMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!task) throw new Error("No task selected");
-      const payloadData = values.payload
-        ? { data: values.payload.split("\n").filter((line) => line.trim() !== "") }
-        : null;
+
+      let payloadData = null;
+      if (values.type === "FORM_FILL_AND_SUBMIT") {
+        try {
+          const inputs = values.formInputs ? JSON.parse(values.formInputs) : [];
+          if (!Array.isArray(inputs)) {
+            throw new Error("Inputs phải là một mảng JSON.");
+          }
+           if (!values.submitSelector) {
+            showError("Vui lòng nhập CSS Selector cho nút gửi.");
+            return;
+          }
+          payloadData = {
+            inputs: inputs,
+            submitButton: values.submitSelector,
+          };
+        } catch (e) {
+          showError("Dữ liệu Inputs không phải là JSON hợp lệ.");
+          throw e;
+        }
+      }
+
       const { error } = await supabase
         .from("tasks")
         .update({
@@ -98,6 +129,8 @@ export const EditTaskDialog = ({
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     editTaskMutation.mutate(values);
   };
+
+  const selectedType = form.watch("type");
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -133,32 +166,55 @@ export const EditTaskDialog = ({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="comment">Đăng bình luận</SelectItem>
-                      <SelectItem value="like">Thích bài viết</SelectItem>
-                      <SelectItem value="share">Chia sẻ bài viết</SelectItem>
+                      <SelectItem value="FORM_FILL_AND_SUBMIT">
+                        Điền và gửi Form
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="payload"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Dữ liệu</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Nhập dữ liệu, mỗi dòng một mục"
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {selectedType === "FORM_FILL_AND_SUBMIT" && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="formInputs"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Dữ liệu Inputs (JSON)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          className="resize-none h-24 font-mono"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Một mảng JSON. Để trống `[]` nếu không cần điền form.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="submitSelector"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CSS Selector của nút Gửi/Bấm</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Selector của nút để bấm sau khi điền form (hoặc để bấm
+                        ngay).
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
             <DialogFooter>
               <Button
                 type="button"

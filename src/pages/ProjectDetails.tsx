@@ -54,7 +54,22 @@ type Task = {
   type: string;
   status: string;
   created_at: string;
-  payload: { data: string[] } | null;
+  payload: any;
+};
+
+const getTaskTypeName = (type: string) => {
+  switch (type) {
+    case "FORM_FILL_AND_SUBMIT":
+      return "Điền và gửi Form";
+    case "comment":
+      return "Đăng bình luận";
+    case "like":
+      return "Thích bài viết";
+    case "share":
+      return "Chia sẻ bài viết";
+    default:
+      return type;
+  }
 };
 
 const ProjectDetails = () => {
@@ -156,7 +171,10 @@ const ProjectDetails = () => {
     <>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <Link to="/projects" className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
+          <Link
+            to="/projects"
+            className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-2"
+          >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Quay lại danh sách dự án
           </Link>
@@ -196,18 +214,28 @@ const ProjectDetails = () => {
               {areTasksLoading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-40" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-24" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-6 w-20 rounded-full" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-4 w-32" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Skeleton className="h-8 w-8 ml-auto" />
+                    </TableCell>
                   </TableRow>
                 ))
               ) : tasks && tasks.length > 0 ? (
                 tasks.map((task) => (
                   <TableRow key={task.id}>
                     <TableCell className="font-medium">{task.name}</TableCell>
-                    <TableCell>{task.type}</TableCell>
+                    <TableCell>{getTaskTypeName(task.type)}</TableCell>
                     <TableCell>
                       <Badge variant={getStatusVariant(task.status) as any}>
                         {task.status}
@@ -225,17 +253,22 @@ const ProjectDetails = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedTask(task);
-                            setEditTaskOpen(true);
-                          }}>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedTask(task);
+                              setEditTaskOpen(true);
+                            }}
+                          >
                             Sửa
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-500" onClick={() => {
-                            setSelectedTask(task);
-                            setDeleteTaskOpen(true);
-                          }}>
+                          <DropdownMenuItem
+                            className="text-red-500"
+                            onClick={() => {
+                              setSelectedTask(task);
+                              setDeleteTaskOpen(true);
+                            }}
+                          >
                             Xóa
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -274,7 +307,8 @@ const ProjectDetails = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
             <AlertDialogDescription>
-              Hành động này không thể hoàn tác. Thao tác này sẽ xóa vĩnh viễn tác vụ "{selectedTask?.name}".
+              Hành động này không thể hoàn tác. Thao tác này sẽ xóa vĩnh viễn
+              tác vụ "{selectedTask?.name}".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
