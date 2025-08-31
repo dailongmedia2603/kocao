@@ -109,6 +109,7 @@ const ProjectDetails = () => {
     },
     onSuccess: () => {
       showSuccess("Xóa tác vụ thành công!");
+      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       setDeleteTaskOpen(false);
       setSelectedTask(null);
     },
