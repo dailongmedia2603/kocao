@@ -71,24 +71,34 @@ export const CreateTaskDialog = ({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
 
+      // Lấy số thứ tự lớn nhất hiện tại của dự án
+      const { data: lastTask, error: orderError } = await supabase
+        .from("tasks")
+        .select("execution_order")
+        .eq("project_id", projectId)
+        .order("execution_order", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (orderError && orderError.code !== 'PGRST116') { // PGRST116: không tìm thấy dòng nào
+        throw orderError;
+      }
+
+      const newOrder = lastTask ? (lastTask.execution_order || 0) + 1 : 1;
+
       let payloadData: any = {};
       if (values.type === "FORM_FILL_AND_SUBMIT") {
         try {
           const inputs = values.formInputs ? JSON.parse(values.formInputs) : [];
-          if (!Array.isArray(inputs)) {
-            throw new Error("Inputs phải là một mảng JSON.");
-          }
-          if (!values.submitSelector) {
-            showError("Vui lòng nhập CSS Selector cho nút gửi.");
-            return;
-          }
+          if (!Array.isArray(inputs)) throw new Error("Inputs phải là một mảng JSON.");
+          if (!values.submitSelector) throw new Error("Vui lòng nhập CSS Selector cho nút gửi.");
           payloadData = {
             url: values.url,
             inputs: inputs,
             submitButton: values.submitSelector,
           };
-        } catch (e) {
-          showError("Dữ liệu Inputs không phải là JSON hợp lệ.");
+        } catch (e: any) {
+          showError(`Lỗi dữ liệu payload: ${e.message}`);
           throw e;
         }
       }
@@ -100,6 +110,8 @@ export const CreateTaskDialog = ({
           payload: payloadData,
           project_id: projectId,
           user_id: user.id,
+          execution_order: newOrder,
+          status: 'pending',
         },
       ]);
       if (error) throw error;
@@ -125,7 +137,7 @@ export const CreateTaskDialog = ({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Thêm tác vụ mới</DialogTitle>
+          <DialogTitle>Thêm bước mới vào kịch bản</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -134,12 +146,9 @@ export const CreateTaskDialog = ({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tên tác vụ</FormLabel>
+                  <FormLabel>Tên bước</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Ví dụ: Nhấp vào nút Start Now"
-                      {...field}
-                    />
+                    <Input placeholder="Ví dụ: Nhấp vào nút Start Now" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -152,10 +161,7 @@ export const CreateTaskDialog = ({
                 <FormItem>
                   <FormLabel>URL đích (Tùy chọn)</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="https://example.com"
-                      {...field}
-                    />
+                    <Input placeholder="https://example.com" {...field} />
                   </FormControl>
                    <FormDescription>
                     Nếu được cung cấp, extension sẽ truy cập URL này trước.
@@ -169,14 +175,11 @@ export const CreateTaskDialog = ({
               name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Loại tác vụ</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
+                  <FormLabel>Loại hành động</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Chọn một loại tác vụ" />
+                        <SelectValue placeholder="Chọn một loại hành động" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -218,14 +221,10 @@ export const CreateTaskDialog = ({
                     <FormItem>
                       <FormLabel>CSS Selector của nút Gửi/Bấm</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="Ví dụ: a[href='/generate']"
-                          {...field}
-                        />
+                        <Input placeholder="Ví dụ: a[href='/generate']" {...field} />
                       </FormControl>
                       <FormDescription>
-                        Selector của nút để bấm sau khi điền form (hoặc để bấm
-                        ngay).
+                        Selector của nút để bấm sau khi điền form (hoặc để bấm ngay).
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -234,17 +233,11 @@ export const CreateTaskDialog = ({
               </>
             )}
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Hủy
               </Button>
               <Button type="submit" disabled={createTaskMutation.isPending}>
-                {createTaskMutation.isPending
-                  ? "Đang thêm..."
-                  : "Thêm tác vụ"}
+                {createTaskMutation.isPending ? "Đang thêm..." : "Thêm bước"}
               </Button>
             </DialogFooter>
           </form>
