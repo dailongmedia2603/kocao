@@ -8,7 +8,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Xử lý CORS preflight request
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -16,7 +15,6 @@ serve(async (req) => {
   try {
     const { taskId, status } = await req.json();
 
-    // Kiểm tra dữ liệu đầu vào
     if (!taskId || !status) {
       return new Response(JSON.stringify({ error: "Thiếu taskId hoặc status" }), {
         status: 400,
@@ -24,33 +22,25 @@ serve(async (req) => {
       });
     }
 
-    // Các trạng thái hợp lệ
-    const validStatuses = ["running", "completed", "failed"];
-    if (!validStatuses.includes(status)) {
-      return new Response(JSON.stringify({ error: `Trạng thái không hợp lệ: ${status}` }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Sử dụng service_role key để có quyền ghi vào database từ function
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Cập nhật trạng thái của tác vụ
-    const { error } = await supabaseAdmin
+    // Cập nhật trạng thái và trả về toàn bộ đối tượng tác vụ đã được cập nhật
+    const { data, error } = await supabaseAdmin
       .from("tasks")
       .update({ status: status })
-      .eq("id", taskId);
+      .eq("id", taskId)
+      .select()
+      .single();
 
     if (error) {
       console.error("Lỗi cập nhật Supabase:", error);
       throw error;
     }
 
-    return new Response(JSON.stringify({ message: "Cập nhật trạng thái thành công" }), {
+    return new Response(JSON.stringify(data), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
