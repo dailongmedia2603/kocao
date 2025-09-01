@@ -267,12 +267,12 @@ const ProjectDetails = () => {
                     </CardHeader>
                     <CardFooter className="flex flex-col items-start gap-2">
                        <Badge variant={getStatusVariant(task.status)}>{task.status}</Badge>
-                       {task.status === 'failed' && task.error_log && (
+                       {task.status === 'failed' && (
                          <Alert variant="destructive" className="mt-2">
                            <Terminal className="h-4 w-4" />
                            <AlertTitle>Chi tiết lỗi</AlertTitle>
                            <AlertDescription className="font-mono text-xs whitespace-pre-wrap">
-                             {task.error_log}
+                             {task.error_log || "Extension đã báo lỗi nhưng không cung cấp thông tin chi tiết."}
                            </AlertDescription>
                          </Alert>
                        )}
