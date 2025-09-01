@@ -34,10 +34,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
 const formSchema = z.object({
-  name: z.string().min(1, "Tên tác vụ không được để trống"),
-  type: z.string().min(1, "Vui lòng chọn loại tác vụ"),
+  name: z.string().min(1, "Tên bước không được để trống"),
+  type: z.string().min(1, "Vui lòng chọn loại hành động"),
   url: z.string().url("Vui lòng nhập URL hợp lệ").optional().or(z.literal('')),
-  // Fields for FORM_FILL_AND_SUBMIT
   formInputs: z.string().optional(),
   submitSelector: z.string().optional(),
 });
@@ -69,22 +68,12 @@ export const EditTaskDialog = ({
 
   useEffect(() => {
     if (task) {
-      let formInputs = "[]";
-      let submitSelector = "";
-      let url = "";
-
-      if (task.type === "FORM_FILL_AND_SUBMIT" && task.payload) {
-        formInputs = JSON.stringify(task.payload.inputs || [], null, 2);
-        submitSelector = task.payload.submitButton || "";
-        url = task.payload.url || "";
-      }
-
       form.reset({
         name: task.name,
         type: task.type,
-        url: url,
-        formInputs: formInputs,
-        submitSelector: submitSelector,
+        url: task.payload?.url || "",
+        formInputs: task.payload?.inputs ? JSON.stringify(task.payload.inputs, null, 2) : "[]",
+        submitSelector: task.payload?.submitButton || "",
       });
     }
   }, [task, form]);
@@ -93,24 +82,23 @@ export const EditTaskDialog = ({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!task) throw new Error("No task selected");
 
-      let payloadData: any = null;
-      if (values.type === "FORM_FILL_AND_SUBMIT") {
+      let payloadData: any = {};
+      if (values.type === "NAVIGATE_TO_URL") {
+        if (!values.url) {
+          throw new Error("Vui lòng nhập URL cho hành động điều hướng.");
+        }
+        payloadData = { url: values.url };
+      } else if (values.type === "FORM_FILL_AND_SUBMIT") {
         try {
           const inputs = values.formInputs ? JSON.parse(values.formInputs) : [];
-          if (!Array.isArray(inputs)) {
-            throw new Error("Inputs phải là một mảng JSON.");
-          }
-           if (!values.submitSelector) {
-            showError("Vui lòng nhập CSS Selector cho nút gửi.");
-            return;
-          }
+          if (!Array.isArray(inputs)) throw new Error("Inputs phải là một mảng JSON.");
+          if (!values.submitSelector) throw new Error("Vui lòng nhập CSS Selector cho nút gửi.");
           payloadData = {
-            url: values.url,
             inputs: inputs,
             submitButton: values.submitSelector,
           };
-        } catch (e) {
-          showError("Dữ liệu Inputs không phải là JSON hợp lệ.");
+        } catch (e: any) {
+          showError(`Lỗi dữ liệu payload: ${e.message}`);
           throw e;
         }
       }
@@ -126,7 +114,7 @@ export const EditTaskDialog = ({
       if (error) throw error;
     },
     onSuccess: () => {
-      showSuccess("Cập nhật tác vụ thành công!");
+      showSuccess("Cập nhật bước thành công!");
       if (projectId) {
         queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       }
@@ -145,9 +133,9 @@ export const EditTaskDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Chỉnh sửa tác vụ</DialogTitle>
+          <DialogTitle>Chỉnh sửa bước</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -156,7 +144,7 @@ export const EditTaskDialog = ({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tên tác vụ</FormLabel>
+                  <FormLabel>Tên bước</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -166,29 +154,10 @@ export const EditTaskDialog = ({
             />
             <FormField
               control={form.control}
-              name="url"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>URL đích (Tùy chọn)</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="https://example.com"
-                      {...field}
-                    />
-                  </FormControl>
-                   <FormDescription>
-                    Nếu được cung cấp, extension sẽ truy cập URL này trước.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Loại tác vụ</FormLabel>
+                  <FormLabel>Loại hành động</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -196,15 +165,29 @@ export const EditTaskDialog = ({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="FORM_FILL_AND_SUBMIT">
-                        Điều hướng, Điền và Gửi Form
-                      </SelectItem>
+                      <SelectItem value="NAVIGATE_TO_URL">Điều hướng đến URL</SelectItem>
+                      <SelectItem value="FORM_FILL_AND_SUBMIT">Điền và Gửi Form</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {selectedType === "NAVIGATE_TO_URL" && (
+              <FormField
+                control={form.control}
+                name="url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>URL Đích</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             {selectedType === "FORM_FILL_AND_SUBMIT" && (
               <>
                 <FormField
@@ -236,8 +219,7 @@ export const EditTaskDialog = ({
                         <Input {...field} />
                       </FormControl>
                       <FormDescription>
-                        Selector của nút để bấm sau khi điền form (hoặc để bấm
-                        ngay).
+                        Selector của nút để bấm sau khi điền form (hoặc để bấm ngay).
                       </FormDescription>
                       <FormMessage />
                     </FormItem>

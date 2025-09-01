@@ -2,7 +2,6 @@ import { useState, useEffect, Fragment } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
 import { PlusCircle, ArrowLeft, MoreHorizontal, Play, ArrowDown } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -53,8 +52,10 @@ type Task = {
 
 const getTaskTypeName = (type: string) => {
   switch (type) {
+    case "NAVIGATE_TO_URL":
+      return "Điều hướng đến URL";
     case "FORM_FILL_AND_SUBMIT":
-      return "Điều hướng & Tương tác";
+      return "Điền và Gửi Form";
     default:
       return type;
   }
@@ -85,7 +86,7 @@ const ProjectDetails = () => {
         .from("tasks")
         .select("*")
         .eq("project_id", projectId)
-        .order("execution_order", { ascending: true, nullsFirst: false });
+        .order("execution_order", { ascending: true, nullsFirst: true });
       if (error) throw error;
       return data;
     },

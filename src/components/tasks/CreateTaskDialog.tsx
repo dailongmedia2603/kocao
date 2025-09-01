@@ -34,10 +34,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
 const formSchema = z.object({
-  name: z.string().min(1, "Tên tác vụ không được để trống"),
-  type: z.string().min(1, "Vui lòng chọn loại tác vụ"),
+  name: z.string().min(1, "Tên bước không được để trống"),
+  type: z.string().min(1, "Vui lòng chọn loại hành động"),
   url: z.string().url("Vui lòng nhập URL hợp lệ").optional().or(z.literal('')),
-  // Fields for FORM_FILL_AND_SUBMIT
   formInputs: z.string().optional(),
   submitSelector: z.string().optional(),
 });
@@ -71,7 +70,6 @@ export const CreateTaskDialog = ({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
 
-      // Lấy số thứ tự lớn nhất hiện tại của dự án
       const { data: lastTask, error: orderError } = await supabase
         .from("tasks")
         .select("execution_order")
@@ -80,20 +78,24 @@ export const CreateTaskDialog = ({
         .limit(1)
         .single();
 
-      if (orderError && orderError.code !== 'PGRST116') { // PGRST116: không tìm thấy dòng nào
+      if (orderError && orderError.code !== 'PGRST116') {
         throw orderError;
       }
 
       const newOrder = lastTask ? (lastTask.execution_order || 0) + 1 : 1;
 
       let payloadData: any = {};
-      if (values.type === "FORM_FILL_AND_SUBMIT") {
+      if (values.type === "NAVIGATE_TO_URL") {
+        if (!values.url) {
+          throw new Error("Vui lòng nhập URL cho hành động điều hướng.");
+        }
+        payloadData = { url: values.url };
+      } else if (values.type === "FORM_FILL_AND_SUBMIT") {
         try {
           const inputs = values.formInputs ? JSON.parse(values.formInputs) : [];
           if (!Array.isArray(inputs)) throw new Error("Inputs phải là một mảng JSON.");
           if (!values.submitSelector) throw new Error("Vui lòng nhập CSS Selector cho nút gửi.");
           payloadData = {
-            url: values.url,
             inputs: inputs,
             submitButton: values.submitSelector,
           };
@@ -117,7 +119,7 @@ export const CreateTaskDialog = ({
       if (error) throw error;
     },
     onSuccess: () => {
-      showSuccess("Tạo tác vụ thành công!");
+      showSuccess("Thêm bước thành công!");
       queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       onOpenChange(false);
       form.reset();
@@ -135,7 +137,7 @@ export const CreateTaskDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Thêm bước mới vào kịch bản</DialogTitle>
         </DialogHeader>
@@ -148,24 +150,8 @@ export const CreateTaskDialog = ({
                 <FormItem>
                   <FormLabel>Tên bước</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ví dụ: Nhấp vào nút Start Now" {...field} />
+                    <Input placeholder="Ví dụ: Truy cập trang chủ Dreamface" {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="url"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>URL đích (Tùy chọn)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="https://example.com" {...field} />
-                  </FormControl>
-                   <FormDescription>
-                    Nếu được cung cấp, extension sẽ truy cập URL này trước.
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -183,15 +169,29 @@ export const CreateTaskDialog = ({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="FORM_FILL_AND_SUBMIT">
-                        Điều hướng, Điền và Gửi Form
-                      </SelectItem>
+                      <SelectItem value="NAVIGATE_TO_URL">Điều hướng đến URL</SelectItem>
+                      <SelectItem value="FORM_FILL_AND_SUBMIT">Điền và Gửi Form</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {selectedType === "NAVIGATE_TO_URL" && (
+              <FormField
+                control={form.control}
+                name="url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>URL Đích</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             {selectedType === "FORM_FILL_AND_SUBMIT" && (
               <>
                 <FormField
