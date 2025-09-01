@@ -61,8 +61,6 @@ const getTaskTypeName = (type: string) => {
   switch (type) {
     case "FORM_FILL_AND_SUBMIT":
       return "Điều hướng & Tương tác";
-    case "FILE_UPLOAD_AND_SUBMIT":
-      return "Tải tệp lên & Gửi";
     default:
       return type;
   }
@@ -315,14 +313,11 @@ const ProjectDetails = () => {
           projectId={projectId}
         />
       )}
-      {projectId && (
-        <EditTaskDialog
-          isOpen={isEditTaskOpen}
-          onOpenChange={setEditTaskOpen}
-          task={selectedTask}
-          projectId={projectId}
-        />
-      )}
+      <EditTaskDialog
+        isOpen={isEditTaskOpen}
+        onOpenChange={setEditTaskOpen}
+        task={selectedTask}
+      />
       <AlertDialog
         open={isDeleteTaskOpen}
         onOpenChange={setDeleteTaskOpen}
