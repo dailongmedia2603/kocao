@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { PlusCircle, ArrowLeft, MoreHorizontal, Play, ArrowDown, RefreshCw } from "lucide-react";
+import { PlusCircle, ArrowLeft, MoreHorizontal, Play, ArrowDown, RefreshCw, Terminal } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateTaskDialog } from "../components/tasks/CreateTaskDialog";
@@ -48,6 +49,7 @@ type Task = {
   created_at: string;
   payload: any;
   execution_order: number | null;
+  error_log: string | null;
 };
 
 const getTaskTypeName = (type: string) => {
@@ -116,7 +118,7 @@ const ProjectDetails = () => {
     mutationFn: async ({ taskId, status }: { taskId: string, status: string }) => {
       const { error } = await supabase
         .from("tasks")
-        .update({ status: status })
+        .update({ status: status, error_log: null }) // Xóa log lỗi cũ khi chạy lại
         .eq("id", taskId);
       if (error) throw error;
     },
@@ -263,8 +265,17 @@ const ProjectDetails = () => {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </CardHeader>
-                    <CardFooter>
+                    <CardFooter className="flex flex-col items-start gap-2">
                        <Badge variant={getStatusVariant(task.status)}>{task.status}</Badge>
+                       {task.status === 'failed' && task.error_log && (
+                         <Alert variant="destructive" className="mt-2">
+                           <Terminal className="h-4 w-4" />
+                           <AlertTitle>Chi tiết lỗi</AlertTitle>
+                           <AlertDescription className="font-mono text-xs whitespace-pre-wrap">
+                             {task.error_log}
+                           </AlertDescription>
+                         </Alert>
+                       )}
                     </CardFooter>
                   </Card>
                   {index < scenarioTasks.length - 1 && (
