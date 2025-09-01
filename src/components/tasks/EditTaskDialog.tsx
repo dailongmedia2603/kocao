@@ -81,9 +81,21 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
       try {
         let payloadData: any = {};
         if (values.type === "NAVIGATE_TO_URL") {
-          // ... logic
+          if (!values.url || !z.string().url().safeParse(values.url).success) throw new Error("Vui lòng nhập URL hợp lệ.");
+          payloadData = { url: values.url };
         } else if (values.type === "FORM_FILL_AND_SUBMIT") {
-          // ... logic
+          try {
+            const inputs = values.formInputs ? JSON.parse(values.formInputs) : [];
+            if (!Array.isArray(inputs)) throw new Error("Inputs phải là một mảng JSON.");
+            if (!values.submitSelector) throw new Error("Vui lòng nhập CSS Selector cho nút gửi.");
+            payloadData = {
+              inputs: inputs,
+              submitButton: values.submitSelector,
+            };
+          } catch (e: any) {
+            showError(`Lỗi dữ liệu payload: ${e.message}`);
+            throw e;
+          }
         } else if (values.type === "FILE_UPLOAD_AND_SUBMIT") {
           let { fileUrl, fileName, fileType } = task.payload || {};
           if (newFile) {
@@ -134,7 +146,6 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
         <DialogHeader><DialogTitle>Chỉnh sửa bước</DialogTitle></DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Form fields remain the same */}
             <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem><FormLabel>Tên bước</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
             )} />
