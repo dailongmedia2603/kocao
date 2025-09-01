@@ -176,7 +176,7 @@ export const CreateTaskDialog = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Loại tác vụ</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger><SelectValue placeholder="Chọn một loại tác vụ" /></SelectTrigger>
                     </FormControl>
