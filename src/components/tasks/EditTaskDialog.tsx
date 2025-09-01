@@ -66,6 +66,15 @@ export const EditTaskDialog = ({
   const queryClient = useQueryClient();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      type: "",
+      url: "",
+      formInputs: "",
+      submitSelector: "",
+      inputSelector: "",
+      fileName: "",
+    },
   });
 
   useEffect(() => {
@@ -127,7 +136,7 @@ export const EditTaskDialog = ({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={form.control} name="name" render={({ field }) => ( <FormItem> <FormLabel>Tên tác vụ</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )}/>
-            <FormField control={form.control} name="type" render={({ field }) => ( <FormItem> <FormLabel>Loại tác vụ</FormLabel> <Select onValueChange={field.onChange} value={field.value || ''}> <FormControl> <SelectTrigger><SelectValue placeholder="Chọn một loại tác vụ" /></SelectTrigger> </FormControl> <SelectContent> <SelectItem value="FORM_FILL_AND_SUBMIT">Điều hướng, Điền và Gửi Form</SelectItem> <SelectItem value="FILE_UPLOAD_AND_SUBMIT">Tải tệp lên & Gửi</SelectItem> </SelectContent> </Select> <FormMessage /> </FormItem> )}/>
+            <FormField control={form.control} name="type" render={({ field }) => ( <FormItem> <FormLabel>Loại tác vụ</FormLabel> <Select onValueChange={field.onChange} value={field.value}> <FormControl> <SelectTrigger><SelectValue placeholder="Chọn một loại tác vụ" /></SelectTrigger> </FormControl> <SelectContent> <SelectItem value="FORM_FILL_AND_SUBMIT">Điều hướng, Điền và Gửi Form</SelectItem> <SelectItem value="FILE_UPLOAD_AND_SUBMIT">Tải tệp lên & Gửi</SelectItem> </SelectContent> </Select> <FormMessage /> </FormItem> )}/>
             
             {selectedType === "FORM_FILL_AND_SUBMIT" && (
               <>
