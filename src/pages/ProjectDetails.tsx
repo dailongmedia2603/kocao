@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { PlusCircle, ArrowLeft, MoreHorizontal, Play, ArrowDown } from "lucide-react";
+import { PlusCircle, ArrowLeft, MoreHorizontal, Play, ArrowDown, RefreshCw } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
 import { Button } from "@/components/ui/button";
@@ -105,6 +105,23 @@ const ProjectDetails = () => {
     },
     onSuccess: () => {
       showSuccess("Đã bắt đầu kịch bản! Bước đầu tiên đã được gửi đi.");
+      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+    },
+    onError: (error: Error) => {
+      showError(`Lỗi: ${error.message}`);
+    },
+  });
+
+  const updateTaskStatusMutation = useMutation({
+    mutationFn: async ({ taskId, status }: { taskId: string, status: string }) => {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ status: status })
+        .eq("id", taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showSuccess("Đã gửi lại tác vụ!");
       queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
     },
     onError: (error: Error) => {
@@ -235,6 +252,12 @@ const ProjectDetails = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => { setSelectedTask(task); setEditTaskOpen(true); }}>Sửa</DropdownMenuItem>
+                          {task.status !== 'pending' && task.status !== 'queued' && (
+                            <DropdownMenuItem onClick={() => updateTaskStatusMutation.mutate({ taskId: task.id, status: 'queued' })}>
+                              <RefreshCw className="mr-2 h-4 w-4" />
+                              Chạy lại
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-red-500" onClick={() => { setSelectedTask(task); setDeleteTaskOpen(true); }}>Xóa</DropdownMenuItem>
                         </DropdownMenuContent>
