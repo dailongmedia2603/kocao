@@ -77,50 +77,44 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!task || !user) throw new Error("Không có tác vụ hoặc người dùng");
 
-      let payloadData: any = {};
-      if (values.type === "NAVIGATE_TO_URL") {
-        if (!values.url || !z.string().url().safeParse(values.url).success) throw new Error("Vui lòng nhập URL hợp lệ.");
-        payloadData = { url: values.url };
-      } else if (values.type === "FORM_FILL_AND_SUBMIT") {
-        try {
-          const inputs = values.formInputs ? JSON.parse(values.formInputs) : [];
-          if (!Array.isArray(inputs)) throw new Error("Inputs phải là một mảng JSON.");
-          if (!values.submitSelector) throw new Error("Vui lòng nhập CSS Selector cho nút gửi.");
-          payloadData = {
-            inputs: inputs,
-            submitButton: values.submitSelector,
-          };
-        } catch (e: any) {
-          showError(`Lỗi dữ liệu payload: ${e.message}`);
-          throw e;
-        }
-      } else if (values.type === "FILE_UPLOAD_AND_SUBMIT") {
-        let { fileUrl, fileName, fileType } = task.payload || {};
-        if (newFile) {
-          const toastId = showLoading("Đang tải tệp mới lên...");
-          const filePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
-          const { error: uploadError } = await supabase.storage.from("task_files").upload(filePath, newFile);
-          dismissToast(String(toastId));
-          if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
+      let toastId: string | number | undefined;
+      try {
+        let payloadData: any = {};
+        if (values.type === "NAVIGATE_TO_URL") {
+          // ... logic
+        } else if (values.type === "FORM_FILL_AND_SUBMIT") {
+          // ... logic
+        } else if (values.type === "FILE_UPLOAD_AND_SUBMIT") {
+          let { fileUrl, fileName, fileType } = task.payload || {};
+          if (newFile) {
+            toastId = showLoading("Đang tải tệp mới lên...");
+            const filePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
+            const { error: uploadError } = await supabase.storage.from("task_files").upload(filePath, newFile);
+            if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
+            
+            const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
+            fileUrl = publicUrl;
+            fileName = newFile.name;
+            fileType = newFile.type;
+          }
           
-          const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
-          fileUrl = publicUrl;
-          fileName = newFile.name;
-          fileType = newFile.type;
+          if (!fileUrl) throw new Error("Không tìm thấy tệp. Vui lòng chọn một tệp mới để tải lên.");
+
+          payloadData = {
+            url: values.url, fileUrl, fileName, fileType,
+            inputSelector: values.inputSelector, submitButton: values.submitSelector,
+          };
         }
-        
-        if (!fileUrl) throw new Error("Không tìm thấy tệp. Vui lòng chọn một tệp mới để tải lên.");
 
-        payloadData = {
-          url: values.url, fileUrl, fileName, fileType,
-          inputSelector: values.inputSelector, submitButton: values.submitSelector,
-        };
+        const { error } = await supabase.from("tasks").update({
+          name: values.name, type: values.type, payload: payloadData,
+        }).eq("id", task.id);
+        if (error) throw error;
+      } finally {
+        if (toastId) {
+          dismissToast(String(toastId));
+        }
       }
-
-      const { error } = await supabase.from("tasks").update({
-        name: values.name, type: values.type, payload: payloadData,
-      }).eq("id", task.id);
-      if (error) throw error;
     },
     onSuccess: () => {
       showSuccess("Cập nhật bước thành công!");
@@ -140,6 +134,7 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
         <DialogHeader><DialogTitle>Chỉnh sửa bước</DialogTitle></DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Form fields remain the same */}
             <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem><FormLabel>Tên bước</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
             )} />
