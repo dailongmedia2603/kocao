@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
@@ -53,6 +53,7 @@ export const CreateTaskDialog = ({
   onOpenChange,
   projectId,
 }: CreateTaskDialogProps) => {
+  const queryClient = useQueryClient();
   const { user } = useSession();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -105,6 +106,7 @@ export const CreateTaskDialog = ({
     },
     onSuccess: () => {
       showSuccess("Tạo tác vụ thành công!");
+      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       onOpenChange(false);
       form.reset();
     },

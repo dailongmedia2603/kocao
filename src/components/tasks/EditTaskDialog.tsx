@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { useEffect } from "react";
@@ -53,13 +53,16 @@ type EditTaskDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   task: Task | null;
+  projectId?: string;
 };
 
 export const EditTaskDialog = ({
   isOpen,
   onOpenChange,
   task,
+  projectId,
 }: EditTaskDialogProps) => {
+  const queryClient = useQueryClient();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
   });
@@ -124,6 +127,9 @@ export const EditTaskDialog = ({
     },
     onSuccess: () => {
       showSuccess("Cập nhật tác vụ thành công!");
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+      }
       onOpenChange(false);
     },
     onError: (error) => {

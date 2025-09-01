@@ -317,6 +317,7 @@ const ProjectDetails = () => {
         isOpen={isEditTaskOpen}
         onOpenChange={setEditTaskOpen}
         task={selectedTask}
+        projectId={projectId}
       />
       <AlertDialog
         open={isDeleteTaskOpen}
