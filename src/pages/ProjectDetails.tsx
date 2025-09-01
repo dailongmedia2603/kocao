@@ -56,6 +56,8 @@ const getTaskTypeName = (type: string) => {
       return "Điều hướng đến URL";
     case "FORM_FILL_AND_SUBMIT":
       return "Điền và Gửi Form";
+    case "FILE_UPLOAD_AND_SUBMIT":
+      return "Tải tệp và Gửi";
     default:
       return type;
   }
