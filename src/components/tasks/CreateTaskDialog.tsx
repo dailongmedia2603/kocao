@@ -90,7 +90,18 @@ export const CreateTaskDialog = ({
         if (!values.url || !z.string().url().safeParse(values.url).success) throw new Error("Vui lòng nhập URL hợp lệ.");
         payloadData = { url: values.url };
       } else if (values.type === "FORM_FILL_AND_SUBMIT") {
-        // ... (logic for form fill)
+        try {
+          const inputs = values.formInputs ? JSON.parse(values.formInputs) : [];
+          if (!Array.isArray(inputs)) throw new Error("Inputs phải là một mảng JSON.");
+          if (!values.submitSelector) throw new Error("Vui lòng nhập CSS Selector cho nút gửi.");
+          payloadData = {
+            inputs: inputs,
+            submitButton: values.submitSelector,
+          };
+        } catch (e: any) {
+          showError(`Lỗi dữ liệu payload: ${e.message}`);
+          throw e;
+        }
       } else if (values.type === "FILE_UPLOAD_AND_SUBMIT") {
         if (!file) throw new Error("Vui lòng chọn một tệp để tải lên.");
         if (!values.url || !z.string().url().safeParse(values.url).success) throw new Error("Vui lòng nhập URL đích hợp lệ.");

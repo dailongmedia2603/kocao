@@ -77,13 +77,25 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!task || !user) throw new Error("Không có tác vụ hoặc người dùng");
 
-      let payloadData: any = task.payload;
+      let payloadData: any = {};
       if (values.type === "NAVIGATE_TO_URL") {
-        // ... logic
+        if (!values.url || !z.string().url().safeParse(values.url).success) throw new Error("Vui lòng nhập URL hợp lệ.");
+        payloadData = { url: values.url };
       } else if (values.type === "FORM_FILL_AND_SUBMIT") {
-        // ... logic
+        try {
+          const inputs = values.formInputs ? JSON.parse(values.formInputs) : [];
+          if (!Array.isArray(inputs)) throw new Error("Inputs phải là một mảng JSON.");
+          if (!values.submitSelector) throw new Error("Vui lòng nhập CSS Selector cho nút gửi.");
+          payloadData = {
+            inputs: inputs,
+            submitButton: values.submitSelector,
+          };
+        } catch (e: any) {
+          showError(`Lỗi dữ liệu payload: ${e.message}`);
+          throw e;
+        }
       } else if (values.type === "FILE_UPLOAD_AND_SUBMIT") {
-        let { fileUrl, fileName, fileType } = task.payload;
+        let { fileUrl, fileName, fileType } = task.payload || {};
         if (newFile) {
           const toastId = showLoading("Đang tải tệp mới lên...");
           const filePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
@@ -96,6 +108,9 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
           fileName = newFile.name;
           fileType = newFile.type;
         }
+        
+        if (!fileUrl) throw new Error("Không tìm thấy tệp. Vui lòng chọn một tệp mới để tải lên.");
+
         payloadData = {
           url: values.url, fileUrl, fileName, fileType,
           inputSelector: values.inputSelector, submitButton: values.submitSelector,
@@ -125,7 +140,6 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
         <DialogHeader><DialogTitle>Chỉnh sửa bước</DialogTitle></DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Form fields are similar to Create dialog, with added logic for displaying current file */}
             <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem><FormLabel>Tên bước</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
             )} />
