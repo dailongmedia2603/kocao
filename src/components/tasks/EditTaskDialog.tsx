@@ -54,12 +54,14 @@ type EditTaskDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   task: Task | null;
+  projectId: string;
 };
 
 export const EditTaskDialog = ({
   isOpen,
   onOpenChange,
   task,
+  projectId,
 }: EditTaskDialogProps) => {
   const queryClient = useQueryClient();
   const form = useForm<z.infer<typeof formSchema>>({
@@ -102,7 +104,7 @@ export const EditTaskDialog = ({
     },
     onSuccess: () => {
       showSuccess("Cập nhật tác vụ thành công!");
-      queryClient.invalidateQueries({ queryKey: ["tasks", task?.id] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       onOpenChange(false);
     },
     onError: (error) => {
@@ -119,11 +121,13 @@ export const EditTaskDialog = ({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader><DialogTitle>Chỉnh sửa tác vụ</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Chỉnh sửa tác vụ</DialogTitle>
+        </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={form.control} name="name" render={({ field }) => ( <FormItem> <FormLabel>Tên tác vụ</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )}/>
-            <FormField control={form.control} name="type" render={({ field }) => ( <FormItem> <FormLabel>Loại tác vụ</FormLabel> <Select onValueChange={field.onChange} value={field.value}> <FormControl> <SelectTrigger><SelectValue /></SelectTrigger> </FormControl> <SelectContent> <SelectItem value="FORM_FILL_AND_SUBMIT">Điều hướng, Điền và Gửi Form</SelectItem> <SelectItem value="FILE_UPLOAD_AND_SUBMIT">Tải tệp lên & Gửi</SelectItem> </SelectContent> </Select> <FormMessage /> </FormItem> )}/>
+            <FormField control={form.control} name="type" render={({ field }) => ( <FormItem> <FormLabel>Loại tác vụ</FormLabel> <Select onValueChange={field.onChange} value={field.value}> <FormControl> <SelectTrigger><SelectValue placeholder="Chọn một loại tác vụ" /></SelectTrigger> </FormControl> <SelectContent> <SelectItem value="FORM_FILL_AND_SUBMIT">Điều hướng, Điền và Gửi Form</SelectItem> <SelectItem value="FILE_UPLOAD_AND_SUBMIT">Tải tệp lên & Gửi</SelectItem> </SelectContent> </Select> <FormMessage /> </FormItem> )}/>
             
             {selectedType === "FORM_FILL_AND_SUBMIT" && (
               <>

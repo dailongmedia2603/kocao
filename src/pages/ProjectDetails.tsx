@@ -315,11 +315,14 @@ const ProjectDetails = () => {
           projectId={projectId}
         />
       )}
-      <EditTaskDialog
-        isOpen={isEditTaskOpen}
-        onOpenChange={setEditTaskOpen}
-        task={selectedTask}
-      />
+      {projectId && (
+        <EditTaskDialog
+          isOpen={isEditTaskOpen}
+          onOpenChange={setEditTaskOpen}
+          task={selectedTask}
+          projectId={projectId}
+        />
+      )}
       <AlertDialog
         open={isDeleteTaskOpen}
         onOpenChange={setDeleteTaskOpen}
