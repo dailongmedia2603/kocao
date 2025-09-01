@@ -77,9 +77,11 @@ export const EditTaskDialog = ({
     },
   });
 
+  const { reset } = form;
+
   useEffect(() => {
     if (task) {
-      form.reset({
+      reset({
         name: task.name,
         type: task.type,
         url: task.payload?.url || "",
@@ -88,8 +90,18 @@ export const EditTaskDialog = ({
         inputSelector: task.payload?.inputSelector || "",
         fileName: task.payload?.fileName || "",
       });
+    } else {
+      reset({
+        name: "",
+        type: "",
+        url: "",
+        formInputs: "",
+        submitSelector: "",
+        inputSelector: "",
+        fileName: "",
+      });
     }
-  }, [task, form]);
+  }, [task, reset]);
 
   const editTaskMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
@@ -136,7 +148,27 @@ export const EditTaskDialog = ({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={form.control} name="name" render={({ field }) => ( <FormItem> <FormLabel>Tên tác vụ</FormLabel> <FormControl><Input {...field} /></FormControl> <FormMessage /> </FormItem> )}/>
-            <FormField control={form.control} name="type" render={({ field }) => ( <FormItem> <FormLabel>Loại tác vụ</FormLabel> <Select onValueChange={field.onChange} value={field.value}> <FormControl> <SelectTrigger><SelectValue placeholder="Chọn một loại tác vụ" /></SelectTrigger> </FormControl> <SelectContent> <SelectItem value="FORM_FILL_AND_SUBMIT">Điều hướng, Điền và Gửi Form</SelectItem> <SelectItem value="FILE_UPLOAD_AND_SUBMIT">Tải tệp lên & Gửi</SelectItem> </SelectContent> </Select> <FormMessage /> </FormItem> )}/>
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Loại tác vụ</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn một loại tác vụ" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="FORM_FILL_AND_SUBMIT">Điều hướng, Điền và Gửi Form</SelectItem>
+                      <SelectItem value="FILE_UPLOAD_AND_SUBMIT">Tải tệp lên & Gửi</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
             {selectedType === "FORM_FILL_AND_SUBMIT" && (
               <>
