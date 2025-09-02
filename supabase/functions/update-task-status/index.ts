@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { taskId, status, errorMessage } = await req.json();
+    const { taskId, status, errorMessage, extractedData } = await req.json();
 
     if (!taskId || !status) {
       return new Response(JSON.stringify({ error: "Thiếu taskId hoặc status" }), {
@@ -27,28 +27,48 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const updatePayload = { status };
-    // Nếu tác vụ thất bại, ghi lại thông báo lỗi
-    if (status === 'failed' && errorMessage) {
-      updatePayload.error_log = errorMessage;
-    }
-
-    const { data, error } = await supabaseAdmin
+    // Bước 1: Cập nhật trạng thái tác vụ và lấy thông tin cần thiết
+    const { data: updatedTask, error: updateError } = await supabaseAdmin
       .from("tasks")
-      .update(updatePayload)
+      .update({
+        status: status,
+        error_log: status === 'failed' ? errorMessage : null,
+      })
       .eq("id", taskId)
-      .select()
+      .select("user_id, project_id")
       .single();
 
-    if (error) {
-      console.error("Lỗi cập nhật Supabase:", error);
-      throw error;
+    if (updateError) {
+      console.error("Lỗi cập nhật tác vụ:", updateError);
+      throw updateError;
     }
 
-    return new Response(JSON.stringify(data), {
+    // Bước 2: Nếu tác vụ trích xuất thành công, lưu tệp vào thư viện
+    if (status === 'completed' && extractedData?.url && extractedData?.fileName) {
+      const { error: insertError } = await supabaseAdmin
+        .from("user_files")
+        .insert({
+          user_id: updatedTask.user_id,
+          project_id: updatedTask.project_id,
+          file_name: extractedData.fileName,
+          file_url: extractedData.url,
+          storage_path: 'extracted',
+          source: 'extract',
+        });
+
+      if (insertError) {
+        // Ghi lại lỗi nhưng không làm hỏng toàn bộ function,
+        // vì việc chính là cập nhật trạng thái đã thành công.
+        console.error("Lỗi lưu tệp đã trích xuất:", insertError);
+      }
+    }
+
+    // Bước 3: Trả về thông báo thành công đơn giản (cơ chế "fire-and-forget")
+    return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (err) {
     console.error("Lỗi trong function:", err);
     return new Response(JSON.stringify({ error: err.message }), {
