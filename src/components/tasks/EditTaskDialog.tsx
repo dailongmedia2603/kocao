@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -57,6 +57,7 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
   const { user } = useSession();
   const [newFile, setNewFile] = useState<File | null>(null);
   const [currentFileName, setCurrentFileName] = useState<string | null>(null);
+  const loadingToastId = useRef<string | number | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({ resolver: zodResolver(formSchema) });
 
@@ -85,56 +86,61 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
       if (!task || !user) throw new Error("Không có tác vụ hoặc người dùng");
 
       let payloadData: any = {};
-      let toastId: string | number | undefined;
-      try {
-        switch (values.type) {
-          case "NAVIGATE_TO_URL":
-            if (!values.url || !z.string().url().safeParse(values.url).success) throw new Error("Vui lòng nhập URL hợp lệ.");
-            payloadData = { url: values.url };
-            break;
-          case "CLICK_ELEMENT":
-            if (!values.selector) throw new Error("Vui lòng nhập CSS Selector.");
-            payloadData = { selector: values.selector };
-            break;
-          case "UPLOAD_FILE":
-            let { fileUrl, fileName, fileType } = task.payload || {};
-            if (newFile) {
-              toastId = showLoading("Đang tải tệp mới lên...");
-              const filePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
-              const { error: uploadError } = await supabase.storage.from("task_files").upload(filePath, newFile);
-              if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
-              const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
-              fileUrl = publicUrl; fileName = newFile.name; fileType = newFile.type;
-            }
-            if (!fileUrl) throw new Error("Không tìm thấy tệp. Vui lòng chọn một tệp mới để tải lên.");
-            payloadData = { fileUrl, fileName, fileType, inputSelector: values.selector };
-            break;
-          case "DELAY":
-            if (!values.delayDuration || values.delayDuration <= 0) throw new Error("Vui lòng nhập thời gian chờ hợp lệ.");
-            payloadData = { duration: values.delayDuration };
-            break;
-          case "PASTE_TEXT":
-            if (!values.selector) throw new Error("Vui lòng nhập CSS Selector của ô nhập liệu.");
-            if (!values.pasteText) throw new Error("Vui lòng nhập nội dung cần dán.");
-            payloadData = { selector: values.selector, text: values.pasteText };
-            break;
-          default: throw new Error("Loại hành động không hợp lệ.");
-        }
-        const { error } = await supabase.from("tasks").update({
-          name: values.name, type: values.type, payload: payloadData,
-        }).eq("id", task.id);
-        if (error) throw error;
-      } finally {
-        if (toastId) dismissToast(String(toastId));
+      switch (values.type) {
+        case "NAVIGATE_TO_URL":
+          if (!values.url || !z.string().url().safeParse(values.url).success) throw new Error("Vui lòng nhập URL hợp lệ.");
+          payloadData = { url: values.url };
+          break;
+        case "CLICK_ELEMENT":
+          if (!values.selector) throw new Error("Vui lòng nhập CSS Selector.");
+          payloadData = { selector: values.selector };
+          break;
+        case "UPLOAD_FILE":
+          let { fileUrl, fileName, fileType } = task.payload || {};
+          if (newFile) {
+            loadingToastId.current = showLoading("Đang tải tệp mới lên...");
+            const filePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
+            const { error: uploadError } = await supabase.storage.from("task_files").upload(filePath, newFile);
+            if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
+            const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
+            fileUrl = publicUrl; fileName = newFile.name; fileType = newFile.type;
+          }
+          if (!fileUrl) throw new Error("Không tìm thấy tệp. Vui lòng chọn một tệp mới để tải lên.");
+          payloadData = { fileUrl, fileName, fileType, inputSelector: values.selector };
+          break;
+        case "DELAY":
+          if (!values.delayDuration || values.delayDuration <= 0) throw new Error("Vui lòng nhập thời gian chờ hợp lệ.");
+          payloadData = { duration: values.delayDuration };
+          break;
+        case "PASTE_TEXT":
+          if (!values.selector) throw new Error("Vui lòng nhập CSS Selector của ô nhập liệu.");
+          if (!values.pasteText) throw new Error("Vui lòng nhập nội dung cần dán.");
+          payloadData = { selector: values.selector, text: values.pasteText };
+          break;
+        default: throw new Error("Loại hành động không hợp lệ.");
       }
+      const { error } = await supabase.from("tasks").update({
+        name: values.name, type: values.type, payload: payloadData,
+      }).eq("id", task.id);
+      if (error) throw error;
     },
     onSuccess: () => {
+      if (loadingToastId.current) {
+        dismissToast(loadingToastId.current);
+        loadingToastId.current = null;
+      }
       showSuccess("Cập nhật bước thành công!");
       if (projectId) queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       onOpenChange(false);
       setNewFile(null);
     },
-    onError: (error) => { showError(`Lỗi: ${error.message}`); },
+    onError: (error) => {
+      if (loadingToastId.current) {
+        dismissToast(loadingToastId.current);
+        loadingToastId.current = null;
+      }
+      showError(`Lỗi: ${error.message}`);
+    },
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => { editTaskMutation.mutate(values); };
