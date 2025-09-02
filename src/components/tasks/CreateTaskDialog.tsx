@@ -113,9 +113,9 @@ export const CreateTaskDialog = ({
               if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
               const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
               
-              const { error: dbError } = await supabase.from("user_files").insert({ user_id: user.id, project_id: projectId, file_name: file.name, file_url: publicUrl, storage_path: filePath });
+              const { error: dbError } = await supabase.from("user_files").insert({ user_id: user.id, project_id: projectId, file_name: file.name, file_url: publicUrl, storage_path: filePath, source: 'upload' });
               if (dbError) throw new Error(`Lỗi lưu tệp vào thư viện: ${dbError.message}`);
-              queryClient.invalidateQueries({ queryKey: ["user_files", projectId] });
+              queryClient.invalidateQueries({ queryKey: ["user_files", user.id] });
 
               payloadData.fileUrl = publicUrl;
               payloadData.fileName = file.name;
