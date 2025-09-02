@@ -38,9 +38,9 @@ const formSchema = z.object({
   name: z.string().min(1, "Tên bước không được để trống"),
   type: z.string().min(1, "Vui lòng chọn loại hành động"),
   url: z.string().optional(),
-  formInputs: z.string().optional(),
-  submitSelector: z.string().optional(),
-  inputSelector: z.string().optional(),
+  selector: z.string().optional(),
+  delayDuration: z.coerce.number().optional(),
+  pasteText: z.string().optional(),
 });
 
 type CreateTaskDialogProps = {
@@ -64,54 +64,66 @@ export const CreateTaskDialog = ({
       name: "",
       type: "",
       url: "",
-      formInputs: "[]",
-      submitSelector: "",
-      inputSelector: "",
+      selector: "",
+      delayDuration: 1000,
+      pasteText: "",
     },
   });
 
   const createTaskMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
-      
+
+      const { data: lastTask, error: orderError } = await supabase
+        .from("tasks")
+        .select("execution_order")
+        .eq("project_id", projectId)
+        .order("execution_order", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (orderError && orderError.code !== 'PGRST116') throw orderError;
+      const newOrder = lastTask ? (lastTask.execution_order || 0) + 1 : 1;
+
+      let payloadData: any = {};
       let toastId: string | number | undefined;
+
       try {
-        const { data: lastTask, error: orderError } = await supabase
-          .from("tasks")
-          .select("execution_order")
-          .eq("project_id", projectId)
-          .order("execution_order", { ascending: false })
-          .limit(1)
-          .single();
-
-        if (orderError && orderError.code !== 'PGRST116') throw orderError;
-        const newOrder = lastTask ? (lastTask.execution_order || 0) + 1 : 1;
-
-        let payloadData: any = {};
-        if (values.type === "NAVIGATE_TO_URL") {
-          // ... logic
-        } else if (values.type === "FORM_FILL_AND_SUBMIT") {
-          // ... logic
-        } else if (values.type === "FILE_UPLOAD_AND_SUBMIT") {
-          if (!file) throw new Error("Vui lòng chọn một tệp để tải lên.");
-          if (!values.url || !z.string().url().safeParse(values.url).success) throw new Error("Vui lòng nhập URL đích hợp lệ.");
-          if (!values.inputSelector) throw new Error("Vui lòng nhập CSS Selector cho ô nhập tệp.");
-          if (!values.submitSelector) throw new Error("Vui lòng nhập CSS Selector cho nút gửi.");
-
-          toastId = showLoading("Đang tải tệp lên...");
-          const filePath = `${user.id}/${projectId}/${Date.now()}-${file.name}`;
-          const { error: uploadError } = await supabase.storage.from("task_files").upload(filePath, file);
-          if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
-          
-          const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
-          payloadData = {
-            url: values.url,
-            fileUrl: publicUrl,
-            fileName: file.name,
-            fileType: file.type,
-            inputSelector: values.inputSelector,
-            submitButton: values.submitSelector,
-          };
+        switch (values.type) {
+          case "NAVIGATE_TO_URL":
+            if (!values.url || !z.string().url().safeParse(values.url).success) throw new Error("Vui lòng nhập URL hợp lệ.");
+            payloadData = { url: values.url };
+            break;
+          case "CLICK_ELEMENT":
+            if (!values.selector) throw new Error("Vui lòng nhập CSS Selector.");
+            payloadData = { selector: values.selector };
+            break;
+          case "UPLOAD_FILE":
+            if (!file) throw new Error("Vui lòng chọn một tệp để tải lên.");
+            if (!values.selector) throw new Error("Vui lòng nhập CSS Selector cho ô nhập tệp.");
+            toastId = showLoading("Đang tải tệp lên...");
+            const filePath = `${user.id}/${projectId}/${Date.now()}-${file.name}`;
+            const { error: uploadError } = await supabase.storage.from("task_files").upload(filePath, file);
+            if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
+            const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
+            payloadData = {
+              fileUrl: publicUrl,
+              fileName: file.name,
+              fileType: file.type,
+              inputSelector: values.selector,
+            };
+            break;
+          case "DELAY":
+            if (!values.delayDuration || values.delayDuration <= 0) throw new Error("Vui lòng nhập thời gian chờ hợp lệ.");
+            payloadData = { duration: values.delayDuration };
+            break;
+          case "PASTE_TEXT":
+            if (!values.selector) throw new Error("Vui lòng nhập CSS Selector của ô nhập liệu.");
+            if (!values.pasteText) throw new Error("Vui lòng nhập nội dung cần dán.");
+            payloadData = { selector: values.selector, text: values.pasteText };
+            break;
+          default:
+            throw new Error("Loại hành động không hợp lệ.");
         }
 
         const { error } = await supabase.from("tasks").insert([{
@@ -119,10 +131,9 @@ export const CreateTaskDialog = ({
           project_id: projectId, user_id: user.id, execution_order: newOrder, status: 'pending',
         }]);
         if (error) throw error;
+
       } finally {
-        if (toastId) {
-          dismissToast(String(toastId));
-        }
+        if (toastId) dismissToast(String(toastId));
       }
     },
     onSuccess: () => {
@@ -144,11 +155,10 @@ export const CreateTaskDialog = ({
         <DialogHeader><DialogTitle>Thêm bước mới vào kịch bản</DialogTitle></DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Form fields remain the same */}
             <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem>
                 <FormLabel>Tên bước</FormLabel>
-                <FormControl><Input placeholder="Ví dụ: Tải file nhạc lên Soundcloud" {...field} /></FormControl>
+                <FormControl><Input placeholder="Ví dụ: Mở trang chủ Facebook" {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
@@ -159,32 +169,44 @@ export const CreateTaskDialog = ({
                   <FormControl><SelectTrigger><SelectValue placeholder="Chọn một loại hành động" /></SelectTrigger></FormControl>
                   <SelectContent>
                     <SelectItem value="NAVIGATE_TO_URL">Điều hướng đến URL</SelectItem>
-                    <SelectItem value="FORM_FILL_AND_SUBMIT">Điền và Gửi Form</SelectItem>
-                    <SelectItem value="FILE_UPLOAD_AND_SUBMIT">Tải tệp và Gửi</SelectItem>
+                    <SelectItem value="CLICK_ELEMENT">Bấm vào phần tử</SelectItem>
+                    <SelectItem value="UPLOAD_FILE">Tải lên tệp</SelectItem>
+                    <SelectItem value="DELAY">Chờ (Delay)</SelectItem>
+                    <SelectItem value="PASTE_TEXT">Dán văn bản</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
               </FormItem>
             )} />
 
-            {(selectedType === "NAVIGATE_TO_URL" || selectedType === "FILE_UPLOAD_AND_SUBMIT") && (
+            {selectedType === "NAVIGATE_TO_URL" && (
               <FormField control={form.control} name="url" render={({ field }) => (
                 <FormItem>
                   <FormLabel>URL Đích</FormLabel>
-                  <FormControl><Input placeholder="https://example.com/upload" {...field} /></FormControl>
+                  <FormControl><Input placeholder="https://example.com" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
             )}
 
-            {selectedType === "FILE_UPLOAD_AND_SUBMIT" && (
+            {selectedType === "CLICK_ELEMENT" && (
+              <FormField control={form.control} name="selector" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>CSS Selector của phần tử</FormLabel>
+                  <FormControl><Input placeholder="button.submit-button" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            )}
+
+            {selectedType === "UPLOAD_FILE" && (
               <>
                 <FormItem>
                   <FormLabel>Tệp để tải lên</FormLabel>
                   <FormControl><Input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} /></FormControl>
                   <FormMessage />
                 </FormItem>
-                <FormField control={form.control} name="inputSelector" render={({ field }) => (
+                <FormField control={form.control} name="selector" render={({ field }) => (
                   <FormItem>
                     <FormLabel>CSS Selector của ô nhập tệp</FormLabel>
                     <FormControl><Input placeholder={`input[type="file"]`} {...field} /></FormControl>
@@ -194,26 +216,34 @@ export const CreateTaskDialog = ({
               </>
             )}
 
-            {selectedType === "FORM_FILL_AND_SUBMIT" && (
-              <FormField control={form.control} name="formInputs" render={({ field }) => (
+            {selectedType === "DELAY" && (
+              <FormField control={form.control} name="delayDuration" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Dữ liệu Inputs (JSON)</FormLabel>
-                  <FormControl><Textarea placeholder='[{"selector": "#email", "value": "test@example.com"}]' className="resize-none h-24 font-mono" {...field} /></FormControl>
-                  <FormDescription>Một mảng JSON. Để trống `[]` nếu không cần điền form.</FormDescription>
+                  <FormLabel>Thời gian chờ (mili giây)</FormLabel>
+                  <FormControl><Input type="number" placeholder="1000" {...field} /></FormControl>
+                  <FormDescription>1000 mili giây = 1 giây</FormDescription>
                   <FormMessage />
                 </FormItem>
               )} />
             )}
 
-            {(selectedType === "FORM_FILL_AND_SUBMIT" || selectedType === "FILE_UPLOAD_AND_SUBMIT") && (
-              <FormField control={form.control} name="submitSelector" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>CSS Selector của nút Gửi/Bấm</FormLabel>
-                  <FormControl><Input placeholder="button[type='submit']" {...field} /></FormControl>
-                  <FormDescription>Selector của nút để bấm sau khi đã chọn/điền xong.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )} />
+            {selectedType === "PASTE_TEXT" && (
+              <>
+                <FormField control={form.control} name="pasteText" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nội dung cần dán</FormLabel>
+                    <FormControl><Textarea placeholder="Nhập nội dung..." className="resize-y" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="selector" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CSS Selector của ô nhập liệu</FormLabel>
+                    <FormControl><Input placeholder={`textarea[name="comment"]`} {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </>
             )}
 
             <DialogFooter>

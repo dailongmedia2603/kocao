@@ -54,14 +54,15 @@ type Task = {
 
 const getTaskTypeName = (type: string) => {
   switch (type) {
-    case "NAVIGATE_TO_URL":
-      return "Điều hướng đến URL";
-    case "FORM_FILL_AND_SUBMIT":
-      return "Điền và Gửi Form";
-    case "FILE_UPLOAD_AND_SUBMIT":
-      return "Tải tệp và Gửi";
-    default:
-      return type;
+    case "NAVIGATE_TO_URL": return "Điều hướng đến URL";
+    case "CLICK_ELEMENT": return "Bấm vào phần tử";
+    case "UPLOAD_FILE": return "Tải lên tệp";
+    case "DELAY": return "Chờ (Delay)";
+    case "PASTE_TEXT": return "Dán văn bản";
+    // Giữ lại để hiển thị các tác vụ cũ không bị lỗi
+    case "FORM_FILL_AND_SUBMIT": return "Điền và Gửi Form (Cũ)";
+    case "FILE_UPLOAD_AND_SUBMIT": return "Tải tệp và Gửi (Cũ)";
+    default: return type;
   }
 };
 
