@@ -27,7 +27,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // --- Bắt đầu Transaction ---
     const { data, error } = await supabaseAdmin.rpc('update_task_and_chain', {
       task_id: taskId,
       new_status: status,
@@ -39,9 +38,12 @@ serve(async (req) => {
       console.error("Lỗi khi thực thi RPC:", error);
       throw error;
     }
-    // --- Kết thúc Transaction ---
 
-    return new Response(JSON.stringify({ success: true, data: data }), {
+    // Trích xuất bản ghi tác vụ duy nhất từ mảng mà RPC trả về.
+    const updatedTask = data && data.length > 0 ? data[0] : null;
+
+    // Trả về đối tượng tác vụ đã được cập nhật một cách rõ ràng.
+    return new Response(JSON.stringify({ success: true, task: updatedTask }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
