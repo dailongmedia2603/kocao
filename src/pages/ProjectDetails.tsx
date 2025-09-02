@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment, useRef } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,11 +97,6 @@ const ProjectDetails = () => {
     enabled: !!projectId,
   });
 
-  const tasksRef = useRef<Task[] | undefined>();
-  useEffect(() => {
-    tasksRef.current = tasks;
-  }, [tasks]);
-
   const runScenarioMutation = useMutation({
     mutationFn: async () => {
       const firstTask = tasks?.find(t => t.status === 'pending' && t.execution_order !== null);
@@ -165,6 +160,7 @@ const ProjectDetails = () => {
     },
   });
 
+  // Effect for real-time UI updates
   useEffect(() => {
     if (!projectId) return;
     const channel = supabase
@@ -172,28 +168,38 @@ const ProjectDetails = () => {
       .on<Task>(
         "postgres_changes",
         { event: "*", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
-        (payload) => {
+        () => {
           queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
-
-          const updatedTask = payload.new as Task;
-          const oldTask = payload.old as Task;
-
-          if (updatedTask.status === 'completed' && oldTask?.status !== 'completed') {
-            const currentOrder = updatedTask.execution_order;
-            if (typeof currentOrder === 'number') {
-              const currentTasks = tasksRef.current;
-              const nextTask = currentTasks?.find(t => t.execution_order === currentOrder + 1);
-              
-              if (nextTask && nextTask.status === 'pending') {
-                queueNextTaskMutation.mutate(nextTask.id);
-              }
-            }
-          }
         }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [projectId, queryClient, queueNextTaskMutation]);
+  }, [projectId, queryClient]);
+
+  // Effect for chaining tasks
+  useEffect(() => {
+    if (!tasks || areTasksLoading) return;
+
+    const completedTasks = tasks.filter(
+      (task) => task.status === 'completed' && typeof task.execution_order === 'number'
+    );
+
+    if (completedTasks.length === 0) return;
+
+    const maxCompletedOrder = Math.max(
+      ...completedTasks.map((task) => task.execution_order!)
+    );
+
+    const nextTask = tasks.find(
+      (task) => task.execution_order === maxCompletedOrder + 1
+    );
+
+    if (nextTask && nextTask.status === 'pending') {
+      if (!queueNextTaskMutation.isPending) {
+        queueNextTaskMutation.mutate(nextTask.id);
+      }
+    }
+  }, [tasks, areTasksLoading, queueNextTaskMutation]);
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
