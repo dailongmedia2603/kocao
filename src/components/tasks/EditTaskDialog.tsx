@@ -7,33 +7,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormDescription,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileLibrary, UserFile } from "./FileLibrary";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên bước không được để trống"),
@@ -57,6 +39,7 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
   const { user } = useSession();
   const [newFile, setNewFile] = useState<File | null>(null);
   const [currentFileName, setCurrentFileName] = useState<string | null>(null);
+  const [selectedLibraryFile, setSelectedLibraryFile] = useState<UserFile | null>(null);
   const loadingToastId = useRef<string | number | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({ resolver: zodResolver(formSchema) });
@@ -78,12 +61,14 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
           break;
       }
       form.reset(baseValues);
+      setNewFile(null);
+      setSelectedLibraryFile(null);
     }
   }, [task, form]);
 
   const editTaskMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      if (!task || !user) throw new Error("Không có tác vụ hoặc người dùng");
+      if (!task || !user || !projectId) throw new Error("Không có tác vụ, người dùng hoặc ID dự án");
 
       let payloadData: any = {};
       switch (values.type) {
@@ -96,16 +81,36 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
           payloadData = { selector: values.selector };
           break;
         case "UPLOAD_FILE":
-          let { fileUrl, fileName, fileType } = task.payload || {};
+          let fileUrl = task.payload?.fileUrl;
+          let fileName = task.payload?.fileName;
+          let fileType = task.payload?.fileType;
+
           if (newFile) {
             loadingToastId.current = showLoading("Đang tải tệp mới lên...");
             const filePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
             const { error: uploadError } = await supabase.storage.from("task_files").upload(filePath, newFile);
             if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
+            
             const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
-            fileUrl = publicUrl; fileName = newFile.name; fileType = newFile.type;
+            fileUrl = publicUrl;
+            fileName = newFile.name;
+            fileType = newFile.type;
+
+            const { error: dbError } = await supabase.from("user_files").insert({
+              user_id: user.id, project_id: projectId, file_name: fileName,
+              file_url: fileUrl, storage_path: filePath, source: 'upload'
+            });
+            if (dbError) {
+              console.error("Failed to save file to library:", dbError.message);
+              showError("Tệp đã được tải lên nhưng không thể lưu vào thư viện.");
+            }
+          } else if (selectedLibraryFile) {
+            fileUrl = selectedLibraryFile.file_url;
+            fileName = selectedLibraryFile.file_name;
+            fileType = undefined;
           }
-          if (!fileUrl) throw new Error("Không tìm thấy tệp. Vui lòng chọn một tệp mới để tải lên.");
+
+          if (!fileUrl) throw new Error("Không tìm thấy tệp. Vui lòng chọn một tệp mới hoặc chọn từ thư viện.");
           payloadData = { fileUrl, fileName, fileType, inputSelector: values.selector };
           break;
         case "DELAY":
@@ -130,9 +135,13 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
         loadingToastId.current = null;
       }
       showSuccess("Cập nhật bước thành công!");
-      if (projectId) queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+        queryClient.invalidateQueries({ queryKey: ["user_files", user?.id] });
+      }
       onOpenChange(false);
       setNewFile(null);
+      setSelectedLibraryFile(null);
     },
     onError: (error) => {
       if (loadingToastId.current) {
@@ -145,6 +154,9 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
 
   const onSubmit = (values: z.infer<typeof formSchema>) => { editTaskMutation.mutate(values); };
   const selectedType = form.watch("type");
+
+  const activeFileName = newFile?.name || selectedLibraryFile?.file_name || currentFileName;
+  const activeFileSource = newFile ? 'new' : selectedLibraryFile ? 'library' : currentFileName ? 'current' : 'none';
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -184,13 +196,51 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
             )}
             {selectedType === "UPLOAD_FILE" && (
               <>
-                <FormItem>
-                  <FormLabel>Tệp để tải lên</FormLabel>
-                  {currentFileName && !newFile && <div className="text-sm text-muted-foreground mb-2">Tệp hiện tại: <Badge variant="secondary">{currentFileName}</Badge></div>}
-                  <FormControl><Input type="file" onChange={(e) => setNewFile(e.target.files?.[0] || null)} /></FormControl>
-                  <FormDescription>Chọn tệp mới để thay thế tệp hiện tại.</FormDescription>
-                  <FormMessage />
-                </FormItem>
+                <Tabs defaultValue="new" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="new">Tải lên tệp mới</TabsTrigger>
+                    <TabsTrigger value="library">Chọn từ thư viện</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="new">
+                    <FormItem className="mt-4">
+                      <FormLabel>Tệp để tải lên</FormLabel>
+                      {activeFileName && (
+                        <div className="text-sm text-muted-foreground mb-2">
+                          {activeFileSource === 'current' && 'Tệp hiện tại: '}
+                          {activeFileSource === 'library' && 'Tệp đã chọn: '}
+                          {activeFileSource === 'new' && 'Tệp mới: '}
+                          <Badge variant={activeFileSource === 'library' ? 'default' : 'secondary'}>
+                            {activeFileName}
+                          </Badge>
+                        </div>
+                      )}
+                      <FormControl>
+                        <Input type="file" onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setNewFile(file);
+                          if (file) setSelectedLibraryFile(null);
+                        }} />
+                      </FormControl>
+                      <FormDescription>
+                        {activeFileSource !== 'none' ? 'Chọn tệp mới để thay thế.' : 'Chọn một tệp để tải lên.'}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  </TabsContent>
+                  <TabsContent value="library">
+                    <div className="mt-4">
+                      <FileLibrary
+                        selectedFileUrl={selectedLibraryFile?.file_url || task?.payload?.fileUrl}
+                        onFileSelect={(file) => {
+                          setSelectedLibraryFile(file);
+                          setNewFile(null);
+                          const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+                          if (fileInput) fileInput.value = "";
+                        }}
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
                 <FormField control={form.control} name="selector" render={({ field }) => (
                   <FormItem><FormLabel>CSS Selector của ô nhập tệp</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
