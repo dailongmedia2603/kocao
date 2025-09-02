@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,7 +59,6 @@ const getTaskTypeName = (type: string) => {
     case "UPLOAD_FILE": return "Tải lên tệp";
     case "DELAY": return "Chờ (Delay)";
     case "PASTE_TEXT": return "Dán văn bản";
-    // Giữ lại để hiển thị các tác vụ cũ không bị lỗi
     case "FORM_FILL_AND_SUBMIT": return "Điền và Gửi Form (Cũ)";
     case "FILE_UPLOAD_AND_SUBMIT": return "Tải tệp và Gửi (Cũ)";
     default: return type;
@@ -98,6 +97,11 @@ const ProjectDetails = () => {
     enabled: !!projectId,
   });
 
+  const tasksRef = useRef<Task[] | undefined>();
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+
   const runScenarioMutation = useMutation({
     mutationFn: async () => {
       const firstTask = tasks?.find(t => t.status === 'pending' && t.execution_order !== null);
@@ -119,7 +123,7 @@ const ProjectDetails = () => {
     mutationFn: async ({ taskId, status }: { taskId: string, status: string }) => {
       const { error } = await supabase
         .from("tasks")
-        .update({ status: status, error_log: null }) // Xóa log lỗi cũ khi chạy lại
+        .update({ status: status, error_log: null })
         .eq("id", taskId);
       if (error) throw error;
     },
@@ -139,7 +143,6 @@ const ProjectDetails = () => {
     },
     onSuccess: () => {
       showSuccess("Bước tiếp theo đã được gửi đi!");
-      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
     },
     onError: (error: Error) => {
       showError(`Lỗi khi gửi bước tiếp theo: ${error.message}`);
@@ -165,18 +168,22 @@ const ProjectDetails = () => {
   useEffect(() => {
     if (!projectId) return;
     const channel = supabase
-      .channel(`tasks-project-${projectId}`)
+      .channel(`realtime-project-${projectId}`)
       .on<Task>(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
+        { event: "*", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
         (payload) => {
           queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
-          const updatedTask = payload.new;
-          const oldTask = payload.old;
-          if (updatedTask.status === 'completed' && oldTask.status !== 'completed') {
+
+          const updatedTask = payload.new as Task;
+          const oldTask = payload.old as Task;
+
+          if (updatedTask.status === 'completed' && oldTask?.status !== 'completed') {
             const currentOrder = updatedTask.execution_order;
             if (typeof currentOrder === 'number') {
-              const nextTask = tasks?.find(t => t.execution_order === currentOrder + 1);
+              const currentTasks = tasksRef.current;
+              const nextTask = currentTasks?.find(t => t.execution_order === currentOrder + 1);
+              
               if (nextTask && nextTask.status === 'pending') {
                 queueNextTaskMutation.mutate(nextTask.id);
               }
@@ -186,7 +193,7 @@ const ProjectDetails = () => {
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [projectId, queryClient, tasks, queueNextTaskMutation]);
+  }, [projectId, queryClient, queueNextTaskMutation]);
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
