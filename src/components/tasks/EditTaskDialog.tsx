@@ -42,6 +42,11 @@ const formSchema = z.object({
   selector: z.string().optional(),
   delayDuration: z.coerce.number().optional(),
   pasteText: z.string().optional(),
+  // Fields for EXTRACT_ATTRIBUTE
+  extractSelector: z.string().optional(),
+  extractAttribute: z.string().optional(),
+  nextTaskName: z.string().optional(),
+  nextTaskInputSelector: z.string().optional(),
 });
 
 type Task = {
@@ -75,6 +80,12 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
           baseValues.selector = task.payload?.selector;
           baseValues.pasteText = task.payload?.text;
           break;
+        case "EXTRACT_ATTRIBUTE":
+          baseValues.extractSelector = task.payload?.selector;
+          baseValues.extractAttribute = task.payload?.attribute;
+          baseValues.nextTaskName = task.payload?.nextTask?.name;
+          baseValues.nextTaskInputSelector = task.payload?.nextTask?.payload?.inputSelector;
+          break;
       }
       form.reset(baseValues);
     }
@@ -87,38 +98,56 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
       let payloadData: any = {};
       let toastId: string | number | undefined;
       try {
-        switch (values.type) {
-          case "NAVIGATE_TO_URL":
-            if (!values.url || !z.string().url().safeParse(values.url).success) throw new Error("Vui lòng nhập URL hợp lệ.");
-            payloadData = { url: values.url };
-            break;
-          case "CLICK_ELEMENT":
-            if (!values.selector) throw new Error("Vui lòng nhập CSS Selector.");
-            payloadData = { selector: values.selector };
-            break;
-          case "UPLOAD_FILE":
-            let { fileUrl, fileName, fileType } = task.payload || {};
-            if (newFile) {
-              toastId = showLoading("Đang tải tệp mới lên...");
-              const filePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
-              const { error: uploadError } = await supabase.storage.from("task_files").upload(filePath, newFile);
-              if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
-              const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
-              fileUrl = publicUrl; fileName = newFile.name; fileType = newFile.type;
+        if (values.type === 'EXTRACT_ATTRIBUTE') {
+          if (!values.extractSelector || !values.extractAttribute || !values.nextTaskName || !values.nextTaskInputSelector) {
+            throw new Error("Vui lòng điền đầy đủ thông tin cho chuỗi công việc.");
+          }
+          payloadData = {
+            selector: values.extractSelector,
+            attribute: values.extractAttribute,
+            webhookUrl: "https://ypwupyjwwixgnwpohngd.supabase.co/functions/v1/process-and-store-file",
+            nextTask: {
+              name: values.nextTaskName,
+              type: 'UPLOAD_FILE',
+              payload: {
+                inputSelector: values.nextTaskInputSelector,
+              }
             }
-            if (!fileUrl) throw new Error("Không tìm thấy tệp. Vui lòng chọn một tệp mới để tải lên.");
-            payloadData = { fileUrl, fileName, fileType, inputSelector: values.selector };
-            break;
-          case "DELAY":
-            if (!values.delayDuration || values.delayDuration <= 0) throw new Error("Vui lòng nhập thời gian chờ hợp lệ.");
-            payloadData = { duration: values.delayDuration };
-            break;
-          case "PASTE_TEXT":
-            if (!values.selector) throw new Error("Vui lòng nhập CSS Selector của ô nhập liệu.");
-            if (!values.pasteText) throw new Error("Vui lòng nhập nội dung cần dán.");
-            payloadData = { selector: values.selector, text: values.pasteText };
-            break;
-          default: throw new Error("Loại hành động không hợp lệ.");
+          };
+        } else {
+          switch (values.type) {
+            case "NAVIGATE_TO_URL":
+              if (!values.url || !z.string().url().safeParse(values.url).success) throw new Error("Vui lòng nhập URL hợp lệ.");
+              payloadData = { url: values.url };
+              break;
+            case "CLICK_ELEMENT":
+              if (!values.selector) throw new Error("Vui lòng nhập CSS Selector.");
+              payloadData = { selector: values.selector };
+              break;
+            case "UPLOAD_FILE":
+              let { fileUrl, fileName, fileType } = task.payload || {};
+              if (newFile) {
+                toastId = showLoading("Đang tải tệp mới lên...");
+                const filePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
+                const { error: uploadError } = await supabase.storage.from("task_files").upload(filePath, newFile);
+                if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
+                const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
+                fileUrl = publicUrl; fileName = newFile.name; fileType = newFile.type;
+              }
+              if (!fileUrl) throw new Error("Không tìm thấy tệp. Vui lòng chọn một tệp mới để tải lên.");
+              payloadData = { fileUrl, fileName, fileType, inputSelector: values.selector };
+              break;
+            case "DELAY":
+              if (!values.delayDuration || values.delayDuration <= 0) throw new Error("Vui lòng nhập thời gian chờ hợp lệ.");
+              payloadData = { duration: values.delayDuration };
+              break;
+            case "PASTE_TEXT":
+              if (!values.selector) throw new Error("Vui lòng nhập CSS Selector của ô nhập liệu.");
+              if (!values.pasteText) throw new Error("Vui lòng nhập nội dung cần dán.");
+              payloadData = { selector: values.selector, text: values.pasteText };
+              break;
+            default: throw new Error("Loại hành động không hợp lệ.");
+          }
         }
         const { error } = await supabase.from("tasks").update({
           name: values.name, type: values.type, payload: payloadData,
@@ -147,7 +176,7 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField control={form.control} name="name" render={({ field }) => (
-              <FormItem><FormLabel>Tên bước</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              <FormItem><FormLabel>Tên bước / Tên chuỗi công việc</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="type" render={({ field }) => (
               <FormItem>
@@ -155,6 +184,7 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                   <SelectContent>
+                    <SelectItem value="EXTRACT_ATTRIBUTE">Trích xuất & Tải lên</SelectItem>
                     <SelectItem value="NAVIGATE_TO_URL">Điều hướng đến URL</SelectItem>
                     <SelectItem value="CLICK_ELEMENT">Bấm vào phần tử</SelectItem>
                     <SelectItem value="UPLOAD_FILE">Tải lên tệp</SelectItem>
@@ -204,6 +234,50 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
                   <FormItem><FormLabel>CSS Selector của ô nhập liệu</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
               </>
+            )}
+            {selectedType === "EXTRACT_ATTRIBUTE" && (
+              <div className="space-y-4">
+                <div className="space-y-2 rounded-md border p-4">
+                  <h4 className="font-semibold">Bước 1: Trích xuất dữ liệu</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Chỉ định phần tử và thuộc tính để lấy dữ liệu (ví dụ: URL tệp).
+                  </p>
+                  <FormField control={form.control} name="extractSelector" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CSS Selector (để trích xuất)</FormLabel>
+                      <FormControl><Input placeholder="img.avatar" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="extractAttribute" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tên thuộc tính (để trích xuất)</FormLabel>
+                      <FormControl><Input placeholder="src" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <div className="space-y-2 rounded-md border p-4">
+                  <h4 className="font-semibold">Bước 2: Hành động Tải tệp</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Dữ liệu trích xuất được sẽ được dùng để tải tệp lên ở bước này.
+                  </p>
+                  <FormField control={form.control} name="nextTaskName" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tên cho bước tải tệp</FormLabel>
+                      <FormControl><Input placeholder="Tải ảnh đại diện lên" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="nextTaskInputSelector" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>CSS Selector (của ô nhập tệp)</FormLabel>
+                      <FormControl><Input placeholder={`input[type="file"]`} {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+              </div>
             )}
 
             <DialogFooter>

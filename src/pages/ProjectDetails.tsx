@@ -59,6 +59,7 @@ const getTaskTypeName = (type: string) => {
     case "UPLOAD_FILE": return "Tải lên tệp";
     case "DELAY": return "Chờ (Delay)";
     case "PASTE_TEXT": return "Dán văn bản";
+    case "EXTRACT_ATTRIBUTE": return "Trích xuất & Tải lên";
     case "FORM_FILL_AND_SUBMIT": return "Điền và Gửi Form (Cũ)";
     case "FILE_UPLOAD_AND_SUBMIT": return "Tải tệp và Gửi (Cũ)";
     default: return type;
