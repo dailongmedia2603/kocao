@@ -97,6 +97,10 @@ export const CreateTaskDialog = ({
           if (!values.selector) throw new Error("Vui lòng nhập CSS Selector.");
           payloadData = { selector: values.selector };
           break;
+        case "DOWNLOAD_FILE":
+          if (!values.selector) throw new Error("Vui lòng nhập CSS Selector của nút/link tải xuống.");
+          payloadData = { selector: values.selector };
+          break;
         case "UPLOAD_FILE":
           if (!file) throw new Error("Vui lòng chọn một tệp để tải lên.");
           if (!values.selector) throw new Error("Vui lòng nhập CSS Selector cho ô nhập tệp.");
@@ -175,6 +179,7 @@ export const CreateTaskDialog = ({
                   <SelectContent>
                     <SelectItem value="NAVIGATE_TO_URL">Điều hướng đến URL</SelectItem>
                     <SelectItem value="CLICK_ELEMENT">Bấm vào phần tử</SelectItem>
+                    <SelectItem value="DOWNLOAD_FILE">Tải xuống tệp và lưu</SelectItem>
                     <SelectItem value="UPLOAD_FILE">Tải lên tệp</SelectItem>
                     <SelectItem value="DELAY">Chờ (Delay)</SelectItem>
                     <SelectItem value="PASTE_TEXT">Dán văn bản</SelectItem>
@@ -194,7 +199,7 @@ export const CreateTaskDialog = ({
               )} />
             )}
 
-            {selectedType === "CLICK_ELEMENT" && (
+            {(selectedType === "CLICK_ELEMENT" || selectedType === "DOWNLOAD_FILE") && (
               <FormField control={form.control} name="selector" render={({ field }) => (
                 <FormItem>
                   <FormLabel>CSS Selector của phần tử</FormLabel>

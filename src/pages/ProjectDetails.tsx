@@ -56,6 +56,7 @@ const getTaskTypeName = (type: string) => {
   switch (type) {
     case "NAVIGATE_TO_URL": return "Điều hướng đến URL";
     case "CLICK_ELEMENT": return "Bấm vào phần tử";
+    case "DOWNLOAD_FILE": return "Tải xuống tệp và lưu";
     case "UPLOAD_FILE": return "Tải lên tệp";
     case "DELAY": return "Chờ (Delay)";
     case "PASTE_TEXT": return "Dán văn bản";
