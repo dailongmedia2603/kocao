@@ -27,8 +27,8 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Call the RPC function, which now returns void. We only care if it errors.
-    const { error } = await supabaseAdmin.rpc('update_task_and_chain', {
+    // Gọi hàm RPC mới, hàm này sẽ tự động xử lý việc kích hoạt tác vụ tiếp theo
+    const { error } = await supabaseAdmin.rpc('update_task_and_queue_next', {
       task_id: taskId,
       new_status: status,
       error_message: errorMessage,
@@ -36,17 +36,17 @@ serve(async (req) => {
     });
 
     if (error) {
-      console.error("Lỗi khi thực thi RPC:", error);
+      console.error("Lỗi khi thực thi RPC 'update_task_and_queue_next':", error);
       throw error;
     }
 
-    // Simply return a success message. The extension will receive this and continue.
+    // Chỉ cần trả về thành công, không cần gửi dữ liệu tác vụ tiếp theo
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("Lỗi trong function:", err);
+    console.error("Lỗi trong Edge Function:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
