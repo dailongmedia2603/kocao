@@ -99,9 +99,7 @@ export const CreateTaskDialog = ({
           case "UPLOAD_FILE":
             if (!values.selector) throw new Error("Vui lòng nhập CSS Selector cho ô nhập tệp.");
             payloadData = { inputSelector: values.selector };
-            if (fileSource === 'previous_step') {
-              payloadData.fileSource = 'previous_step_output';
-            } else if (fileSource === 'library') {
+            if (fileSource === 'library') {
               if (!selectedLibraryFile) throw new Error("Vui lòng chọn một tệp từ thư viện.");
               payloadData.fileUrl = selectedLibraryFile.file_url;
               payloadData.fileName = selectedLibraryFile.file_name;
@@ -199,7 +197,6 @@ export const CreateTaskDialog = ({
                     <RadioGroup value={fileSource} onValueChange={setFileSource} className="flex space-x-4">
                       <div className="flex items-center space-x-2"><RadioGroupItem value="upload" id="r1" /><label htmlFor="r1">Tải mới</label></div>
                       <div className="flex items-center space-x-2"><RadioGroupItem value="library" id="r2" /><label htmlFor="r2">Thư viện</label></div>
-                      <div className="flex items-center space-x-2"><RadioGroupItem value="previous_step" id="r3" /><label htmlFor="r3">Bước trước</label></div>
                     </RadioGroup>
                   </FormItem>
                   {fileSource === 'upload' && <FormItem><FormLabel>Tệp để tải lên</FormLabel><FormControl><Input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} /></FormControl><FormMessage /></FormItem>}
@@ -210,7 +207,6 @@ export const CreateTaskDialog = ({
                       <Button type="button" variant="outline" className="w-full mt-2" onClick={() => setPickerDialogOpen(true)}>Chọn từ thư viện</Button>
                     </FormItem>
                   )}
-                  {fileSource === 'previous_step' && <FormDescription>Tệp sẽ được tự động lấy từ kết quả của bước trích xuất dữ liệu trước đó.</FormDescription>}
                   <FormField control={form.control} name="selector" render={({ field }) => (
                     <FormItem>
                       <FormLabel>CSS Selector của ô nhập tệp</FormLabel>

@@ -130,19 +130,6 @@ const ProjectDetails = () => {
     },
   });
 
-  const queueNextTaskMutation = useMutation({
-    mutationFn: async (taskId: string) => {
-      const { error } = await supabase.from("tasks").update({ status: "queued" }).eq("id", taskId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      showSuccess("Bước tiếp theo đã được gửi đi!");
-    },
-    onError: (error: Error) => {
-      showError(`Lỗi khi gửi bước tiếp theo: ${error.message}`);
-    },
-  });
-
   const deleteTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
       const { error } = await supabase.from("tasks").delete().eq("id", taskId);
@@ -164,30 +151,10 @@ const ProjectDetails = () => {
     if (!projectId) return;
 
     const channel = supabase
-      .channel(`realtime-project-tasks-${projectId}`) // Use a unique channel name
+      .channel(`realtime-project-tasks-${projectId}`)
       .on<Task>(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
-        (payload) => {
-          const updatedTask = payload.new as Task;
-          queryClient.setQueryData(['tasks', projectId], (oldData: Task[] | undefined) => {
-            if (!oldData) return [updatedTask];
-            return oldData.map(task => 
-                task.id === updatedTask.id ? updatedTask : task
-            );
-          });
-        }
-      )
-      .on<Task>(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
-        () => {
-            queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
-        }
-      )
-      .on<Task>(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
+        { event: "*", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
         () => {
             queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
         }
@@ -198,31 +165,6 @@ const ProjectDetails = () => {
       supabase.removeChannel(channel);
     };
   }, [projectId, queryClient]);
-
-  // Effect for chaining tasks
-  useEffect(() => {
-    if (!tasks || areTasksLoading) return;
-
-    const completedTasks = tasks.filter(
-      (task) => task.status === 'completed' && typeof task.execution_order === 'number'
-    );
-
-    if (completedTasks.length === 0) return;
-
-    const maxCompletedOrder = Math.max(
-      ...completedTasks.map((task) => task.execution_order!)
-    );
-
-    const nextTask = tasks.find(
-      (task) => task.execution_order === maxCompletedOrder + 1
-    );
-
-    if (nextTask && nextTask.status === 'pending') {
-      if (!queueNextTaskMutation.isPending) {
-        queueNextTaskMutation.mutate(nextTask.id);
-      }
-    }
-  }, [tasks, areTasksLoading, queueNextTaskMutation]);
 
   const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
