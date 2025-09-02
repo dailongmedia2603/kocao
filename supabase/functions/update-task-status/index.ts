@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { taskId, status, errorMessage } = await req.json();
+    const { taskId, status, errorMessage, extractedData } = await req.json();
 
     if (!taskId || !status) {
       return new Response(JSON.stringify({ error: "Thiếu taskId hoặc status" }), {
@@ -27,25 +27,21 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const updatePayload = { status };
-    // Nếu tác vụ thất bại, ghi lại thông báo lỗi
-    if (status === 'failed' && errorMessage) {
-      updatePayload.error_log = errorMessage;
-    }
-
-    const { data, error } = await supabaseAdmin
-      .from("tasks")
-      .update(updatePayload)
-      .eq("id", taskId)
-      .select()
-      .single();
+    // --- Bắt đầu Transaction ---
+    const { data, error } = await supabaseAdmin.rpc('update_task_and_chain', {
+      task_id: taskId,
+      new_status: status,
+      error_message: errorMessage,
+      extracted_data: extractedData
+    });
 
     if (error) {
-      console.error("Lỗi cập nhật Supabase:", error);
+      console.error("Lỗi khi thực thi RPC:", error);
       throw error;
     }
+    // --- Kết thúc Transaction ---
 
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify({ success: true, data: data }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
