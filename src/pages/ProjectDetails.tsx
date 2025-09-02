@@ -163,17 +163,41 @@ const ProjectDetails = () => {
   // Effect for real-time UI updates
   useEffect(() => {
     if (!projectId) return;
+
     const channel = supabase
-      .channel(`realtime-project-${projectId}`)
+      .channel(`realtime-project-tasks-${projectId}`) // Use a unique channel name
       .on<Task>(
         "postgres_changes",
-        { event: "*", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
+        { event: "UPDATE", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
+        (payload) => {
+          const updatedTask = payload.new as Task;
+          queryClient.setQueryData(['tasks', projectId], (oldData: Task[] | undefined) => {
+            if (!oldData) return [updatedTask];
+            return oldData.map(task => 
+                task.id === updatedTask.id ? updatedTask : task
+            );
+          });
+        }
+      )
+      .on<Task>(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+            queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+        }
+      )
+      .on<Task>(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
+        () => {
+            queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
         }
       )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [projectId, queryClient]);
 
   // Effect for chaining tasks
