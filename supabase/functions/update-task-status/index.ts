@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { taskId, status, errorMessage, extractedData } = await req.json();
+    const { taskId, status, errorMessage } = await req.json();
 
     if (!taskId || !status) {
       return new Response(JSON.stringify({ error: "Thiếu taskId hoặc status" }), {
@@ -27,26 +27,30 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Gọi hàm RPC mới, hàm này sẽ tự động xử lý việc kích hoạt tác vụ tiếp theo
-    const { error } = await supabaseAdmin.rpc('update_task_and_queue_next', {
-      task_id: taskId,
-      new_status: status,
-      error_message: errorMessage,
-      extracted_data: extractedData
-    });
+    const updatePayload = { status };
+    // Nếu tác vụ thất bại, ghi lại thông báo lỗi
+    if (status === 'failed' && errorMessage) {
+      updatePayload.error_log = errorMessage;
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("tasks")
+      .update(updatePayload)
+      .eq("id", taskId)
+      .select()
+      .single();
 
     if (error) {
-      console.error("Lỗi khi thực thi RPC 'update_task_and_queue_next':", error);
+      console.error("Lỗi cập nhật Supabase:", error);
       throw error;
     }
 
-    // Chỉ cần trả về thành công, không cần gửi dữ liệu tác vụ tiếp theo
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify(data), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("Lỗi trong Edge Function:", err);
+    console.error("Lỗi trong function:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
