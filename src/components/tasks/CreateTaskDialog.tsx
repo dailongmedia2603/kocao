@@ -212,7 +212,12 @@ export const CreateTaskDialog = ({
                   )}
                   {fileSource === 'previous_step' && <FormDescription>Tệp sẽ được tự động lấy từ kết quả của bước trích xuất dữ liệu trước đó.</FormDescription>}
                   <FormField control={form.control} name="selector" render={({ field }) => (
-                    <FormItem><FormLabel>CSS Selector của ô nhập tệp</FormLabel><FormControl><Input placeholder={`input[type="file"]`} {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel>CSS Selector của ô nhập tệp</FormLabel>
+                      <FormControl><Input placeholder={`input[type="file"]`} {...field} /></FormControl>
+                      <FormDescription>Mẹo: Nhấp chuột phải vào ô tải tệp, chọn 'Inspect' và sao chép selector của thẻ `&lt;input type="file"&gt;`.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                 </div>
               )}

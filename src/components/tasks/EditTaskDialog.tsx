@@ -214,7 +214,14 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
                 <FormMessage />
               </FormItem>
             )} />
-            {/* Other form fields from old implementation */}
+            <FormField control={form.control} name="selector" render={({ field }) => (
+                <FormItem>
+                    <FormLabel>CSS Selector của ô nhập tệp</FormLabel>
+                    <FormControl><Input {...field} /></FormControl>
+                    <FormDescription>Mẹo: Nhấp chuột phải vào ô tải tệp, chọn 'Inspect' và sao chép selector của thẻ `&lt;input type="file"&gt;`.</FormDescription>
+                    <FormMessage />
+                </FormItem>
+            )} />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
               <Button type="submit" disabled={editTaskMutation.isPending}>
