@@ -139,17 +139,6 @@ const Login = () => {
               <span className="bg-white px-2 text-gray-500">OR</span>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Button variant="outline" className="h-12" onClick={() => handleSocialLogin('facebook')}>
-              <FacebookIcon className="h-6 w-6 text-blue-600" />
-            </Button>
-            <Button variant="outline" className="h-12" onClick={() => handleSocialLogin('google')}>
-              <GoogleIcon className="h-6 w-6" />
-            </Button>
-            <Button variant="outline" className="h-12" onClick={() => handleSocialLogin('apple')}>
-              <AppleIcon className="h-6 w-6 text-black" />
-            </Button>
-          </div>
         </div>
         <div className="text-center text-gray-500 text-sm">
           <p>Copyright © 2025 - CRMS</p>
