@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, LayoutDashboard, FolderKanban, Settings, Bot } from "lucide-react";
+import { ChevronLeft, LayoutDashboard, FolderKanban, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
 
@@ -12,7 +12,6 @@ const menuItems = [
     to: "/",
   },
   { label: "Danh sách dự án", icon: FolderKanban, to: "/projects" },
-  { label: "Tạo video", icon: Bot, to: "/create-video" },
   { label: "Settings", icon: Settings, to: "/settings" },
 ];
 

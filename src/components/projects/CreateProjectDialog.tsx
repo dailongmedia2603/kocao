@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
+import { useNavigate } from "react-router-dom";
 
 import {
   Dialog,
@@ -39,6 +40,7 @@ export const CreateProjectDialog = ({
 }: CreateProjectDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
+  const navigate = useNavigate();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -50,16 +52,22 @@ export const CreateProjectDialog = ({
   const createProjectMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("projects")
-        .insert([{ name: values.name, user_id: user.id }]);
+        .insert([{ name: values.name, user_id: user.id }])
+        .select()
+        .single();
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       showSuccess("Tạo dự án thành công!");
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       onOpenChange(false);
       form.reset();
+      if (data) {
+        navigate(`/projects/${data.id}`);
+      }
     },
     onError: (error) => {
       showError(`Lỗi: ${error.message}`);
@@ -100,7 +108,7 @@ export const CreateProjectDialog = ({
                 Hủy
               </Button>
               <Button type="submit" disabled={createProjectMutation.isPending}>
-                {createProjectMutation.isPending ? "Đang tạo..." : "Tạo dự án"}
+                {createProjectMutation.isPending ? "Đang tạo..." : "Tạo và tiếp tục"}
               </Button>
             </DialogFooter>
           </form>
