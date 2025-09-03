@@ -62,13 +62,22 @@ const Sidebar = () => {
                         end
                         className={({ isActive }) =>
                           cn(
-                            "flex items-center w-full p-3 rounded-md text-sm font-medium transition-colors text-gray-700 hover:bg-red-50 hover:text-red-600",
+                            "flex items-center w-full p-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:bg-red-50 hover:text-red-600",
                             isActive && "bg-red-50 text-red-600"
                           )
                         }
                       >
-                        <item.icon className="h-5 w-5" />
-                        {!isCollapsed && <span className="ml-3">{item.label}</span>}
+                        {({ isActive }) => (
+                          <>
+                            <div className={cn(
+                              "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+                              isActive ? "bg-red-600 text-white" : "bg-transparent"
+                            )}>
+                              <item.icon className="h-5 w-5" />
+                            </div>
+                            {!isCollapsed && <span className="ml-3">{item.label}</span>}
+                          </>
+                        )}
                       </NavLink>
                     </AccordionTrigger>
                     {!isCollapsed && (
@@ -101,13 +110,22 @@ const Sidebar = () => {
                     to={item.to}
                     className={({ isActive }) =>
                       cn(
-                        "flex items-center p-3 rounded-md text-sm font-medium transition-colors text-gray-700 hover:bg-red-50 hover:text-red-600",
+                        "flex items-center p-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:bg-red-50 hover:text-red-600",
                         isActive && "bg-red-50 text-red-600"
                       )
                     }
                   >
-                    <item.icon className="h-5 w-5" />
-                    {!isCollapsed && <span className="ml-3">{item.label}</span>}
+                    {({ isActive }) => (
+                      <>
+                        <div className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+                          isActive ? "bg-red-600 text-white" : "bg-transparent"
+                        )}>
+                          <item.icon className="h-5 w-5" />
+                        </div>
+                        {!isCollapsed && <span className="ml-3">{item.label}</span>}
+                      </>
+                    )}
                   </NavLink>
                 )
               )}
