@@ -1,28 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Video } from "lucide-react";
-
-const fetchVideoUrl = async () => {
-  const { data, error } = await supabase.functions.invoke("get-r2-presigned-url");
-  if (error) {
-    throw new Error(`Không thể lấy URL video: ${error.message}`);
-  }
-  if (!data.url) {
-    throw new Error("Phản hồi từ server không chứa URL video.");
-  }
-  return data.url;
-};
+import { Video } from "lucide-react";
 
 const ListKoc = () => {
-  const { data: videoUrl, isLoading, isError, error } = useQuery<string>({
-    queryKey: ["kocVideoUrl"],
-    queryFn: fetchVideoUrl,
-    refetchOnWindowFocus: false, // Không cần tải lại URL mỗi khi focus vào cửa sổ
-    staleTime: 1000 * 60 * 55, // URL có hiệu lực 1 giờ, làm mới sau 55 phút
-  });
+  // Sử dụng trực tiếp Public Development URL bạn đã cung cấp
+  const videoUrl = "https://pub-8e3b096d2ce442168e0a26da12395bae.r2.dev/video%20final.mp4";
 
   return (
     <div className="p-6 lg:p-8">
@@ -42,30 +23,16 @@ const ListKoc = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && (
-            <Skeleton className="w-full aspect-video rounded-lg" />
-          )}
-          {isError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Lỗi</AlertTitle>
-              <AlertDescription>
-                {error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định."}
-              </AlertDescription>
-            </Alert>
-          )}
-          {videoUrl && (
-            <div className="aspect-video bg-black rounded-lg overflow-hidden">
-              <video
-                controls
-                src={videoUrl}
-                className="w-full h-full"
-                preload="metadata"
-              >
-                Trình duyệt của bạn không hỗ trợ thẻ video.
-              </video>
-            </div>
-          )}
+          <div className="aspect-video bg-black rounded-lg overflow-hidden">
+            <video
+              controls
+              src={videoUrl}
+              className="w-full h-full"
+              preload="metadata"
+            >
+              Trình duyệt của bạn không hỗ trợ thẻ video.
+            </video>
+          </div>
         </CardContent>
       </Card>
     </div>
