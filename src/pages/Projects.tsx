@@ -103,7 +103,7 @@ const Projects = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold">Quản lý Dự án</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground mt-1">
             Tạo và quản lý các chiến dịch tự động hóa của bạn.
           </p>
         </div>
@@ -123,7 +123,7 @@ const Projects = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Tên dự án</TableHead>
+                <TableHead className="w-[50%]">Tên dự án</TableHead>
                 <TableHead>Ngày tạo</TableHead>
                 <TableHead className="text-right">Hành động</TableHead>
               </TableRow>
@@ -145,7 +145,7 @@ const Projects = () => {
                 ))
               ) : error ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-red-500">
+                  <TableCell colSpan={3} className="text-center text-red-500 py-10">
                     Không thể tải dữ liệu dự án.
                   </TableCell>
                 </TableRow>
@@ -184,7 +184,7 @@ const Projects = () => {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
-                            className="text-red-500"
+                            className="text-destructive focus:text-destructive"
                             onClick={() => {
                               setSelectedProject(project);
                               setDeleteDialogOpen(true);
@@ -199,7 +199,7 @@ const Projects = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center">
+                  <TableCell colSpan={3} className="text-center py-10">
                     Chưa có dự án nào. Hãy tạo một dự án mới!
                   </TableCell>
                 </TableRow>

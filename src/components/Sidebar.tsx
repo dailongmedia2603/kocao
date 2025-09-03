@@ -2,16 +2,16 @@ import { NavLink } from "react-router-dom";
 import { useSession } from "@/contexts/SessionContext";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LayoutDashboard, FolderKanban, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Settings, LogOut, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const Sidebar = () => {
-  const { profile, signOut } = useSession();
+  const { profile, user, signOut } = useSession();
 
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
     const first = firstName?.[0] || "";
     const last = lastName?.[0] || "";
-    return `${first}${last}`.toUpperCase();
+    return `${first}${last}`.toUpperCase() || "??";
   };
 
   const navItems = [
@@ -21,24 +21,13 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className="w-64 flex-shrink-0 border-r bg-gray-50 flex flex-col">
-      <div className="p-4 border-b">
-        <h1 className="text-2xl font-bold text-center">AutoTasker</h1>
+    <aside className="w-64 flex-shrink-0 bg-sidebar text-sidebar-foreground flex flex-col">
+      <div className="p-6 flex items-center gap-3 border-b border-sidebar-hover">
+        <Bot className="h-8 w-8 text-primary" />
+        <h1 className="text-2xl font-bold text-white">AutoTasker</h1>
       </div>
-      <div className="p-4 flex items-center space-x-3 border-b">
-        <Avatar>
-          <AvatarImage src={profile?.avatar_url || undefined} />
-          <AvatarFallback>
-            {getInitials(profile?.first_name, profile?.last_name)}
-          </AvatarFallback>
-        </Avatar>
-        <div>
-          <p className="font-semibold">
-            {profile?.first_name} {profile?.last_name}
-          </p>
-        </div>
-      </div>
-      <nav className="flex-grow p-4">
+      
+      <nav className="flex-grow px-4 py-4">
         <ul className="space-y-2">
           {navItems.map((item) => (
             <li key={item.to}>
@@ -46,8 +35,9 @@ const Sidebar = () => {
                 to={item.to}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center space-x-3 p-2 rounded-md text-gray-700 hover:bg-gray-200",
-                    isActive && "bg-primary text-primary-foreground hover:bg-primary/90"
+                    "flex items-center space-x-3 p-3 rounded-md font-medium transition-colors",
+                    "hover:bg-sidebar-hover hover:text-white",
+                    isActive && "bg-sidebar-active text-sidebar-active-foreground"
                   )
                 }
               >
@@ -58,8 +48,23 @@ const Sidebar = () => {
           ))}
         </ul>
       </nav>
-      <div className="p-4 border-t">
-        <Button variant="ghost" className="w-full justify-start" onClick={signOut}>
+
+      <div className="p-4 mt-auto border-t border-sidebar-hover">
+        <div className="p-2 flex items-center space-x-3">
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={profile?.avatar_url || undefined} />
+            <AvatarFallback className="bg-primary text-primary-foreground">
+              {getInitials(profile?.first_name, profile?.last_name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="overflow-hidden">
+            <p className="font-semibold text-sm text-white truncate">
+              {profile?.first_name} {profile?.last_name}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+          </div>
+        </div>
+        <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-hover hover:text-white mt-2" onClick={signOut}>
           <LogOut className="mr-2 h-4 w-4" />
           Đăng xuất
         </Button>

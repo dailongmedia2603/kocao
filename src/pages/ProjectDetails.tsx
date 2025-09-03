@@ -2,7 +2,7 @@ import { useState, useEffect, Fragment } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { PlusCircle, ArrowLeft, MoreHorizontal, Play, ArrowDown, RefreshCw, Terminal } from "lucide-react";
+import { PlusCircle, ArrowLeft, MoreHorizontal, Play, RefreshCw, Terminal, Bot, MousePointerClick, UploadCloud, DownloadCloud, Clock, Type } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -36,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateTaskDialog } from "../components/tasks/CreateTaskDialog";
 import { EditTaskDialog } from "../components/tasks/EditTaskDialog";
+import { cn } from "@/lib/utils";
 
 type Project = {
   name: string;
@@ -52,18 +52,18 @@ type Task = {
   error_log: string | null;
 };
 
-const getTaskTypeName = (type: string) => {
-  switch (type) {
-    case "NAVIGATE_TO_URL": return "Điều hướng đến URL";
-    case "CLICK_ELEMENT": return "Bấm vào phần tử";
-    case "DOWNLOAD_FILE": return "Tải xuống tệp và lưu";
-    case "UPLOAD_FILE": return "Tải lên tệp";
-    case "DELAY": return "Chờ (Delay)";
-    case "PASTE_TEXT": return "Dán văn bản";
-    case "FORM_FILL_AND_SUBMIT": return "Điền và Gửi Form (Cũ)";
-    case "FILE_UPLOAD_AND_SUBMIT": return "Tải tệp và Gửi (Cũ)";
-    default: return type;
-  }
+const taskTypeDetails: { [key: string]: { name: string; icon: React.ElementType } } = {
+  NAVIGATE_TO_URL: { name: "Điều hướng đến URL", icon: Bot },
+  CLICK_ELEMENT: { name: "Bấm vào phần tử", icon: MousePointerClick },
+  DOWNLOAD_FILE: { name: "Tải xuống tệp và lưu", icon: DownloadCloud },
+  UPLOAD_FILE: { name: "Tải lên tệp", icon: UploadCloud },
+  DELAY: { name: "Chờ (Delay)", icon: Clock },
+  PASTE_TEXT: { name: "Dán văn bản", icon: Type },
+  DEFAULT: { name: "Hành động không xác định", icon: Bot },
+};
+
+const getTaskTypeDetails = (type: string) => {
+  return taskTypeDetails[type] || { ...taskTypeDetails.DEFAULT, name: type };
 };
 
 const ProjectDetails = () => {
@@ -161,12 +161,11 @@ const ProjectDetails = () => {
     },
   });
 
-  // Effect for real-time UI updates
   useEffect(() => {
     if (!projectId) return;
 
     const channel = supabase
-      .channel(`realtime-project-tasks-${projectId}`) // Use a unique channel name
+      .channel(`realtime-project-tasks-${projectId}`)
       .on<Task>(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "tasks", filter: `project_id=eq.${projectId}` },
@@ -201,7 +200,6 @@ const ProjectDetails = () => {
     };
   }, [projectId, queryClient]);
 
-  // Effect for chaining tasks
   useEffect(() => {
     if (!tasks || areTasksLoading) return;
 
@@ -226,12 +224,13 @@ const ProjectDetails = () => {
     }
   }, [tasks, areTasksLoading, queueNextTaskMutation]);
 
-  const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+  const getStatusClasses = (status: string) => {
     switch (status) {
-      case "completed": return "secondary";
-      case "running": case "queued": return "default";
-      case "failed": return "destructive";
-      case "pending": default: return "outline";
+      case "completed": return "bg-green-100 text-green-800 border-green-200";
+      case "running": return "bg-blue-100 text-blue-800 border-blue-200 animate-pulse";
+      case "queued": return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "failed": return "bg-red-100 text-red-800 border-red-200";
+      case "pending": default: return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
 
@@ -249,7 +248,7 @@ const ProjectDetails = () => {
             <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách dự án
           </Link>
           {isProjectLoading ? <Skeleton className="h-8 w-64" /> : <h1 className="text-3xl font-bold">{project?.name}</h1>}
-          <p className="text-muted-foreground">Xây dựng và quản lý kịch bản tự động hóa của bạn.</p>
+          <p className="text-muted-foreground mt-1">Xây dựng và quản lý kịch bản tự động hóa của bạn.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={() => runScenarioMutation.mutate()} disabled={runScenarioMutation.isPending || !scenarioTasks.some(t => t.status === 'pending')}>
@@ -261,78 +260,93 @@ const ProjectDetails = () => {
         </div>
       </div>
       
-      <Card>
-        <CardHeader>
-          <CardTitle>Kịch bản tự động</CardTitle>
-          <CardDescription>Các bước sẽ được thực hiện tuần tự từ trên xuống dưới.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {areTasksLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-24 w-full" />
+      <div className="w-full max-w-4xl mx-auto">
+        {areTasksLoading ? (
+          <div className="space-y-8">
+            <Skeleton className="h-24 w-full rounded-lg" />
+            <Skeleton className="h-24 w-full rounded-lg" />
+          </div>
+        ) : scenarioTasks.length > 0 ? (
+          <div className="relative flex flex-col items-center pb-4">
+            {/* Dotted line */}
+            <div className="absolute top-6 left-10 h-full w-0.5 bg-transparent">
+              <div className="h-full w-full border-l-2 border-dashed border-border"></div>
             </div>
-          ) : scenarioTasks.length > 0 ? (
-            <div className="flex flex-col items-center -mb-4">
-              {scenarioTasks.map((task, index) => (
-                <Fragment key={task.id}>
-                  <Card className="w-full max-w-3xl z-10 shadow-sm">
-                    <CardHeader className="flex flex-row items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-3">
-                           <Badge variant="secondary" className="text-lg">{task.execution_order}</Badge>
-                           <CardTitle className="text-lg">{task.name}</CardTitle>
-                        </div>
-                        <CardDescription className="mt-1 ml-10">{getTaskTypeName(task.type)}</CardDescription>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => { setSelectedTask(task); setEditTaskOpen(true); }}>Sửa</DropdownMenuItem>
-                          {task.status !== 'pending' && task.status !== 'queued' && (
-                            <DropdownMenuItem onClick={() => updateTaskStatusMutation.mutate({ taskId: task.id, status: 'queued' })}>
-                              <RefreshCw className="mr-2 h-4 w-4" />
-                              Chạy lại
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-500" onClick={() => { setSelectedTask(task); setDeleteTaskOpen(true); }}>Xóa</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </CardHeader>
-                    <CardFooter className="flex flex-col items-start gap-2">
-                       <Badge variant={getStatusVariant(task.status)}>{task.status}</Badge>
-                       {task.status === 'failed' && (
-                         <Alert variant="destructive" className="mt-2">
-                           <Terminal className="h-4 w-4" />
-                           <AlertTitle>Chi tiết lỗi</AlertTitle>
-                           <AlertDescription className="font-mono text-xs whitespace-pre-wrap">
-                             {task.error_log || "Extension đã báo lỗi nhưng không cung cấp thông tin chi tiết."}
-                           </AlertDescription>
-                         </Alert>
-                       )}
-                    </CardFooter>
-                  </Card>
-                  {index < scenarioTasks.length - 1 && (
-                    <div className="h-10 w-0.5 bg-border -my-2 flex items-center justify-center">
-                      <ArrowDown className="h-5 w-5 text-border" />
+
+            {scenarioTasks.map((task) => {
+              const details = getTaskTypeDetails(task.type);
+              const Icon = details.icon;
+              return (
+                <div key={task.id} className="w-full my-4 z-10 flex items-start gap-6">
+                  <div className="flex-shrink-0 h-20 flex flex-col items-center">
+                    <div className="h-12 w-12 rounded-full bg-background flex items-center justify-center border-2 font-bold text-primary">
+                      {task.execution_order}
                     </div>
-                  )}
-                </Fragment>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-10">
-              <p className="text-muted-foreground">Chưa có bước nào trong kịch bản này.</p>
-              <Button onClick={() => setCreateTaskOpen(true)} className="mt-4">Bắt đầu bằng cách thêm bước đầu tiên</Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </div>
+                  <div className="w-full mt-1">
+                    <Card className={cn("transition-all hover:shadow-md", getStatusClasses(task.status))}>
+                      <div className="p-4 flex items-center gap-4">
+                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-white flex items-center justify-center border">
+                          <Icon className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-grow">
+                          <h3 className="font-semibold">{task.name}</h3>
+                          <p className="text-sm text-muted-foreground">{details.name}</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <Badge variant={task.status === 'completed' ? 'default' : 'outline'} className={cn("capitalize", getStatusClasses(task.status))}>{task.status}</Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => { setSelectedTask(task); setEditTaskOpen(true); }}>Sửa</DropdownMenuItem>
+                              {task.status !== 'pending' && task.status !== 'queued' && (
+                                <DropdownMenuItem onClick={() => updateTaskStatusMutation.mutate({ taskId: task.id, status: 'queued' })}>
+                                  <RefreshCw className="mr-2 h-4 w-4" />
+                                  Chạy lại
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setSelectedTask(task); setDeleteTaskOpen(true); }}>Xóa</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                      {task.status === 'failed' && (
+                         <div className="border-t p-4">
+                           <Alert variant="destructive">
+                             <Terminal className="h-4 w-4" />
+                             <AlertTitle>Chi tiết lỗi</AlertTitle>
+                             <AlertDescription className="font-mono text-xs whitespace-pre-wrap mt-2">
+                               {task.error_log || "Extension đã báo lỗi nhưng không cung cấp thông tin chi tiết."}
+                             </AlertDescription>
+                           </Alert>
+                         </div>
+                       )}
+                    </Card>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <Card className="text-center py-16">
+            <CardHeader>
+              <CardTitle className="text-2xl">Bắt đầu kịch bản của bạn</CardTitle>
+              <CardDescription>Chưa có bước nào trong dự án này.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => setCreateTaskOpen(true)} className="mt-4">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Thêm bước đầu tiên
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {projectId && <CreateTaskDialog isOpen={isCreateTaskOpen} onOpenChange={setCreateTaskOpen} projectId={projectId} />}
       <EditTaskDialog isOpen={isEditTaskOpen} onOpenChange={setEditTaskOpen} task={selectedTask} projectId={projectId} />
