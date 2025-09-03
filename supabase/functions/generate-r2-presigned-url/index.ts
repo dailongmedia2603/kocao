@@ -1,8 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { S3Client, PutObjectCommand } from "https://esm.sh/@aws-sdk/client-s3@3.583.0";
-import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.583.0";
+import { presign } from "https://deno.land/x/aws_s3_presign@1.3.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,18 +14,6 @@ const R2_ACCOUNT_ID = Deno.env.get("R2_ACCOUNT_ID")!;
 const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID")!;
 const R2_SECRET_ACCESS_KEY = Deno.env.get("R2_SECRET_ACCESS_KEY")!;
 const R2_PUBLIC_URL = Deno.env.get("R2_PUBLIC_URL")!;
-
-// Khởi tạo S3 client với credentials dưới dạng một hàm (function)
-// để ngăn chặn việc SDK cố gắng đọc tệp cấu hình từ hệ thống file.
-const s3Client = new S3Client({
-  region: "us-east-1",
-  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: () => Promise.resolve({
-    accessKeyId: R2_ACCESS_KEY_ID,
-    secretAccessKey: R2_SECRET_ACCESS_KEY,
-  }),
-  forcePathStyle: true,
-});
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -42,13 +29,20 @@ serve(async (req) => {
 
     const storagePath = `${userId}/${projectId}/${Date.now()}-${fileName}`;
     
-    const putCommand = new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
-      Key: storagePath,
-      ContentType: contentType,
+    // Sử dụng thư viện Deno-native để tạo pre-signed URL
+    const uploadUrl = presign({
+      method: "PUT",
+      bucket: R2_BUCKET_NAME,
+      key: storagePath,
+      accessKeyId: R2_ACCESS_KEY_ID,
+      secretAccessKey: R2_SECRET_ACCESS_KEY,
+      endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      region: "us-east-1", // Bắt buộc, nhưng giá trị không quan trọng với R2
+      expires: 300, // URL có hiệu lực trong 5 phút
+      headers: {
+        'Content-Type': contentType,
+      },
     });
-
-    const uploadUrl = await getSignedUrl(s3Client, putCommand, { expiresIn: 300 }); // URL có hiệu lực trong 5 phút
 
     const publicFileUrl = `${R2_PUBLIC_URL}/${storagePath}`;
 
@@ -57,6 +51,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Lưu bản ghi vào DB trước khi trả về URL
     const { data: dbData, error: dbError } = await supabaseAdmin
       .from("user_files")
       .insert({
