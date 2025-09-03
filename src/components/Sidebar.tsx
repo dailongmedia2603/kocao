@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, LayoutDashboard, FolderKanban, Settings } from "lucide-react";
+import { ChevronLeft, LayoutDashboard, FolderKanban, Settings, Plug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
 
@@ -12,6 +12,7 @@ const menuItems = [
     to: "/",
   },
   { label: "Danh sách dự án", icon: FolderKanban, to: "/projects" },
+  { label: "Extensions", icon: Plug, to: "/extensions" },
   { label: "Settings", icon: Settings, to: "/settings" },
 ];
 
@@ -46,6 +47,7 @@ const Sidebar = () => {
             <NavLink
               key={item.label}
               to={item.to}
+              end={item.to === "/"}
               className={({ isActive }) =>
                 cn(
                   "group flex items-center p-2 rounded-md text-sm font-semibold transition-colors text-gray-700 hover:bg-red-50 hover:text-red-600",

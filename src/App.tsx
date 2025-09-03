@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { SessionContextProvider } from "./contexts/SessionContext";
 import { Toaster } from "sonner";
+import Extensions from "./pages/Extensions";
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/projects" element={<ProjectsList />} />
               <Route path="/projects/:id" element={<ProjectDetail />} />
+              <Route path="/extensions" element={<Extensions />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { PlusCircle, ArrowLeft, MoreHorizontal, Play, RefreshCw, Terminal, Bot, MousePointerClick, UploadCloud, DownloadCloud, Clock, Type } from "lucide-react";
+import { PlusCircle, ArrowLeft, MoreHorizontal, Play, RefreshCw, Terminal, Bot, MousePointerClick, UploadCloud, DownloadCloud, Clock, Type, ChevronDown, Plug } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CreateTaskDialog } from "../components/tasks/CreateTaskDialog";
 import { EditTaskDialog } from "../components/tasks/EditTaskDialog";
 import { cn } from "@/lib/utils";
+import { type ExtensionInstance } from "@/pages/Extensions";
 
 type Project = {
   name: string;
@@ -50,6 +51,8 @@ type Task = {
   payload: any;
   execution_order: number | null;
   error_log: string | null;
+  assigned_extension_id: string | null;
+  extension_instances: { name: string } | null;
 };
 
 const taskTypeDetails: { [key: string]: { name: string; icon: React.ElementType } } = {
@@ -89,25 +92,37 @@ const ProjectDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tasks")
-        .select("*")
+        .select("*, extension_instances(name)")
         .eq("project_id", projectId)
         .order("execution_order", { ascending: true, nullsFirst: true });
       if (error) throw error;
-      return data;
+      return data as any;
     },
     enabled: !!projectId,
   });
 
+  const { data: extensions, isLoading: areExtensionsLoading } = useQuery<ExtensionInstance[]>({
+    queryKey: ["extensions"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("extension_instances").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const runScenarioMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ extensionId }: { extensionId: string }) => {
       const firstTask = tasks?.find(t => t.status === 'pending' && t.execution_order !== null);
       if (!firstTask) throw new Error("Không có bước nào để bắt đầu hoặc kịch bản đã chạy xong.");
       
-      const { error } = await supabase.from("tasks").update({ status: "queued" }).eq("id", firstTask.id);
+      const { error } = await supabase
+        .from("tasks")
+        .update({ status: "queued", assigned_extension_id: extensionId })
+        .eq("id", firstTask.id);
       if (error) throw error;
     },
     onSuccess: () => {
-      showSuccess("Đã bắt đầu kịch bản! Bước đầu tiên đã được gửi đi.");
+      showSuccess("Đã bắt đầu kịch bản! Bước đầu tiên đã được gửi đến Extension được chỉ định.");
       queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
     },
     onError: (error: Error) => {
@@ -195,9 +210,28 @@ const ProjectDetail = () => {
             <p className="text-muted-foreground mt-1">Xây dựng và quản lý kịch bản tự động hóa của bạn.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={() => runScenarioMutation.mutate()} disabled={runScenarioMutation.isPending || !scenarioTasks.some(t => t.status === 'pending')}>
-              <Play className="mr-2 h-4 w-4" /> Thực hiện Kịch bản
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="bg-red-600 hover:bg-red-700 text-white" disabled={runScenarioMutation.isPending || !scenarioTasks.some(t => t.status === 'pending')}>
+                  <Play className="mr-2 h-4 w-4" /> Thực hiện Kịch bản <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {areExtensionsLoading ? (
+                  <DropdownMenuItem disabled>Đang tải Extensions...</DropdownMenuItem>
+                ) : extensions && extensions.length > 0 ? (
+                  extensions.map((ext) => (
+                    <DropdownMenuItem key={ext.id} onClick={() => runScenarioMutation.mutate({ extensionId: ext.id })}>
+                      <Plug className="mr-2 h-4 w-4" /> Gửi đến "{ext.name}"
+                    </DropdownMenuItem>
+                  ))
+                ) : (
+                  <DropdownMenuItem asChild>
+                    <Link to="/extensions">Chưa có Extension. Thêm ngay.</Link>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={() => setCreateTaskOpen(true)} variant="outline">
               <PlusCircle className="mr-2 h-4 w-4" /> Thêm bước
             </Button>
@@ -234,7 +268,18 @@ const ProjectDetail = () => {
                           </div>
                           <div className="flex-grow">
                             <h3 className="font-semibold">{task.name}</h3>
-                            <p className="text-sm text-muted-foreground">{details.name}</p>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span>{details.name}</span>
+                              {task.extension_instances && (
+                                <>
+                                  <span className="text-gray-300">|</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <Plug className="h-3 w-3" />
+                                    <span>{task.extension_instances.name}</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-4">
                             <Badge variant={task.status === 'completed' ? 'default' : 'outline'} className={cn("capitalize", getStatusClasses(task.status))}>{task.status}</Badge>
@@ -293,7 +338,7 @@ const ProjectDetail = () => {
       </div>
 
       {projectId && <CreateTaskDialog isOpen={isCreateTaskOpen} onOpenChange={setCreateTaskOpen} projectId={projectId} taskCount={tasks?.length || 0} />}
-      <EditTaskDialog isOpen={isEditTaskOpen} onOpenChange={setEditTaskOpen} task={selectedTask} projectId={projectId} />
+      <EditTaskDialog isOpen={isEditTaskOpen} onOpenChange={setEditTaskOpen} task={selectedTask as any} projectId={projectId} />
       <AlertDialog open={isDeleteTaskOpen} onOpenChange={setDeleteTaskOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
