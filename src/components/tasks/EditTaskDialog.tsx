@@ -112,7 +112,7 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
                 try {
                   const errorBody = await presignError.context.json();
                   errorMessage = errorBody.error || errorMessage;
-                } catch {}
+                } catch (e) {}
               }
               throw new Error(`Không thể lấy URL tải lên: ${errorMessage}`);
             }
@@ -290,7 +290,7 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
                   <FormItem><FormLabel>Nội dung cần dán</FormLabel><FormControl><Textarea className="resize-y" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="selector" render={({ field }) => (
-                  <FormItem><FormLabel>CSS Selector của ô nhập liệu</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormMessage>
+                  <FormItem><FormLabel>CSS Selector của ô nhập liệu</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
               </>
             )}
