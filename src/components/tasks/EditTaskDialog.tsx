@@ -95,7 +95,7 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
             loadingToastId.current = showLoading("Đang chuẩn bị tải tệp lên...");
             
             const { data: presignData, error: presignError } = await supabase.functions.invoke(
-              "generate-r2-presigned-url",
+              "create-r2-upload-url",
               {
                 body: {
                   fileName: newFile.name,
