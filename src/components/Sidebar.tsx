@@ -1,74 +1,120 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { useSession } from "@/contexts/SessionContext";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LayoutDashboard, FolderKanban, Settings, LogOut, Bot } from "lucide-react";
+import { ChevronLeft, Dot, LayoutDashboard, FolderKanban, Settings, Bot, Users, Building, Handshake, Target, GitBranch, Megaphone, ListTodo, FileText, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo } from "./Logo";
+
+const menuItems = [
+  {
+    title: "MAIN MENU",
+    items: [
+      {
+        label: "Dashboard",
+        icon: LayoutDashboard,
+        to: "/",
+        subItems: [
+          { label: "Project Dashboard", to: "/" },
+        ],
+      },
+    ],
+  },
+  {
+    title: "CRM",
+    items: [
+      { label: "Contacts", icon: Users, to: "#" },
+      { label: "Companies", icon: Building, to: "#" },
+      { label: "Deals", icon: Handshake, to: "#" },
+      { label: "Leads", icon: Target, to: "#" },
+      { label: "Pipeline", icon: GitBranch, to: "#" },
+      { label: "Campaign", icon: Megaphone, to: "#" },
+      { label: "Projects", icon: FolderKanban, to: "/projects" },
+      { label: "Tasks", icon: ListTodo, to: "#" },
+      { label: "Proposals", icon: FileText, to: "#" },
+      { label: "Settings", icon: Settings, to: "/settings" },
+    ],
+  },
+];
 
 const Sidebar = () => {
-  const { profile, user, signOut } = useSession();
-
-  const getInitials = (firstName?: string | null, lastName?: string | null) => {
-    const first = firstName?.[0] || "";
-    const last = lastName?.[0] || "";
-    return `${first}${last}`.toUpperCase() || "??";
-  };
-
-  const navItems = [
-    { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-    { to: "/projects", icon: FolderKanban, label: "Dự án" },
-    { to: "/settings", icon: Settings, label: "Cài đặt" },
-  ];
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <aside className="w-64 flex-shrink-0 bg-sidebar text-sidebar-foreground flex flex-col">
-      <div className="p-6 flex items-center gap-3 border-b border-sidebar-hover">
-        <Bot className="h-8 w-8 text-primary" />
-        <h1 className="text-2xl font-bold text-white">AutoTasker</h1>
-      </div>
-      
-      <nav className="flex-grow px-4 py-4">
-        <ul className="space-y-2">
-          {navItems.map((item) => (
-            <li key={item.to}>
-              <NavLink
-                to={item.to}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center space-x-3 p-3 rounded-md font-medium transition-colors",
-                    "hover:bg-sidebar-hover hover:text-white",
-                    isActive && "bg-sidebar-active text-sidebar-active-foreground"
-                  )
-                }
-              >
-                <item.icon className="h-5 w-5" />
-                <span>{item.label}</span>
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      <div className="p-4 mt-auto border-t border-sidebar-hover">
-        <div className="p-2 flex items-center space-x-3">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={profile?.avatar_url || undefined} />
-            <AvatarFallback className="bg-primary text-primary-foreground">
-              {getInitials(profile?.first_name, profile?.last_name)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="overflow-hidden">
-            <p className="font-semibold text-sm text-white truncate">
-              {profile?.first_name} {profile?.last_name}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-          </div>
-        </div>
-        <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-hover hover:text-white mt-2" onClick={signOut}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Đăng xuất
+    <aside className={cn("bg-white border-r flex flex-col transition-all duration-300", isCollapsed ? "w-20" : "w-64")}>
+      <div className="flex items-center justify-between h-16 border-b px-4 flex-shrink-0">
+        {!isCollapsed && <Logo />}
+        <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(!isCollapsed)}>
+          <ChevronLeft className={cn("h-5 w-5 transition-transform", isCollapsed && "rotate-180")} />
         </Button>
       </div>
+      <nav className="flex-grow px-4 py-4 overflow-y-auto">
+        <Accordion type="multiple" defaultValue={["Dashboard"]} className="w-full">
+          {menuItems.map((section) => (
+            <div key={section.title} className="mb-6">
+              {!isCollapsed && <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{section.title}</h2>}
+              {section.items.map((item) =>
+                item.subItems ? (
+                  <AccordionItem key={item.label} value={item.label} className="border-none">
+                    <AccordionTrigger className="p-0 hover:no-underline">
+                      <NavLink
+                        to={item.to}
+                        end
+                        className={({ isActive }) =>
+                          cn(
+                            "flex items-center w-full p-3 rounded-md font-medium transition-colors text-gray-600 hover:bg-red-50 hover:text-red-600",
+                            isActive && "bg-red-500 text-white hover:bg-red-500 hover:text-white"
+                          )
+                        }
+                      >
+                        <item.icon className="h-5 w-5" />
+                        {!isCollapsed && <span className="ml-3">{item.label}</span>}
+                      </NavLink>
+                    </AccordionTrigger>
+                    {!isCollapsed && (
+                      <AccordionContent className="pl-6 pb-0">
+                        <ul className="space-y-1 mt-1">
+                          {item.subItems.map((sub) => (
+                            <li key={sub.label}>
+                              <NavLink
+                                to={sub.to}
+                                end
+                                className={({ isActive }) =>
+                                  cn(
+                                    "flex items-center p-2 rounded-md text-sm text-gray-500 hover:text-gray-900",
+                                    isActive && "text-red-500 font-semibold"
+                                  )
+                                }
+                              >
+                                <Dot className="h-5 w-5" />
+                                {sub.label}
+                              </NavLink>
+                            </li>
+                          ))}
+                        </ul>
+                      </AccordionContent>
+                    )}
+                  </AccordionItem>
+                ) : (
+                  <NavLink
+                    key={item.label}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center p-3 rounded-md font-medium transition-colors text-gray-600 hover:bg-red-50 hover:text-red-600",
+                        isActive && "bg-red-500 text-white hover:bg-red-500 hover:text-white"
+                      )
+                    }
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {!isCollapsed && <span className="ml-3">{item.label}</span>}
+                  </NavLink>
+                )
+              )}
+            </div>
+          ))}
+        </Accordion>
+      </nav>
     </aside>
   );
 };
