@@ -48,7 +48,7 @@ type Project = {
 const fetchProjects = async () => {
   const { data, error } = await supabase
     .from("projects")
-    .select("*, profiles!user_id(*), tasks(count)")
+    .select("*, profiles!projects_user_id_fkey(*), tasks(count)")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data as Project[];
