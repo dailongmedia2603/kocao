@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
@@ -98,27 +99,21 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
             formData.append("userId", user.id);
             formData.append("projectId", projectId);
 
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error("User not authenticated for function call");
-
-            const response = await fetch(
-              "https://ypwupyjwwixgnwpohngd.supabase.co/functions/v1/upload-to-r2",
-              {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${session.access_token}`,
-                  'apikey': "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwd3VweWp3d2l4Z253cG9obmdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0NDY3NDAsImV4cCI6MjA3MjAyMjc0MH0.J-NqLbR__Yq4RqGtRIPM5dYTmZZFVoBfZ3lwkTk_-rw",
-                },
-                body: formData,
-              }
+            const { data: newFileData, error: functionError } = await supabase.functions.invoke(
+              "upload-to-r2",
+              { body: formData }
             );
 
-            if (!response.ok) {
-              const errorBody = await response.json();
-              throw new Error(errorBody.error || `Lỗi máy chủ: ${response.statusText}`);
+            if (functionError) {
+              let errorMessage = functionError.message;
+              if (functionError instanceof FunctionsHttpError) {
+                try {
+                  const errorBody = await functionError.context.json();
+                  errorMessage = errorBody.error || errorMessage;
+                } catch { /* Ignore if response is not JSON */ }
+              }
+              throw new Error(`Lỗi tải tệp lên: ${errorMessage}`);
             }
-
-            const newFileData = await response.json();
     
             fileUrl = newFileData.file_url;
             fileName = newFileData.file_name;
