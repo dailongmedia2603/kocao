@@ -107,7 +107,11 @@ export const CreateProjectDialog = ({
               >
                 Hủy
               </Button>
-              <Button type="submit" disabled={createProjectMutation.isPending}>
+              <Button
+                type="submit"
+                disabled={createProjectMutation.isPending}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
                 {createProjectMutation.isPending ? "Đang tạo..." : "Tạo và tiếp tục"}
               </Button>
             </DialogFooter>
