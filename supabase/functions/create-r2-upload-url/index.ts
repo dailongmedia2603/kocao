@@ -1,8 +1,7 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { crypto } from "https://deno.land/std@0.190.0/crypto/mod.ts";
-import { toIMF } from "https://deno.land/std@0.190.0/datetime/mod.ts";
+import { crypto } from "https://deno.land/std@0.224.0/crypto/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +36,7 @@ function toHex(data) {
 }
 
 serve(async (req) => {
+  // Xử lý yêu cầu CORS preflight một cách rõ ràng
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -58,13 +58,6 @@ serve(async (req) => {
     // --- AWS Signature V4 Signing Process ---
     const scope = `${dateStamp}/${REGION}/${SERVICE}/aws4_request`;
 
-    const headers = new URLSearchParams({
-      'host': host,
-      'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
-      'x-amz-date': amzDate,
-    });
-    headers.sort();
-
     const query = new URLSearchParams({
       'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
       'X-Amz-Credential': `${R2_ACCESS_KEY_ID}/${scope}`,
@@ -79,7 +72,7 @@ serve(async (req) => {
       'PUT',
       `/${R2_BUCKET_NAME}/${storagePath}`,
       query.toString(),
-      'host:' + host + '\n', // Only host is a signed header
+      'host:' + host + '\n',
       'host',
       'UNSIGNED-PAYLOAD'
     ].join('\n');
