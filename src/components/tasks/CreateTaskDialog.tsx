@@ -33,6 +33,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileLibrary, UserFile } from "./FileLibrary";
+import { Badge } from "@/components/ui/badge";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên bước không được để trống"),
@@ -56,7 +59,8 @@ export const CreateTaskDialog = ({
 }: CreateTaskDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
-  const [file, setFile] = useState<File | null>(null);
+  const [newFile, setNewFile] = useState<File | null>(null);
+  const [selectedLibraryFile, setSelectedLibraryFile] = useState<UserFile | null>(null);
   const loadingToastId = useRef<string | number | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -102,17 +106,45 @@ export const CreateTaskDialog = ({
           payloadData = { selector: values.selector };
           break;
         case "UPLOAD_FILE":
-          if (!file) throw new Error("Vui lòng chọn một tệp để tải lên.");
+          if (!newFile && !selectedLibraryFile) throw new Error("Vui lòng chọn một tệp để tải lên hoặc chọn từ thư viện.");
           if (!values.selector) throw new Error("Vui lòng nhập CSS Selector cho ô nhập tệp.");
-          loadingToastId.current = showLoading("Đang tải tệp lên...");
-          const filePath = `${user.id}/${projectId}/${Date.now()}-${file.name}`;
-          const { error: uploadError } = await supabase.storage.from("task_files").upload(filePath, file);
-          if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
-          const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
+          
+          let fileUrl: string;
+          let fileName: string;
+          let fileType: string | undefined;
+
+          if (newFile) {
+            loadingToastId.current = showLoading("Đang tải tệp lên...");
+            const filePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
+            const { error: uploadError } = await supabase.storage.from("task_files").upload(filePath, newFile);
+            if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
+            
+            const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
+            fileUrl = publicUrl;
+            fileName = newFile.name;
+            fileType = newFile.type;
+
+            // Save to library
+            const { error: dbError } = await supabase.from("user_files").insert({
+              user_id: user.id, project_id: projectId, file_name: fileName,
+              file_url: fileUrl, storage_path: filePath, source: 'upload'
+            });
+            if (dbError) {
+              console.error("Failed to save file to library:", dbError.message);
+              showError("Tệp đã được tải lên nhưng không thể lưu vào thư viện.");
+            }
+          } else if (selectedLibraryFile) {
+            fileUrl = selectedLibraryFile.file_url;
+            fileName = selectedLibraryFile.file_name;
+            fileType = undefined; // We don't know the type from library
+          } else {
+            throw new Error("No file selected.");
+          }
+
           payloadData = {
-            fileUrl: publicUrl,
-            fileName: file.name,
-            fileType: file.type,
+            fileUrl,
+            fileName,
+            fileType,
             inputSelector: values.selector,
           };
           break;
@@ -142,9 +174,11 @@ export const CreateTaskDialog = ({
       }
       showSuccess("Thêm bước thành công!");
       queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["user_files", user?.id] });
       onOpenChange(false);
       form.reset();
-      setFile(null);
+      setNewFile(null);
+      setSelectedLibraryFile(null);
     },
     onError: (error) => {
       if (loadingToastId.current) {
@@ -157,6 +191,9 @@ export const CreateTaskDialog = ({
 
   const onSubmit = (values: z.infer<typeof formSchema>) => { createTaskMutation.mutate(values); };
   const selectedType = form.watch("type");
+
+  const activeFileName = newFile?.name || selectedLibraryFile?.file_name;
+  const activeFileSource = newFile ? 'new' : selectedLibraryFile ? 'library' : 'none';
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -211,11 +248,47 @@ export const CreateTaskDialog = ({
 
             {selectedType === "UPLOAD_FILE" && (
               <>
-                <FormItem>
-                  <FormLabel>Tệp để tải lên</FormLabel>
-                  <FormControl><Input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} /></FormControl>
-                  <FormMessage />
-                </FormItem>
+                <Tabs defaultValue="new" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="new">Tải lên tệp mới</TabsTrigger>
+                    <TabsTrigger value="library">Chọn từ thư viện</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="new">
+                    <FormItem className="mt-4">
+                      <FormLabel>Tệp để tải lên</FormLabel>
+                      {activeFileName && (
+                        <div className="text-sm text-muted-foreground mb-2">
+                          {activeFileSource === 'library' && 'Tệp đã chọn: '}
+                          {activeFileSource === 'new' && 'Tệp mới: '}
+                          <Badge variant={activeFileSource === 'library' ? 'default' : 'secondary'}>
+                            {activeFileName}
+                          </Badge>
+                        </div>
+                      )}
+                      <FormControl>
+                        <Input type="file" onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setNewFile(file);
+                          if (file) setSelectedLibraryFile(null);
+                        }} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  </TabsContent>
+                  <TabsContent value="library">
+                    <div className="mt-4">
+                      <FileLibrary
+                        selectedFileUrl={selectedLibraryFile?.file_url}
+                        onFileSelect={(file) => {
+                          setSelectedLibraryFile(file);
+                          setNewFile(null);
+                          const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+                          if (fileInput) fileInput.value = "";
+                        }}
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
                 <FormField control={form.control} name="selector" render={({ field }) => (
                   <FormItem>
                     <FormLabel>CSS Selector của ô nhập tệp</FormLabel>
