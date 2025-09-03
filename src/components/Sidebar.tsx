@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Dot, LayoutDashboard, FolderKanban, Settings, Bot, Users, Building, Handshake, Target, GitBranch, Megaphone, ListTodo, FileText, Shield } from "lucide-react";
+import { ChevronLeft, Dot, LayoutDashboard, FolderKanban, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
 
@@ -18,20 +18,7 @@ const menuItems = [
           { label: "Project Dashboard", to: "/" },
         ],
       },
-    ],
-  },
-  {
-    title: "CRM",
-    items: [
-      { label: "Contacts", icon: Users, to: "#" },
-      { label: "Companies", icon: Building, to: "#" },
-      { label: "Deals", icon: Handshake, to: "#" },
-      { label: "Leads", icon: Target, to: "#" },
-      { label: "Pipeline", icon: GitBranch, to: "#" },
-      { label: "Campaign", icon: Megaphone, to: "#" },
       { label: "Projects", icon: FolderKanban, to: "/projects" },
-      { label: "Tasks", icon: ListTodo, to: "#" },
-      { label: "Proposals", icon: FileText, to: "#" },
       { label: "Settings", icon: Settings, to: "/settings" },
     ],
   },
