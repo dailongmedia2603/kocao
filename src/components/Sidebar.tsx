@@ -20,9 +20,21 @@ const Sidebar = () => {
 
   return (
     <aside className={cn("bg-white border-r flex flex-col transition-all duration-300", isCollapsed ? "w-20" : "w-64")}>
-      <div className="flex items-center justify-between h-16 border-b px-4 flex-shrink-0">
-        {!isCollapsed && <Logo />}
-        <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(!isCollapsed)}>
+      <div className={cn(
+        "flex items-center h-16 border-b px-4 flex-shrink-0 relative",
+        isCollapsed ? "justify-center" : "justify-between"
+      )}>
+        {isCollapsed ? (
+          <img src="/favicon.ico" alt="Logo" className="h-8 w-auto" />
+        ) : (
+          <Logo />
+        )}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className={cn(isCollapsed && "absolute right-2 top-1/2 -translate-y-1/2")}
+        >
           <ChevronLeft className={cn("h-5 w-5 transition-transform", isCollapsed && "rotate-180")} />
         </Button>
       </div>
