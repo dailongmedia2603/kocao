@@ -10,6 +10,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
+import CreateVideoPage from "./pages/CreateVideo";
 import ProjectDetails from "./pages/ProjectDetails";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -29,6 +30,7 @@ const App = () => (
               <Route element={<AppLayout />}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/projects" element={<Projects />} />
+                <Route path="/create-video" element={<CreateVideoPage />} />
                 <Route path="/projects/:projectId" element={<ProjectDetails />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
