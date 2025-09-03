@@ -1,10 +1,11 @@
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
-import { showSuccess, showError } from "@/utils/toast";
+import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
 
 import {
   Dialog,
@@ -21,6 +22,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Select,
@@ -32,6 +34,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { FileLibrary, UserFile } from "./FileLibrary";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên bước không được để trống"),
@@ -57,6 +62,9 @@ export const CreateTaskDialog = ({
 }: CreateTaskDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
+  const [newFile, setNewFile] = useState<File | null>(null);
+  const [selectedLibraryFile, setSelectedLibraryFile] = useState<UserFile | null>(null);
+  const loadingToastId = useRef<string | number | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -79,9 +87,63 @@ export const CreateTaskDialog = ({
           payloadData = { selector: values.selector };
           break;
         case "UPLOAD_FILE":
-           if (!values.selector) throw new Error("Vui lòng nhập CSS Selector của ô nhập tệp.");
-           payloadData = { inputSelector: values.selector };
-           break;
+          if (!values.selector) throw new Error("Vui lòng nhập CSS Selector của ô nhập tệp.");
+          
+          let fileUrl: string | undefined;
+          let fileName: string | undefined;
+          let fileType: string | undefined;
+          let storagePath: string | undefined;
+
+          if (newFile) {
+            loadingToastId.current = showLoading("Đang tải tệp lên Supabase Storage...");
+            
+            const newStoragePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
+            
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from("user_files")
+              .upload(newStoragePath, newFile);
+
+            if (uploadError) {
+              throw new Error(`Lỗi tải tệp lên Supabase Storage: ${uploadError.message}`);
+            }
+
+            const { data: publicUrlData } = supabase.storage
+              .from("user_files")
+              .getPublicUrl(uploadData.path);
+
+            fileUrl = publicUrlData.publicUrl;
+            fileName = newFile.name;
+            fileType = newFile.type;
+            storagePath = uploadData.path;
+
+            const { error: dbError } = await supabase
+              .from("user_files")
+              .insert({
+                user_id: user.id,
+                project_id: projectId,
+                file_name: fileName,
+                file_url: fileUrl,
+                storage_path: storagePath,
+                source: 'upload',
+                storage_provider: 'supabase'
+              });
+            
+            if (dbError) {
+              await supabase.storage.from("user_files").remove([storagePath]);
+              throw new Error(`Lỗi lưu thông tin tệp: ${dbError.message}`);
+            }
+          } else if (selectedLibraryFile) {
+            fileUrl = selectedLibraryFile.file_url;
+            fileName = selectedLibraryFile.file_name;
+            storagePath = selectedLibraryFile.storage_path;
+          }
+
+          if (!fileUrl) {
+            throw new Error("Vui lòng chọn một tệp để tải lên.");
+          }
+
+          payloadData = { fileUrl, fileName, fileType, inputSelector: values.selector, storagePath };
+          break;
         case "DELAY":
           if (!values.delayDuration || values.delayDuration <= 0) throw new Error("Vui lòng nhập thời gian chờ hợp lệ.");
           payloadData = { duration: values.delayDuration };
@@ -111,12 +173,23 @@ export const CreateTaskDialog = ({
       return data;
     },
     onSuccess: () => {
+      if (loadingToastId.current) {
+        dismissToast(loadingToastId.current);
+        loadingToastId.current = null;
+      }
       showSuccess("Thêm bước thành công!");
       queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["user_files", user?.id] });
       onOpenChange(false);
       form.reset();
+      setNewFile(null);
+      setSelectedLibraryFile(null);
     },
     onError: (error) => {
+      if (loadingToastId.current) {
+        dismissToast(loadingToastId.current);
+        loadingToastId.current = null;
+      }
       showError(`Lỗi: ${error.message}`);
     },
   });
@@ -126,6 +199,7 @@ export const CreateTaskDialog = ({
   };
 
   const selectedType = form.watch("type");
+  const activeFileName = newFile?.name || selectedLibraryFile?.file_name;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -164,10 +238,54 @@ export const CreateTaskDialog = ({
                 <FormItem><FormLabel>URL Đích</FormLabel><FormControl><Input placeholder="https://example.com" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
             )}
-            {(selectedType === "CLICK_ELEMENT" || selectedType === "DOWNLOAD_FILE" || selectedType === "UPLOAD_FILE") && (
+            {(selectedType === "CLICK_ELEMENT" || selectedType === "DOWNLOAD_FILE") && (
               <FormField control={form.control} name="selector" render={({ field }) => (
                 <FormItem><FormLabel>CSS Selector của phần tử</FormLabel><FormControl><Input placeholder="#submit-button" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
+            )}
+            {selectedType === "UPLOAD_FILE" && (
+              <>
+                <Tabs defaultValue="new" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="new">Tải lên tệp mới</TabsTrigger>
+                    <TabsTrigger value="library">Chọn từ thư viện</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="new">
+                    <FormItem className="mt-4">
+                      <FormLabel>Tệp để tải lên</FormLabel>
+                      {activeFileName && (
+                        <div className="text-sm text-muted-foreground mb-2">
+                          Tệp đã chọn: <Badge variant="secondary">{activeFileName}</Badge>
+                        </div>
+                      )}
+                      <FormControl>
+                        <Input type="file" onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setNewFile(file);
+                          if (file) setSelectedLibraryFile(null);
+                        }} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  </TabsContent>
+                  <TabsContent value="library">
+                    <div className="mt-4">
+                      <FileLibrary
+                        selectedFileUrl={selectedLibraryFile?.file_url}
+                        onFileSelect={(file) => {
+                          setSelectedLibraryFile(file);
+                          setNewFile(null);
+                          const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+                          if (fileInput) fileInput.value = "";
+                        }}
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+                <FormField control={form.control} name="selector" render={({ field }) => (
+                  <FormItem><FormLabel>CSS Selector của ô nhập tệp</FormLabel><FormControl><Input placeholder="input[type='file']" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </>
             )}
             {selectedType === "DELAY" && (
               <FormField control={form.control} name="delayDuration" render={({ field }) => (
