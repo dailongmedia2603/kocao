@@ -18,12 +18,13 @@ const R2_PUBLIC_URL = Deno.env.get("R2_PUBLIC_URL")!;
 
 // Khởi tạo S3 client để kết nối với R2
 const s3Client = new S3Client({
-  region: "auto",
+  region: "us-east-1", // Sử dụng một region AWS hợp lệ, R2 không quan tâm đến giá trị này
   endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
     accessKeyId: R2_ACCESS_KEY_ID,
     secretAccessKey: R2_SECRET_ACCESS_KEY,
   },
+  forcePathStyle: true, // Quan trọng đối với các dịch vụ tương thích S3 như R2
 });
 
 serve(async (req) => {
