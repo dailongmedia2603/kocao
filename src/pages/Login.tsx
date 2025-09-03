@@ -77,8 +77,8 @@ const Login = () => {
         
         <div className="w-full max-w-sm mx-auto">
           <div className="text-left mb-8">
-            <h2 className="text-4xl font-bold tracking-tight">Sign In</h2>
-            <p className="text-gray-500 mt-2 text-sm">Access the CRMS panel using your email and passcode.</p>
+            <h2 className="text-4xl font-bold tracking-tight">Đăng nhập</h2>
+            <p className="text-gray-500 mt-2 text-sm">Dailong Media - Phần mềm xây dựng KOC ảo</p>
           </div>
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
@@ -120,7 +120,7 @@ const Login = () => {
             </div>
             {error && <p className="text-red-500 text-sm text-center">{error}</p>}
             <div>
-              <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base font-bold rounded-lg">Sign In</Button>
+              <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base font-bold rounded-lg">Đăng nhập</Button>
             </div>
           </form>
           <div className="mt-6">
@@ -130,14 +130,6 @@ const Login = () => {
                 Create an account
               </a>
             </p>
-          </div>
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="bg-white px-2 text-gray-500">OR</span>
-            </div>
           </div>
         </div>
         <div className="text-center text-gray-500 text-sm">
