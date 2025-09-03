@@ -213,13 +213,15 @@ export const FileLibrary = ({ onFileSelect, selectedFileUrl }: FileLibraryProps)
             <div key={file.id} className="flex items-center space-x-2 mb-1 p-2 rounded-md hover:bg-accent group">
               <RadioGroupItem value={file.file_url} id={file.id} />
               <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-              <Label htmlFor={file.id} className="flex-grow cursor-pointer min-w-0">
-                <p className="font-medium truncate text-sm">{file.file_name}</p>
+              <Label htmlFor={file.id} className="flex-1 cursor-pointer min-w-0">
+                <p className="font-medium truncate text-sm" title={file.file_name}>
+                  {file.file_name}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {new Date(file.created_at).toLocaleString()}
                 </p>
               </Label>
-              <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center flex-shrink-0 space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Button
                   variant="ghost"
                   size="icon"
