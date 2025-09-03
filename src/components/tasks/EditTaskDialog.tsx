@@ -6,7 +6,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
-import { FunctionsHttpError } from "@supabase/supabase-js";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
@@ -90,60 +89,58 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
           let fileUrl = task.payload?.fileUrl;
           let fileName = task.payload?.fileName;
           let fileType = task.payload?.fileType;
+          let storagePath = task.payload?.storagePath;
 
           if (newFile) {
-            loadingToastId.current = showLoading("Đang chuẩn bị tải tệp lên...");
+            loadingToastId.current = showLoading("Đang tải tệp lên Supabase Storage...");
             
-            const { data: presignData, error: presignError } = await supabase.functions.invoke(
-              "create-r2-upload-url",
-              {
-                body: {
-                  fileName: newFile.name,
-                  contentType: newFile.type,
-                  userId: user.id,
-                  projectId: projectId,
-                },
-              }
-            );
-
-            if (presignError) {
-              let errorMessage = presignError.message;
-              if (presignError instanceof FunctionsHttpError) {
-                try {
-                  const errorBody = await presignError.context.json();
-                  errorMessage = errorBody.error || errorMessage;
-                } catch (e) {}
-              }
-              throw new Error(`Không thể lấy URL tải lên: ${errorMessage}`);
-            }
+            const newStoragePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
             
-            dismissToast(loadingToastId.current);
-            loadingToastId.current = showLoading("Đang tải tệp lên Cloudflare R2...");
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from("user_files")
+              .upload(newStoragePath, newFile);
 
-            const uploadResponse = await fetch(presignData.uploadUrl, {
-              method: 'PUT',
-              headers: { 'Content-Type': newFile.type },
-              body: newFile,
-            });
-
-            if (!uploadResponse.ok) {
-              const errorText = await uploadResponse.text();
-              console.error("Lỗi tải lên R2:", errorText);
-              throw new Error("Tải tệp trực tiếp lên R2 thất bại.");
+            if (uploadError) {
+              throw new Error(`Lỗi tải tệp lên Supabase Storage: ${uploadError.message}`);
             }
 
-            fileUrl = presignData.fileRecord.file_url;
-            fileName = presignData.fileRecord.file_name;
+            const { data: publicUrlData } = supabase.storage
+              .from("user_files")
+              .getPublicUrl(uploadData.path);
+
+            fileUrl = publicUrlData.publicUrl;
+            fileName = newFile.name;
             fileType = newFile.type;
+            storagePath = uploadData.path;
+
+            // Thêm bản ghi vào bảng user_files để quản lý
+            const { error: dbError } = await supabase
+              .from("user_files")
+              .insert({
+                user_id: user.id,
+                project_id: projectId,
+                file_name: fileName,
+                file_url: fileUrl,
+                storage_path: storagePath,
+                source: 'upload',
+                storage_provider: 'supabase'
+              });
+            
+            if (dbError) {
+              // Cố gắng dọn dẹp file đã tải lên nếu không ghi được vào DB
+              await supabase.storage.from("user_files").remove([storagePath]);
+              throw new Error(`Lỗi lưu thông tin tệp: ${dbError.message}`);
+            }
 
           } else if (selectedLibraryFile) {
             fileUrl = selectedLibraryFile.file_url;
             fileName = selectedLibraryFile.file_name;
-            fileType = undefined;
+            storagePath = selectedLibraryFile.storage_path;
+            fileType = undefined; // Không biết type từ thư viện
           }
 
           if (!fileUrl) throw new Error("Không tìm thấy tệp. Vui lòng chọn một tệp mới hoặc chọn từ thư viện.");
-          payloadData = { fileUrl, fileName, fileType, inputSelector: values.selector };
+          payloadData = { fileUrl, fileName, fileType, inputSelector: values.selector, storagePath };
           break;
         case "DELAY":
           if (!values.delayDuration || values.delayDuration <= 0) throw new Error("Vui lòng nhập thời gian chờ hợp lệ.");
