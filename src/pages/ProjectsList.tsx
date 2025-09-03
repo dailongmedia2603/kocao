@@ -46,12 +46,13 @@ type Project = {
 };
 
 const fetchProjects = async () => {
-  const { data, error } = await supabase
-    .from("projects")
-    .select("*, profiles!user_id(*), tasks(count)")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return data as Project[];
+  const { data, error } = await supabase.rpc("get_projects_for_user");
+
+  if (error) {
+    console.error("Error fetching projects:", error);
+    throw error;
+  }
+  return data as any as Project[];
 };
 
 const ProjectsList = () => {
