@@ -22,22 +22,24 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên bước không được để trống"),
-  type: z.string().optional(),
-  payload: z.string().refine((val) => {
-    if (!val || val.trim() === "") return true;
-    try {
-      JSON.parse(val);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }, { message: "Payload phải là một chuỗi JSON hợp lệ" }).optional(),
+  type: z.string().min(1, "Vui lòng chọn loại hành động"),
+  url: z.string().optional(),
+  selector: z.string().optional(),
+  delayDuration: z.coerce.number().optional(),
+  pasteText: z.string().optional(),
 });
 
 type CreateTaskDialogProps = {
@@ -58,29 +60,50 @@ export const CreateTaskDialog = ({
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      type: "",
-      payload: "",
-    },
+    defaultValues: { name: "", type: "" },
   });
 
   const createTaskMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
 
-      const execution_order = taskCount + 1;
+      let payloadData: any = {};
+      switch (values.type) {
+        case "NAVIGATE_TO_URL":
+          if (!values.url || !z.string().url().safeParse(values.url).success) throw new Error("Vui lòng nhập URL hợp lệ.");
+          payloadData = { url: values.url };
+          break;
+        case "CLICK_ELEMENT":
+        case "DOWNLOAD_FILE":
+          if (!values.selector) throw new Error("Vui lòng nhập CSS Selector.");
+          payloadData = { selector: values.selector };
+          break;
+        case "UPLOAD_FILE":
+           if (!values.selector) throw new Error("Vui lòng nhập CSS Selector của ô nhập tệp.");
+           payloadData = { inputSelector: values.selector };
+           break;
+        case "DELAY":
+          if (!values.delayDuration || values.delayDuration <= 0) throw new Error("Vui lòng nhập thời gian chờ hợp lệ.");
+          payloadData = { duration: values.delayDuration };
+          break;
+        case "PASTE_TEXT":
+          if (!values.selector) throw new Error("Vui lòng nhập CSS Selector của ô nhập liệu.");
+          if (!values.pasteText) throw new Error("Vui lòng nhập nội dung cần dán.");
+          payloadData = { selector: values.selector, text: values.pasteText };
+          break;
+        default: throw new Error("Loại hành động không hợp lệ.");
+      }
 
       const { data, error } = await supabase
         .from("tasks")
         .insert([{
           name: values.name,
-          type: values.type || null,
-          payload: values.payload ? JSON.parse(values.payload) : null,
+          type: values.type,
+          payload: payloadData,
           project_id: projectId,
           user_id: user.id,
           status: 'pending',
-          execution_order: execution_order,
+          execution_order: taskCount + 1,
         }])
         .select()
         .single();
@@ -89,7 +112,7 @@ export const CreateTaskDialog = ({
     },
     onSuccess: () => {
       showSuccess("Thêm bước thành công!");
-      queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       onOpenChange(false);
       form.reset();
     },
@@ -102,74 +125,69 @@ export const CreateTaskDialog = ({
     createTaskMutation.mutate(values);
   };
 
+  const selectedType = form.watch("type");
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle>Thêm bước mới</DialogTitle>
           <DialogDescription>
-            Cấu hình một bước mới cho quy trình tự động của bạn.
+            Chọn một hành động và cấu hình các thông số cho bước này.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tên bước</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ví dụ: Lấy dữ liệu từ API" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Loại bước (Tùy chọn)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ví dụ: data_extraction" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="payload"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Payload (JSON, Tùy chọn)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder='{ "key": "value" }'
-                      className="font-mono"
-                      rows={5}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+            <FormField control={form.control} name="name" render={({ field }) => (
+              <FormItem><FormLabel>Tên bước</FormLabel><FormControl><Input placeholder="Ví dụ: Đăng nhập vào tài khoản" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="type" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Loại hành động</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Chọn một hành động" /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="NAVIGATE_TO_URL">Điều hướng đến URL</SelectItem>
+                    <SelectItem value="CLICK_ELEMENT">Bấm vào phần tử</SelectItem>
+                    <SelectItem value="DOWNLOAD_FILE">Tải xuống tệp và lưu</SelectItem>
+                    <SelectItem value="UPLOAD_FILE">Tải lên tệp</SelectItem>
+                    <SelectItem value="DELAY">Chờ (Delay)</SelectItem>
+                    <SelectItem value="PASTE_TEXT">Dán văn bản</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            {selectedType === "NAVIGATE_TO_URL" && (
+              <FormField control={form.control} name="url" render={({ field }) => (
+                <FormItem><FormLabel>URL Đích</FormLabel><FormControl><Input placeholder="https://example.com" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+            )}
+            {(selectedType === "CLICK_ELEMENT" || selectedType === "DOWNLOAD_FILE" || selectedType === "UPLOAD_FILE") && (
+              <FormField control={form.control} name="selector" render={({ field }) => (
+                <FormItem><FormLabel>CSS Selector của phần tử</FormLabel><FormControl><Input placeholder="#submit-button" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+            )}
+            {selectedType === "DELAY" && (
+              <FormField control={form.control} name="delayDuration" render={({ field }) => (
+                <FormItem><FormLabel>Thời gian chờ (mili giây)</FormLabel><FormControl><Input type="number" placeholder="1000" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+            )}
+            {selectedType === "PASTE_TEXT" && (
+              <>
+                <FormField control={form.control} name="pasteText" render={({ field }) => (
+                  <FormItem><FormLabel>Nội dung cần dán</FormLabel><FormControl><Textarea placeholder="Nhập văn bản ở đây..." {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="selector" render={({ field }) => (
+                  <FormItem><FormLabel>CSS Selector của ô nhập liệu</FormLabel><FormControl><Input placeholder="input[name='username']" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </>
+            )}
+
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                Hủy
-              </Button>
-              <Button
-                type="submit"
-                disabled={createTaskMutation.isPending}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
+              <Button type="submit" disabled={createTaskMutation.isPending} className="bg-red-600 hover:bg-red-700 text-white">
                 {createTaskMutation.isPending ? "Đang thêm..." : "Thêm bước"}
               </Button>
             </DialogFooter>
