@@ -1,11 +1,10 @@
-import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
-import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
+import { showSuccess, showError } from "@/utils/toast";
 
 import {
   Dialog,
@@ -13,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -21,57 +21,47 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileLibrary, UserFile } from "./FileLibrary";
-import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên bước không được để trống"),
-  type: z.string().min(1, "Vui lòng chọn loại hành động"),
-  url: z.string().optional(),
-  selector: z.string().optional(),
-  delayDuration: z.coerce.number().optional(),
-  pasteText: z.string().optional(),
+  type: z.string().optional(),
+  payload: z.string().refine((val) => {
+    if (!val || val.trim() === "") return true;
+    try {
+      JSON.parse(val);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }, { message: "Payload phải là một chuỗi JSON hợp lệ" }).optional(),
 });
 
 type CreateTaskDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   projectId: string;
+  taskCount: number;
 };
 
 export const CreateTaskDialog = ({
   isOpen,
   onOpenChange,
   projectId,
+  taskCount,
 }: CreateTaskDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
-  const [newFile, setNewFile] = useState<File | null>(null);
-  const [selectedLibraryFile, setSelectedLibraryFile] = useState<UserFile | null>(null);
-  const loadingToastId = useRef<string | number | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       type: "",
-      url: "",
-      selector: "",
-      delayDuration: 1000,
-      pasteText: "",
+      payload: "",
     },
   });
 
@@ -79,260 +69,108 @@ export const CreateTaskDialog = ({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
 
-      const { data: lastTask, error: orderError } = await supabase
+      const execution_order = taskCount + 1;
+
+      const { data, error } = await supabase
         .from("tasks")
-        .select("execution_order")
-        .eq("project_id", projectId)
-        .order("execution_order", { ascending: false })
-        .limit(1)
+        .insert([{
+          name: values.name,
+          type: values.type || null,
+          payload: values.payload ? JSON.parse(values.payload) : null,
+          project_id: projectId,
+          user_id: user.id,
+          status: 'pending',
+          execution_order: execution_order,
+        }])
+        .select()
         .single();
-
-      if (orderError && orderError.code !== 'PGRST116') throw orderError;
-      const newOrder = lastTask ? (lastTask.execution_order || 0) + 1 : 1;
-
-      let payloadData: any = {};
-
-      switch (values.type) {
-        case "NAVIGATE_TO_URL":
-          if (!values.url || !z.string().url().safeParse(values.url).success) throw new Error("Vui lòng nhập URL hợp lệ.");
-          payloadData = { url: values.url };
-          break;
-        case "CLICK_ELEMENT":
-          if (!values.selector) throw new Error("Vui lòng nhập CSS Selector.");
-          payloadData = { selector: values.selector };
-          break;
-        case "DOWNLOAD_FILE":
-          if (!values.selector) throw new Error("Vui lòng nhập CSS Selector của nút/link tải xuống.");
-          payloadData = { selector: values.selector };
-          break;
-        case "UPLOAD_FILE":
-          if (!newFile && !selectedLibraryFile) throw new Error("Vui lòng chọn một tệp để tải lên hoặc chọn từ thư viện.");
-          if (!values.selector) throw new Error("Vui lòng nhập CSS Selector cho ô nhập tệp.");
-          
-          let fileUrl: string;
-          let fileName: string;
-          let fileType: string | undefined;
-
-          if (newFile) {
-            loadingToastId.current = showLoading("Đang tải tệp lên...");
-            const filePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
-            const { error: uploadError } = await supabase.storage.from("task_files").upload(filePath, newFile);
-            if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
-            
-            const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
-            fileUrl = publicUrl;
-            fileName = newFile.name;
-            fileType = newFile.type;
-
-            // Save to library
-            const { error: dbError } = await supabase.from("user_files").insert({
-              user_id: user.id, project_id: projectId, file_name: fileName,
-              file_url: fileUrl, storage_path: filePath, source: 'upload'
-            });
-            if (dbError) {
-              console.error("Failed to save file to library:", dbError.message);
-              showError("Tệp đã được tải lên nhưng không thể lưu vào thư viện.");
-            }
-          } else if (selectedLibraryFile) {
-            fileUrl = selectedLibraryFile.file_url;
-            fileName = selectedLibraryFile.file_name;
-            fileType = undefined; // We don't know the type from library
-          } else {
-            throw new Error("No file selected.");
-          }
-
-          payloadData = {
-            fileUrl,
-            fileName,
-            fileType,
-            inputSelector: values.selector,
-          };
-          break;
-        case "DELAY":
-          if (!values.delayDuration || values.delayDuration <= 0) throw new Error("Vui lòng nhập thời gian chờ hợp lệ.");
-          payloadData = { duration: values.delayDuration };
-          break;
-        case "PASTE_TEXT":
-          if (!values.selector) throw new Error("Vui lòng nhập CSS Selector của ô nhập liệu.");
-          if (!values.pasteText) throw new Error("Vui lòng nhập nội dung cần dán.");
-          payloadData = { selector: values.selector, text: values.pasteText };
-          break;
-        default:
-          throw new Error("Loại hành động không hợp lệ.");
-      }
-
-      const { error } = await supabase.from("tasks").insert([{
-        name: values.name, type: values.type, payload: payloadData,
-        project_id: projectId, user_id: user.id, execution_order: newOrder, status: 'pending',
-      }]);
       if (error) throw error;
+      return data;
     },
     onSuccess: () => {
-      if (loadingToastId.current) {
-        dismissToast(loadingToastId.current);
-        loadingToastId.current = null;
-      }
       showSuccess("Thêm bước thành công!");
-      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
-      queryClient.invalidateQueries({ queryKey: ["user_files", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["project", projectId] });
       onOpenChange(false);
       form.reset();
-      setNewFile(null);
-      setSelectedLibraryFile(null);
     },
     onError: (error) => {
-      if (loadingToastId.current) {
-        dismissToast(loadingToastId.current);
-        loadingToastId.current = null;
-      }
       showError(`Lỗi: ${error.message}`);
     },
   });
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => { createTaskMutation.mutate(values); };
-  const selectedType = form.watch("type");
-
-  const activeFileName = newFile?.name || selectedLibraryFile?.file_name;
-  const activeFileSource = newFile ? 'new' : selectedLibraryFile ? 'library' : 'none';
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    createTaskMutation.mutate(values);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader><DialogTitle>Thêm bước mới vào kịch bản</DialogTitle></DialogHeader>
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>Thêm bước mới</DialogTitle>
+          <DialogDescription>
+            Cấu hình một bước mới cho quy trình tự động của bạn.
+          </DialogDescription>
+        </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="name" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tên bước</FormLabel>
-                <FormControl><Input placeholder="Ví dụ: Mở trang chủ Facebook" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="type" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Loại hành động</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Chọn một loại hành động" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="NAVIGATE_TO_URL">Điều hướng đến URL</SelectItem>
-                    <SelectItem value="CLICK_ELEMENT">Bấm vào phần tử</SelectItem>
-                    <SelectItem value="DOWNLOAD_FILE">Tải xuống tệp và lưu</SelectItem>
-                    <SelectItem value="UPLOAD_FILE">Tải lên tệp</SelectItem>
-                    <SelectItem value="DELAY">Chờ (Delay)</SelectItem>
-                    <SelectItem value="PASTE_TEXT">Dán văn bản</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-
-            {selectedType === "NAVIGATE_TO_URL" && (
-              <FormField control={form.control} name="url" render={({ field }) => (
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
                 <FormItem>
-                  <FormLabel>URL Đích</FormLabel>
-                  <FormControl><Input placeholder="https://example.com" {...field} /></FormControl>
+                  <FormLabel>Tên bước</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ví dụ: Lấy dữ liệu từ API" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
-              )} />
-            )}
-
-            {(selectedType === "CLICK_ELEMENT" || selectedType === "DOWNLOAD_FILE") && (
-              <FormField control={form.control} name="selector" render={({ field }) => (
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
                 <FormItem>
-                  <FormLabel>CSS Selector của phần tử</FormLabel>
-                  <FormControl><Input placeholder="button.submit-button" {...field} /></FormControl>
+                  <FormLabel>Loại bước (Tùy chọn)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ví dụ: data_extraction" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
-              )} />
-            )}
-
-            {selectedType === "UPLOAD_FILE" && (
-              <>
-                <Tabs defaultValue="new" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="new">Tải lên tệp mới</TabsTrigger>
-                    <TabsTrigger value="library">Chọn từ thư viện</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="new">
-                    <FormItem className="mt-4">
-                      <FormLabel>Tệp để tải lên</FormLabel>
-                      {activeFileName && (
-                        <div className="text-sm text-muted-foreground mb-2">
-                          {activeFileSource === 'library' && 'Tệp đã chọn: '}
-                          {activeFileSource === 'new' && 'Tệp mới: '}
-                          <Badge variant={activeFileSource === 'library' ? 'default' : 'secondary'}>
-                            {activeFileName}
-                          </Badge>
-                        </div>
-                      )}
-                      <FormControl>
-                        <Input type="file" onChange={(e) => {
-                          const file = e.target.files?.[0] || null;
-                          setNewFile(file);
-                          if (file) setSelectedLibraryFile(null);
-                        }} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  </TabsContent>
-                  <TabsContent value="library">
-                    <div className="mt-4">
-                      <FileLibrary
-                        selectedFileUrl={selectedLibraryFile?.file_url}
-                        onFileSelect={(file) => {
-                          setSelectedLibraryFile(file);
-                          setNewFile(null);
-                          const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-                          if (fileInput) fileInput.value = "";
-                        }}
-                      />
-                    </div>
-                  </TabsContent>
-                </Tabs>
-                <FormField control={form.control} name="selector" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>CSS Selector của ô nhập tệp</FormLabel>
-                    <FormControl><Input placeholder={`input[type="file"]`} {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </>
-            )}
-
-            {selectedType === "DELAY" && (
-              <FormField control={form.control} name="delayDuration" render={({ field }) => (
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="payload"
+              render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Thời gian chờ (mili giây)</FormLabel>
-                  <FormControl><Input type="number" placeholder="1000" {...field} /></FormControl>
-                  <FormDescription>1000 mili giây = 1 giây</FormDescription>
+                  <FormLabel>Payload (JSON, Tùy chọn)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder='{ "key": "value" }'
+                      className="font-mono"
+                      rows={5}
+                      {...field}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
-              )} />
-            )}
-
-            {selectedType === "PASTE_TEXT" && (
-              <>
-                <FormField control={form.control} name="pasteText" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nội dung cần dán</FormLabel>
-                    <FormControl><Textarea placeholder="Nhập nội dung..." className="resize-y" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="selector" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>CSS Selector của ô nhập liệu</FormLabel>
-                    <FormControl><Input placeholder={`textarea[name="comment"]`} {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-              </>
-            )}
-
+              )}
+            />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-              <Button type="submit" disabled={createTaskMutation.isPending}>
-                {createTaskMutation.isPending ? "Đang xử lý..." : "Thêm bước"}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Hủy
+              </Button>
+              <Button
+                type="submit"
+                disabled={createTaskMutation.isPending}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {createTaskMutation.isPending ? "Đang thêm..." : "Thêm bước"}
               </Button>
             </DialogFooter>
           </form>

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TaskStep } from "@/components/tasks/TaskStep";
 import { Play, Plus, ChevronRight } from "lucide-react";
+import { CreateTaskDialog } from "@/components/tasks/CreateTaskDialog";
 
 type Task = {
   id: string;
@@ -36,6 +38,7 @@ const fetchProjectDetails = async (projectId: string | undefined) => {
 
 const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const [isCreateTaskOpen, setCreateTaskOpen] = useState(false);
 
   const {
     data: project,
@@ -76,7 +79,10 @@ const ProjectDetail = () => {
           <p className="text-gray-500 mt-2 mb-4">
             Bắt đầu bằng cách thêm bước đầu tiên cho quy trình của bạn.
           </p>
-          <Button className="bg-red-600 hover:bg-red-700 text-white">
+          <Button
+            className="bg-red-600 hover:bg-red-700 text-white"
+            onClick={() => setCreateTaskOpen(true)}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Thêm bước mới
           </Button>
@@ -98,34 +104,48 @@ const ProjectDetail = () => {
   };
 
   return (
-    <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-      <header className="flex flex-wrap justify-between items-center gap-4 mb-6">
-        <div>
-          <div className="flex items-center text-sm text-gray-500 mb-1">
-            <span>Dự án</span>
-            <ChevronRight className="h-4 w-4 mx-1" />
-            <span className="font-medium text-gray-700">{project?.name || 'Đang tải...'}</span>
+    <>
+      <div className="p-6 lg:p-8 max-w-4xl mx-auto">
+        <header className="flex flex-wrap justify-between items-center gap-4 mb-6">
+          <div>
+            <div className="flex items-center text-sm text-gray-500 mb-1">
+              <span>Dự án</span>
+              <ChevronRight className="h-4 w-4 mx-1" />
+              <span className="font-medium text-gray-700">{project?.name || 'Đang tải...'}</span>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800">
+              {project?.name || <Skeleton className="h-9 w-64" />}
+            </h1>
           </div>
-          <h1 className="text-3xl font-bold text-gray-800">
-            {project?.name || <Skeleton className="h-9 w-64" />}
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="bg-white">
-            <Plus className="h-4 w-4 mr-2" />
-            Thêm bước
-          </Button>
-          <Button className="bg-red-600 hover:bg-red-700 text-white">
-            <Play className="h-4 w-4 mr-2" />
-            Chạy quy trình
-          </Button>
-        </div>
-      </header>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="bg-white"
+              onClick={() => setCreateTaskOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Thêm bước
+            </Button>
+            <Button className="bg-red-600 hover:bg-red-700 text-white">
+              <Play className="h-4 w-4 mr-2" />
+              Chạy quy trình
+            </Button>
+          </div>
+        </header>
 
-      <main>
-        {renderContent()}
-      </main>
-    </div>
+        <main>
+          {renderContent()}
+        </main>
+      </div>
+      {id && (
+        <CreateTaskDialog
+          isOpen={isCreateTaskOpen}
+          onOpenChange={setCreateTaskOpen}
+          projectId={id}
+          taskCount={project?.tasks?.length || 0}
+        />
+      )}
+    </>
   );
 };
 
