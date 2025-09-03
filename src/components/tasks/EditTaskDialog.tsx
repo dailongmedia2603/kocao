@@ -92,32 +92,50 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
           let fileType = task.payload?.fileType;
 
           if (newFile) {
-            loadingToastId.current = showLoading("Đang tải tệp mới lên Cloudflare R2...");
+            loadingToastId.current = showLoading("Đang chuẩn bị tải tệp lên...");
             
-            const formData = new FormData();
-            formData.append("file", newFile);
-            formData.append("userId", user.id);
-            formData.append("projectId", projectId);
-
-            const { data: newFileData, error: functionError } = await supabase.functions.invoke(
-              "upload-to-r2",
-              { body: formData }
+            const { data: presignData, error: presignError } = await supabase.functions.invoke(
+              "generate-r2-presigned-url",
+              {
+                body: {
+                  fileName: newFile.name,
+                  contentType: newFile.type,
+                  userId: user.id,
+                  projectId: projectId,
+                },
+              }
             );
 
-            if (functionError) {
-              let errorMessage = functionError.message;
-              if (functionError instanceof FunctionsHttpError) {
+            if (presignError) {
+              let errorMessage = presignError.message;
+              if (presignError instanceof FunctionsHttpError) {
                 try {
-                  const errorBody = await functionError.context.json();
+                  const errorBody = await presignError.context.json();
                   errorMessage = errorBody.error || errorMessage;
-                } catch { /* Ignore if response is not JSON */ }
+                } catch {}
               }
-              throw new Error(`Lỗi tải tệp lên: ${errorMessage}`);
+              throw new Error(`Không thể lấy URL tải lên: ${errorMessage}`);
             }
-    
-            fileUrl = newFileData.file_url;
-            fileName = newFileData.file_name;
+            
+            dismissToast(loadingToastId.current);
+            loadingToastId.current = showLoading("Đang tải tệp lên Cloudflare R2...");
+
+            const uploadResponse = await fetch(presignData.uploadUrl, {
+              method: 'PUT',
+              headers: { 'Content-Type': newFile.type },
+              body: newFile,
+            });
+
+            if (!uploadResponse.ok) {
+              const errorText = await uploadResponse.text();
+              console.error("Lỗi tải lên R2:", errorText);
+              throw new Error("Tải tệp trực tiếp lên R2 thất bại.");
+            }
+
+            fileUrl = presignData.fileRecord.file_url;
+            fileName = presignData.fileRecord.file_name;
             fileType = newFile.type;
+
           } else if (selectedLibraryFile) {
             fileUrl = selectedLibraryFile.file_url;
             fileName = selectedLibraryFile.file_name;
@@ -272,7 +290,7 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
                   <FormItem><FormLabel>Nội dung cần dán</FormLabel><FormControl><Textarea className="resize-y" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="selector" render={({ field }) => (
-                  <FormItem><FormLabel>CSS Selector của ô nhập liệu</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>CSS Selector của ô nhập liệu</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormMessage>
                 )} />
               </>
             )}

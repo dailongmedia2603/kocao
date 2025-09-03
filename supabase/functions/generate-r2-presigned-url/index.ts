@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { S3Client, PutObjectCommand } from "https://esm.sh/@aws-sdk/client-s3@3.583.0";
+import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.583.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,22 +10,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Lấy thông tin R2 từ secrets của Supabase
 const R2_BUCKET_NAME = Deno.env.get("R2_BUCKET_NAME")!;
 const R2_ACCOUNT_ID = Deno.env.get("R2_ACCOUNT_ID")!;
 const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID")!;
 const R2_SECRET_ACCESS_KEY = Deno.env.get("R2_SECRET_ACCESS_KEY")!;
 const R2_PUBLIC_URL = Deno.env.get("R2_PUBLIC_URL")!;
 
-// Khởi tạo S3 client để kết nối với R2
 const s3Client = new S3Client({
-  region: "us-east-1", // Sử dụng một region AWS hợp lệ, R2 không quan tâm đến giá trị này
+  region: "us-east-1",
   endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
     accessKeyId: R2_ACCESS_KEY_ID,
     secretAccessKey: R2_SECRET_ACCESS_KEY,
   },
-  forcePathStyle: true, // Quan trọng đối với các dịch vụ tương thích S3 như R2
+  forcePathStyle: true,
 });
 
 serve(async (req) => {
@@ -33,31 +32,24 @@ serve(async (req) => {
   }
 
   try {
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
-    const userId = formData.get("userId") as string;
-    const projectId = formData.get("projectId") as string;
+    const { fileName, contentType, userId, projectId } = await req.json();
 
-    if (!file || !userId || !projectId) {
-      throw new Error("Thiếu tệp, userId, hoặc projectId trong dữ liệu gửi lên.");
+    if (!fileName || !contentType || !userId || !projectId) {
+      throw new Error("Thiếu fileName, contentType, userId, hoặc projectId.");
     }
 
-    const fileBuffer = await file.arrayBuffer();
-    const storagePath = `${userId}/${projectId}/${Date.now()}-${file.name}`;
-
-    // Tải tệp lên R2
+    const storagePath = `${userId}/${projectId}/${Date.now()}-${fileName}`;
+    
     const putCommand = new PutObjectCommand({
       Bucket: R2_BUCKET_NAME,
       Key: storagePath,
-      Body: new Uint8Array(fileBuffer),
-      ContentType: file.type,
+      ContentType: contentType,
     });
-    await s3Client.send(putCommand);
 
-    // Tạo URL công khai
-    const fileUrl = `${R2_PUBLIC_URL}/${storagePath}`;
+    const uploadUrl = await getSignedUrl(s3Client, putCommand, { expiresIn: 300 }); // URL có hiệu lực trong 5 phút
 
-    // Lưu thông tin tệp vào cơ sở dữ liệu Supabase
+    const publicFileUrl = `${R2_PUBLIC_URL}/${storagePath}`;
+
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -68,8 +60,8 @@ serve(async (req) => {
       .insert({
         user_id: userId,
         project_id: projectId,
-        file_name: file.name,
-        file_url: fileUrl,
+        file_name: fileName,
+        file_url: publicFileUrl,
         storage_path: storagePath,
         source: 'upload',
         storage_provider: 'r2',
@@ -78,17 +70,16 @@ serve(async (req) => {
       .single();
 
     if (dbError) {
-      // Cân nhắc xóa tệp khỏi R2 nếu không lưu được vào DB
       throw dbError;
     }
 
-    return new Response(JSON.stringify(dbData), {
+    return new Response(JSON.stringify({ uploadUrl, fileRecord: dbData }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (err) {
-    console.error("Lỗi trong function upload-to-r2:", err);
+    console.error("Lỗi trong function generate-r2-presigned-url:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
