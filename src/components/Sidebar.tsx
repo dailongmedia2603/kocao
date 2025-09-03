@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, LayoutDashboard, FolderKanban, Settings, Plug } from "lucide-react";
+import { ChevronLeft, LayoutDashboard, FolderKanban, Settings, Plug, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
 
@@ -13,6 +13,7 @@ const menuItems = [
   },
   { label: "Danh sách dự án", icon: FolderKanban, to: "/projects" },
   { label: "Extensions", icon: Plug, to: "/extensions" },
+  { label: "List KOC", icon: Video, to: "/list-koc" },
   { label: "Settings", icon: Settings, to: "/settings" },
 ];
 

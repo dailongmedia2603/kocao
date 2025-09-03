@@ -9,6 +9,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { SessionContextProvider } from "./contexts/SessionContext";
 import { Toaster } from "sonner";
 import Extensions from "./pages/Extensions";
+import ListKoc from "./pages/ListKoc";
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
               <Route path="/projects" element={<ProjectsList />} />
               <Route path="/projects/:id" element={<ProjectDetail />} />
               <Route path="/extensions" element={<Extensions />} />
+              <Route path="/list-koc" element={<ListKoc />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>
