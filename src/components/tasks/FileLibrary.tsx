@@ -199,7 +199,7 @@ export const FileLibrary = ({ onFileSelect, selectedFileUrl }: FileLibraryProps)
 
   return (
     <>
-      <ScrollArea className="h-64 rounded-md border p-4">
+      <ScrollArea className="h-48 rounded-md border p-2">
         <RadioGroup
           value={selectedFileUrl || undefined}
           onValueChange={(value) => {
@@ -210,10 +210,11 @@ export const FileLibrary = ({ onFileSelect, selectedFileUrl }: FileLibraryProps)
           }}
         >
           {files.map((file) => (
-            <div key={file.id} className="flex items-center space-x-2 mb-2 p-2 rounded-md hover:bg-accent group">
+            <div key={file.id} className="flex items-center space-x-2 mb-1 p-2 rounded-md hover:bg-accent group">
               <RadioGroupItem value={file.file_url} id={file.id} />
-              <Label htmlFor={file.id} className="flex-grow cursor-pointer">
-                <p className="font-medium truncate">{file.file_name}</p>
+              <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <Label htmlFor={file.id} className="flex-grow cursor-pointer min-w-0">
+                <p className="font-medium truncate text-sm">{file.file_name}</p>
                 <p className="text-xs text-muted-foreground">
                   {new Date(file.created_at).toLocaleString()}
                 </p>
