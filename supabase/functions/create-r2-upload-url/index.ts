@@ -1,7 +1,9 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { crypto } from "https://deno.land/std@0.224.0/crypto/mod.ts";
+// Import với ?no-check để tránh các vấn đề về type không cần thiết trong môi trường Deno
+import { S3Client, PutObjectCommand } from "https://esm.sh/@aws-sdk/client-s3@3.583.0?no-check";
+import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.583.0?no-check";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,31 +16,23 @@ const R2_ACCOUNT_ID = Deno.env.get("R2_ACCOUNT_ID")!;
 const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID")!;
 const R2_SECRET_ACCESS_KEY = Deno.env.get("R2_SECRET_ACCESS_KEY")!;
 const R2_PUBLIC_URL = Deno.env.get("R2_PUBLIC_URL")!;
-const REGION = "us-east-1"; // R2 không quan tâm nhưng API yêu cầu
-const SERVICE = "s3";
 
-// Helper function to create HMAC signature
-async function hmac(key, message) {
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    typeof key === "string" ? new TextEncoder().encode(key) : key,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const signature = await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(message));
-  return new Uint8Array(signature);
-}
-
-// Helper function to convert Uint8Array to hex string
-function toHex(data) {
-  return Array.from(data).map(b => b.toString(16).padStart(2, '0')).join('');
-}
+// Cấu hình S3 Client với chỉ thị đặc biệt để không bao giờ đọc filesystem
+const s3Client = new S3Client({
+  region: "us-east-1",
+  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  forcePathStyle: true,
+  // Đây là giải pháp dứt điểm: Ghi đè nhà cung cấp credentials mặc định
+  credentialDefaultProvider: () => () => Promise.resolve({
+      accessKeyId: R2_ACCESS_KEY_ID,
+      secretAccessKey: R2_SECRET_ACCESS_KEY,
+  }),
+});
 
 serve(async (req) => {
-  // Xử lý yêu cầu CORS preflight một cách rõ ràng
+  // Xử lý yêu cầu CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -48,52 +42,14 @@ serve(async (req) => {
     }
 
     const storagePath = `${userId}/${projectId}/${Date.now()}-${fileName}`;
-    const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
     
-    const now = new Date();
-    const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-    const dateStamp = amzDate.substring(0, 8);
-    const expires = 300; // 5 minutes
-
-    // --- AWS Signature V4 Signing Process ---
-    const scope = `${dateStamp}/${REGION}/${SERVICE}/aws4_request`;
-
-    const query = new URLSearchParams({
-      'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
-      'X-Amz-Credential': `${R2_ACCESS_KEY_ID}/${scope}`,
-      'X-Amz-Date': amzDate,
-      'X-Amz-Expires': expires.toString(),
-      'X-Amz-SignedHeaders': 'host',
-      'x-amz-meta-content-type': contentType,
+    const putCommand = new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: storagePath,
+      ContentType: contentType,
     });
-    query.sort();
 
-    const canonicalRequest = [
-      'PUT',
-      `/${R2_BUCKET_NAME}/${storagePath}`,
-      query.toString(),
-      'host:' + host + '\n',
-      'host',
-      'UNSIGNED-PAYLOAD'
-    ].join('\n');
-
-    const stringToSign = [
-      'AWS4-HMAC-SHA256',
-      amzDate,
-      scope,
-      toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonicalRequest))))
-    ].join('\n');
-
-    const kDate = await hmac(`AWS4${R2_SECRET_ACCESS_KEY}`, dateStamp);
-    const kRegion = await hmac(kDate, REGION);
-    const kService = await hmac(kRegion, SERVICE);
-    const kSigning = await hmac(kService, 'aws4_request');
-    const signature = toHex(await hmac(kSigning, stringToSign));
-
-    query.set('X-Amz-Signature', signature);
-    const uploadUrl = `https://${host}/${R2_BUCKET_NAME}/${storagePath}?${query.toString()}`;
-    
-    // --- End Signing Process ---
+    const uploadUrl = await getSignedUrl(s3Client, putCommand, { expiresIn: 300 });
 
     const publicFileUrl = `${R2_PUBLIC_URL}/${storagePath}`;
     const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
