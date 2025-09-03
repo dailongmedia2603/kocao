@@ -50,7 +50,7 @@ const Sidebar = () => {
               className={({ isActive }) =>
                 cn(
                   "group flex items-center p-2 rounded-md text-sm font-medium transition-colors text-gray-700 hover:bg-red-50 hover:text-red-600",
-                  isActive && "bg-red-50 text-red-600"
+                  isActive && "bg-red-50 text-red-600 font-semibold"
                 )
               }
             >
