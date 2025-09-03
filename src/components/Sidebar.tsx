@@ -52,7 +52,7 @@ const Sidebar = () => {
         <Accordion type="multiple" defaultValue={["Dashboard"]} className="w-full">
           {menuItems.map((section) => (
             <div key={section.title} className="mb-6">
-              {!isCollapsed && <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{section.title}</h2>}
+              {!isCollapsed && <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">{section.title}</h2>}
               {section.items.map((item) =>
                 item.subItems ? (
                   <AccordionItem key={item.label} value={item.label} className="border-none">
@@ -62,8 +62,8 @@ const Sidebar = () => {
                         end
                         className={({ isActive }) =>
                           cn(
-                            "flex items-center w-full p-3 rounded-md font-medium transition-colors text-gray-600 hover:bg-red-50 hover:text-red-600",
-                            isActive && "bg-red-500 text-white hover:bg-red-500 hover:text-white"
+                            "flex items-center w-full p-3 rounded-md text-sm font-medium transition-colors text-gray-700 hover:bg-red-50 hover:text-red-600",
+                            isActive && "bg-red-50 text-red-600"
                           )
                         }
                       >
@@ -81,8 +81,8 @@ const Sidebar = () => {
                                 end
                                 className={({ isActive }) =>
                                   cn(
-                                    "flex items-center p-2 rounded-md text-sm text-gray-500 hover:text-gray-900",
-                                    isActive && "text-red-500 font-semibold"
+                                    "flex items-center p-2 rounded-md text-sm text-gray-600 hover:text-red-600",
+                                    isActive && "text-red-600 font-semibold"
                                   )
                                 }
                               >
@@ -101,8 +101,8 @@ const Sidebar = () => {
                     to={item.to}
                     className={({ isActive }) =>
                       cn(
-                        "flex items-center p-3 rounded-md font-medium transition-colors text-gray-600 hover:bg-red-50 hover:text-red-600",
-                        isActive && "bg-red-500 text-white hover:bg-red-500 hover:text-white"
+                        "flex items-center p-3 rounded-md text-sm font-medium transition-colors text-gray-700 hover:bg-red-50 hover:text-red-600",
+                        isActive && "bg-red-50 text-red-600"
                       )
                     }
                   >
