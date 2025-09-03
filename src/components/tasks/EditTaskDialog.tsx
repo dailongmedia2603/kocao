@@ -91,24 +91,25 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
           let fileType = task.payload?.fileType;
 
           if (newFile) {
-            loadingToastId.current = showLoading("Đang tải tệp mới lên...");
-            const filePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
-            const { error: uploadError } = await supabase.storage.from("task_files").upload(filePath, newFile);
-            if (uploadError) throw new Error(`Lỗi tải tệp lên: ${uploadError.message}`);
+            loadingToastId.current = showLoading("Đang tải tệp mới lên Cloudflare R2...");
             
-            const { data: { publicUrl } } = supabase.storage.from("task_files").getPublicUrl(filePath);
-            fileUrl = publicUrl;
-            fileName = newFile.name;
-            fileType = newFile.type;
-
-            const { error: dbError } = await supabase.from("user_files").insert({
-              user_id: user.id, project_id: projectId, file_name: fileName,
-              file_url: fileUrl, storage_path: filePath, source: 'upload'
-            });
-            if (dbError) {
-              console.error("Failed to save file to library:", dbError.message);
-              showError("Tệp đã được tải lên nhưng không thể lưu vào thư viện.");
+            const formData = new FormData();
+            formData.append("file", newFile);
+            formData.append("userId", user.id);
+            formData.append("projectId", projectId);
+    
+            const { data: newFileData, error: functionError } = await supabase.functions.invoke(
+              "upload-to-r2",
+              { body: formData }
+            );
+    
+            if (functionError) {
+              throw new Error(`Lỗi tải tệp lên: ${functionError.message}`);
             }
+    
+            fileUrl = newFileData.file_url;
+            fileName = newFileData.file_name;
+            fileType = newFile.type;
           } else if (selectedLibraryFile) {
             fileUrl = selectedLibraryFile.file_url;
             fileName = selectedLibraryFile.file_name;
