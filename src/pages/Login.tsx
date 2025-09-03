@@ -68,7 +68,7 @@ const Login = () => {
     <div className="flex min-h-screen bg-white font-sans">
       <div className="w-full lg:w-1/2 flex flex-col justify-between p-8 sm:p-12">
         <div className="flex items-center">
-            <img src="/logokocao.png" alt="Logo" className="h-12 w-auto" />
+            <img src="/logokocao.png" alt="Logo" className="h-24 w-auto" />
         </div>
         
         <div className="w-full max-w-sm mx-auto">
