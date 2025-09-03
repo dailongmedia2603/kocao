@@ -16,13 +16,15 @@ const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID")!;
 const R2_SECRET_ACCESS_KEY = Deno.env.get("R2_SECRET_ACCESS_KEY")!;
 const R2_PUBLIC_URL = Deno.env.get("R2_PUBLIC_URL")!;
 
+// Khởi tạo S3 client với credentials dưới dạng một hàm (function)
+// để ngăn chặn việc SDK cố gắng đọc tệp cấu hình từ hệ thống file.
 const s3Client = new S3Client({
   region: "us-east-1",
   endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
+  credentials: () => Promise.resolve({
     accessKeyId: R2_ACCESS_KEY_ID,
     secretAccessKey: R2_SECRET_ACCESS_KEY,
-  },
+  }),
   forcePathStyle: true,
 });
 
