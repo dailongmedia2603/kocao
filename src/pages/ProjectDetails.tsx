@@ -348,7 +348,7 @@ const ProjectDetails = () => {
         )}
       </div>
 
-      {projectId && <CreateTaskDialog isOpen={isCreateTaskOpen} onOpenChange={setCreateTaskOpen} projectId={projectId} />}
+      {projectId && <CreateTaskDialog isOpen={isCreateTaskOpen} onOpenChange={setCreateTaskOpen} projectId={projectId} taskCount={tasks?.length || 0} />}
       <EditTaskDialog isOpen={isEditTaskOpen} onOpenChange={setEditTaskOpen} task={selectedTask} projectId={projectId} />
       <AlertDialog open={isDeleteTaskOpen} onOpenChange={setDeleteTaskOpen}>
         <AlertDialogContent>
