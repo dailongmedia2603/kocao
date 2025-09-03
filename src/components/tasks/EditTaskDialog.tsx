@@ -97,15 +97,28 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
             formData.append("file", newFile);
             formData.append("userId", user.id);
             formData.append("projectId", projectId);
-    
-            const { data: newFileData, error: functionError } = await supabase.functions.invoke(
-              "upload-to-r2",
-              { body: formData }
+
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error("User not authenticated for function call");
+
+            const response = await fetch(
+              "https://ypwupyjwwixgnwpohngd.supabase.co/functions/v1/upload-to-r2",
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${session.access_token}`,
+                  'apikey': "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlwd3VweWp3d2l4Z253cG9obmdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY0NDY3NDAsImV4cCI6MjA3MjAyMjc0MH0.J-NqLbR__Yq4RqGtRIPM5dYTmZZFVoBfZ3lwkTk_-rw",
+                },
+                body: formData,
+              }
             );
-    
-            if (functionError) {
-              throw new Error(`Lỗi tải tệp lên: ${functionError.message}`);
+
+            if (!response.ok) {
+              const errorBody = await response.json();
+              throw new Error(errorBody.error || `Lỗi máy chủ: ${response.statusText}`);
             }
+
+            const newFileData = await response.json();
     
             fileUrl = newFileData.file_url;
             fileName = newFileData.file_name;
