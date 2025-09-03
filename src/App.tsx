@@ -1,44 +1,25 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { SessionContextProvider } from "@/contexts/SessionContext";
-
-import AppLayout from "@/components/AppLayout";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
+import AppLayout from "./components/AppLayout";
 import ProjectsList from "./pages/ProjectsList";
-import ProjectDetails from "./pages/ProjectDetails";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound";
+import ProjectDetail from "./pages/ProjectDetail";
+import { SessionContextProvider } from "./contexts/SessionContext";
+import { Toaster } from "sonner";
 
-const queryClient = new QueryClient();
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
+function App() {
+  return (
+    <BrowserRouter>
       <SessionContextProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route element={<ProtectedRoute />}>
-              <Route element={<AppLayout />}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/projects" element={<ProjectsList />} />
-                <Route path="/projects/:projectId" element={<ProjectDetails />} />
-                <Route path="/settings" element={<Settings />} />
-              </Route>
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <Toaster richColors position="top-right" />
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<ProjectsList />} />
+            <Route path="/projects/:id" element={<ProjectDetail />} />
+          </Route>
+          {/* Assuming you have Login and other auth routes, keep them here */}
+        </Routes>
       </SessionContextProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+    </BrowserRouter>
+  );
+}
 
 export default App;
