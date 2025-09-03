@@ -14,9 +14,23 @@ type KocVideo = {
 
 const fetchKocVideos = async (): Promise<KocVideo[]> => {
   const { data, error } = await supabase.functions.invoke("list-r2-videos");
+
   if (error) {
-    throw new Error(`Không thể lấy danh sách video: ${error.message}`);
+    // Cố gắng lấy thông báo lỗi chi tiết hơn từ phản hồi của function
+    let detailedMessage = error.message;
+    if (error.context && typeof error.context.json === 'function') {
+      try {
+        const errorBody = await error.context.json();
+        if (errorBody.error) {
+          detailedMessage = errorBody.error;
+        }
+      } catch (e) {
+        // Bỏ qua nếu không phân tích được JSON, giữ lại lỗi gốc
+      }
+    }
+    throw new Error(`Không thể lấy danh sách video: ${detailedMessage}`);
   }
+
   if (!data.videos) {
     throw new Error("Phản hồi từ server không hợp lệ.");
   }
@@ -59,8 +73,6 @@ const ListKoc = () => {
             <AlertTitle>Lỗi</AlertTitle>
             <AlertDescription>
               {error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định."}
-              <br />
-              <span className="text-xs">Vui lòng đảm bảo rằng các biến môi trường (secrets) cho Cloudflare R2 đã được cấu hình chính xác trong cài đặt dự án Supabase của bạn.</span>
             </AlertDescription>
           </Alert>
         )}
