@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,22 +13,7 @@ import {
   Upload,
   RefreshCw,
   ChevronRight,
-  MoreHorizontal,
-  Star,
 } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,20 +29,29 @@ import { CreateProjectDialog } from "@/components/projects/CreateProjectDialog";
 import { EditProjectDialog } from "@/components/projects/EditProjectDialog";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from "@/utils/toast";
+import { ProjectCard } from "@/components/projects/ProjectCard";
+
+type Profile = {
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+};
 
 type Project = {
   id: string;
   name: string;
   created_at: string;
+  profiles: Profile | null;
+  tasks: { count: number }[];
 };
 
 const fetchProjects = async () => {
   const { data, error } = await supabase
     .from("projects")
-    .select("id, name, created_at")
+    .select("*, profiles(*), tasks(count)")
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return data;
+  return data as Project[];
 };
 
 const ProjectsList = () => {
@@ -170,8 +163,8 @@ const ProjectsList = () => {
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <Skeleton key={i} className="h-64 w-full" />
+            {[...Array(8)].map((_, i) => (
+              <Skeleton key={i} className="h-56 w-full" />
             ))}
           </div>
         ) : isError ? (
@@ -179,53 +172,18 @@ const ProjectsList = () => {
         ) : projects && projects.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
             {projects.map((project) => (
-              <Card
+              <ProjectCard
                 key={project.id}
-                className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col"
-              >
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg font-bold text-gray-800 hover:text-red-600">
-                      <Link to={`/projects/${project.id}`}>{project.name}</Link>
-                    </CardTitle>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 -mt-2 -mr-2">
-                          <MoreHorizontal className="h-5 w-5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setSelectedProject(project);
-                            setEditDialogOpen(true);
-                          }}
-                        >
-                          Chỉnh sửa
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600"
-                          onClick={() => {
-                            setSelectedProject(project);
-                            setDeleteDialogOpen(true);
-                          }}
-                        >
-                          Xóa
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  <CardDescription>
-                    Tạo ngày: {new Date(project.created_at).toLocaleDateString()}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow flex flex-col justify-end">
-                  <div className="flex justify-between items-center text-sm text-gray-500">
-                    <span>ID: {project.id.substring(0, 8)}...</span>
-                    <Star className="h-5 w-5 text-gray-300 cursor-pointer" />
-                  </div>
-                </CardContent>
-              </Card>
+                project={project}
+                onEdit={() => {
+                  setSelectedProject(project);
+                  setEditDialogOpen(true);
+                }}
+                onDelete={() => {
+                  setSelectedProject(project);
+                  setDeleteDialogOpen(true);
+                }}
+              />
             ))}
           </div>
         ) : (
