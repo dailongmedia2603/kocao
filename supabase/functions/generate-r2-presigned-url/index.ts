@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.45.0";
-import { S3Client, PutObjectCommand } from "npm:@aws-sdk/client-s3@3.583.0";
-import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@3.583.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { S3Client, PutObjectCommand } from "https://esm.sh/@aws-sdk/client-s3@3.583.0?target=deno";
+import { getSignedUrl } from "https://esm.sh/@aws-sdk/s3-request-presigner@3.583.0?target=deno";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +16,6 @@ const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID")!;
 const R2_SECRET_ACCESS_KEY = Deno.env.get("R2_SECRET_ACCESS_KEY")!;
 const R2_PUBLIC_URL = Deno.env.get("R2_PUBLIC_URL")!;
 
-// Khởi tạo S3 client với cấu hình rõ ràng nhất để tránh các hành vi mặc định.
 const s3Client = new S3Client({
   region: "us-east-1",
   endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
