@@ -45,7 +45,7 @@ export const ProjectCard = ({ project, onEdit, onDelete }: ProjectCardProps) => 
   const formattedDate = format(new Date(project.created_at), "d MMM, yyyy", { locale: vi });
 
   return (
-    <Card className="bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group border hover:border-red-500">
+    <Card className="relative bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group border hover:border-red-500">
       <CardHeader className="flex-row justify-between items-start">
         <div className="flex-grow">
           <CardTitle className="text-lg font-bold text-gray-800 group-hover:text-red-600 transition-colors">
@@ -61,8 +61,8 @@ export const ProjectCard = ({ project, onEdit, onDelete }: ProjectCardProps) => 
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onEdit}>Chỉnh sửa</DropdownMenuItem>
-            <DropdownMenuItem className="text-red-600" onClick={onDelete}>Xóa</DropdownMenuItem>
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>Chỉnh sửa</DropdownMenuItem>
+            <DropdownMenuItem className="text-red-600" onClick={(e) => { e.stopPropagation(); onDelete(); }}>Xóa</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
