@@ -36,7 +36,10 @@ const Login = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-gray-50 to-gray-200 font-sans p-4">
+    <div 
+      className="flex flex-col items-center justify-center min-h-screen bg-cover bg-center font-sans p-4"
+      style={{ backgroundImage: "url('https://images.pexels.com/photos/5474040/pexels-photo-5474040.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')" }}
+    >
       <div className="w-full max-w-md p-8 space-y-6 bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg">
         <div className="flex justify-center">
             <img src="/logokocao.png" alt="Logo" className="h-24 w-auto" />
