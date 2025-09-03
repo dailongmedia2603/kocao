@@ -68,11 +68,7 @@ const Login = () => {
     <div className="flex min-h-screen bg-white font-sans">
       <div className="w-full lg:w-1/2 flex flex-col justify-between p-8 sm:p-12">
         <div className="flex items-center">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M16 0L32 16L16 32L0 16L16 0Z" fill="#8B5CF6"/>
-                <path d="M16 5.33301L26.6667 15.9997L16 26.6663L5.33333 15.9997L16 5.33301Z" fill="white"/>
-            </svg>
-            <h1 className="text-2xl font-bold ml-2">CRMS</h1>
+            <img src="/logokocao.png" alt="Logo" className="h-12 w-auto" />
         </div>
         
         <div className="w-full max-w-sm mx-auto">
