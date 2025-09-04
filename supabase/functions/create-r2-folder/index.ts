@@ -38,6 +38,7 @@ serve(async (req) => {
       Bucket: R2_BUCKET_NAME,
       Key: `${kocId}/`,
       Body: "",
+      ContentLength: 0, // Thêm dòng này để chỉ định rõ độ dài nội dung là 0
     });
 
     await s3.send(command);
