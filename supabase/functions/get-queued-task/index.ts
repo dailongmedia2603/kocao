@@ -10,6 +10,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to determine MIME type from filename
+const getMimeType = (fileName) => {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  switch (extension) {
+    case 'mp4': return 'video/mp4';
+    case 'mov': return 'video/quicktime';
+    case 'webm': return 'video/webm';
+    case 'jpg':
+    case 'jpeg': return 'image/jpeg';
+    case 'png': return 'image/png';
+    case 'gif': return 'image/gif';
+    case 'mp3': return 'audio/mpeg';
+    default: return 'application/octet-stream'; // Generic binary type
+  }
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -44,7 +60,6 @@ serve(async (req) => {
     }
 
     // Step 2: Lock the task by updating its status to 'running' first.
-    // This prevents other workers from picking up the same task.
     const { data: lockedTask, error: lockError } = await supabaseAdmin
       .from("tasks")
       .update({ status: "running" })
@@ -57,7 +72,7 @@ serve(async (req) => {
       throw lockError;
     }
 
-    // Step 3: If it's an upload task, generate the signed URL and enrich the payload.
+    // Step 3: If it's an upload task, enrich the payload with signed URL and fileType.
     let finalTask = lockedTask;
     if (lockedTask.type === 'UPLOAD_FILE' && lockedTask.payload?.storagePath) {
       const s3 = new S3Client({
@@ -78,12 +93,14 @@ serve(async (req) => {
         { expiresIn: 300 } // URL is valid for 5 minutes
       );
       
+      // **THE FIX IS HERE: Add the missing fileType property**
       const enrichedPayload = {
         ...lockedTask.payload,
         fileUrl: signedUrl,
+        fileType: getMimeType(lockedTask.payload.fileName), // Determine and add fileType
       };
 
-      // Step 4: Update the task a second time with the enriched payload.
+      // Step 4: Update the task a second time with the fully enriched payload.
       const { data: updatedTaskWithUrl, error: payloadUpdateError } = await supabaseAdmin
         .from("tasks")
         .update({ payload: enrichedPayload })
@@ -93,7 +110,6 @@ serve(async (req) => {
 
       if (payloadUpdateError) {
         console.error("Error updating payload with signed URL:", payloadUpdateError);
-        // Attempt to revert status to 'queued' on failure
         await supabaseAdmin.from("tasks").update({ status: "queued" }).eq("id", lockedTask.id);
         throw payloadUpdateError;
       }
