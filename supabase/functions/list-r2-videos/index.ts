@@ -14,9 +14,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const { kocId } = await req.json();
-    if (!kocId) {
-      throw new Error("Thiếu kocId.");
+    const { folderPath } = await req.json();
+    if (!folderPath) {
+      throw new Error("Thiếu folderPath.");
     }
 
     const R2_ACCOUNT_ID = Deno.env.get("R2_ACCOUNT_ID");
@@ -35,11 +35,11 @@ serve(async (req) => {
 
     const listCommand = new ListObjectsV2Command({
       Bucket: R2_BUCKET_NAME,
-      Prefix: `${kocId}/`, // Lấy các file trong "thư mục" của KOC
+      Prefix: `${folderPath}/`, // Sử dụng folderPath
     });
 
     const listed = await s3.send(listCommand);
-    const objects = (listed.Contents ?? []).filter(obj => obj.Key !== `${kocId}/`); // Bỏ qua chính thư mục
+    const objects = (listed.Contents ?? []).filter(obj => obj.Key !== `${folderPath}/`);
     
     const videoFiles = objects.filter(
       (o) => o.Key && (o.Key.endsWith(".mp4") || o.Key.endsWith(".mov") || o.Key.endsWith(".webm"))

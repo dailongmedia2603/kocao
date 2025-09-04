@@ -9,7 +9,9 @@ serve(async (req) => {
 
   try {
     const { folderPath } = await req.json();
-    if (!folderPath) throw new Error("Thiếu folderPath.");
+    if (!folderPath) {
+      throw new Error("Thiếu folderPath.");
+    }
 
     const s3 = new S3Client({
       region: "auto",
