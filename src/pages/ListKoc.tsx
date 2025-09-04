@@ -102,13 +102,15 @@ const ListKoc = () => {
 
   const deleteKocMutation = useMutation({
     mutationFn: async (kocToDelete: Koc) => {
-      if (!kocToDelete.folder_path) throw new Error("KOC không có thư mục để xóa.");
+      // Nếu có đường dẫn thư mục, hãy xóa nó trước
+      if (kocToDelete.folder_path) {
+        const { error: functionError } = await supabase.functions.invoke("delete-r2-folder", {
+          body: { folderPath: kocToDelete.folder_path },
+        });
+        if (functionError) throw new Error(`Lỗi xóa thư mục R2: ${functionError.message}`);
+      }
 
-      const { error: functionError } = await supabase.functions.invoke("delete-r2-folder", {
-        body: { folderPath: kocToDelete.folder_path },
-      });
-      if (functionError) throw new Error(`Lỗi xóa thư mục R2: ${functionError.message}`);
-
+      // Luôn xóa KOC khỏi cơ sở dữ liệu
       const { error: dbError } = await supabase.from("kocs").delete().eq("id", kocToDelete.id);
       if (dbError) throw new Error(`Lỗi xóa KOC: ${dbError.message}`);
     },
