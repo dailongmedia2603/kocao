@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Video, Film } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, Video, Film, RefreshCw, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 type KocVideo = {
@@ -38,7 +39,7 @@ const fetchKocVideos = async (): Promise<KocVideo[]> => {
 };
 
 const ListKoc = () => {
-  const { data: videos, isLoading, isError, error } = useQuery<KocVideo[]>({
+  const { data: videos, isLoading, isError, error, refetch, isFetching } = useQuery<KocVideo[]>({
     queryKey: ["kocVideos"],
     queryFn: fetchKocVideos,
     refetchOnWindowFocus: false,
@@ -47,9 +48,19 @@ const ListKoc = () => {
 
   return (
     <div className="p-6 lg:p-8">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold">List KOC</h1>
-        <p className="text-muted-foreground mt-1">Xem các video hướng dẫn đã được tải lên.</p>
+      <header className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">List KOC</h1>
+          <p className="text-muted-foreground mt-1">Xem các video hướng dẫn đã được tải lên.</p>
+        </div>
+        <Button onClick={() => refetch()} disabled={isFetching}>
+          {isFetching && !isLoading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-2 h-4 w-4" />
+          )}
+          {isFetching && !isLoading ? "Đang tải..." : "Làm mới"}
+        </Button>
       </header>
 
       <div className="space-y-6">
