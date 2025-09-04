@@ -6,11 +6,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Film, PlayCircle, ArrowLeft, UploadCloud, Trash2, FileText } from "lucide-react";
+import { AlertCircle, Film, PlayCircle, ArrowLeft, UploadCloud, Trash2, FileText, Music, Image } from "lucide-react";
 import { format } from "date-fns";
 import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
 import { UploadVideoDialog } from "@/components/koc/UploadVideoDialog";
-import { VideoThumbnail } from "@/components/koc/VideoThumbnail";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,7 +42,7 @@ const fetchKocDetails = async (kocId: string) => {
 };
 
 const fetchKocFiles = async (folderPath: string): Promise<KocFile[]> => {
-  const { data, error } = await supabase.functions.invoke("list-r2-videos", { // Tên function trên Supabase vẫn là list-r2-videos
+  const { data, error } = await supabase.functions.invoke("list-r2-videos", {
     body: { folderPath },
   });
   if (error) throw new Error(`Không thể lấy danh sách tệp: ${error.message}`);
@@ -51,9 +50,18 @@ const fetchKocFiles = async (folderPath: string): Promise<KocFile[]> => {
   return data.files;
 };
 
-const isVideoFile = (fileName: string) => {
-  const videoExtensions = ['.mp4', '.mov', '.webm', '.ogg'];
-  return videoExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
+const getFileTypeDetails = (fileName: string) => {
+  const extension = fileName.split('.').pop()?.toLowerCase() || '';
+  if (['mp4', 'mov', 'webm', 'mkv'].includes(extension)) {
+    return { Icon: Film, bgColor: 'bg-black', type: 'video' };
+  }
+  if (['mp3', 'wav', 'm4a', 'ogg'].includes(extension)) {
+    return { Icon: Music, bgColor: 'bg-purple-600', type: 'audio' };
+  }
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(extension)) {
+    return { Icon: Image, bgColor: 'bg-blue-600', type: 'image' };
+  }
+  return { Icon: FileText, bgColor: 'bg-slate-700', type: 'other' };
 };
 
 const KocDetail = () => {
@@ -78,7 +86,7 @@ const KocDetail = () => {
 
   const deleteFileMutation = useMutation({
     mutationFn: async (fileKey: string) => {
-      const { error } = await supabase.functions.invoke("delete-r2-video", { // Tên function trên Supabase vẫn là delete-r2-video
+      const { error } = await supabase.functions.invoke("delete-r2-video", {
         body: { videoKey: fileKey },
       });
       if (error) throw new Error(error.message);
@@ -94,7 +102,8 @@ const KocDetail = () => {
   });
 
   const handleFileClick = (file: KocFile) => {
-    if (isVideoFile(file.name)) {
+    const { type } = getFileTypeDetails(file.name);
+    if (type === 'video') {
       setSelectedFile(file);
       setPlayerOpen(true);
     } else {
@@ -138,19 +147,15 @@ const KocDetail = () => {
         ) : files && files.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {files.map((file) => {
-              const isVideo = isVideoFile(file.name);
+              const { Icon, bgColor, type } = getFileTypeDetails(file.name);
               return (
                 <Card key={file.key} className="overflow-hidden group">
                   <CardContent className="p-0">
-                    <div className="aspect-video bg-black flex items-center justify-center relative cursor-pointer" onClick={() => handleFileClick(file)}>
-                      {isVideo ? (
-                        <VideoThumbnail videoUrl={file.url} />
-                      ) : (
-                        <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-                          <FileText className="h-12 w-12 text-gray-500" />
-                        </div>
-                      )}
-                      {isVideo && (
+                    <div className="aspect-video flex items-center justify-center relative cursor-pointer" onClick={() => handleFileClick(file)}>
+                      <div className={`w-full h-full flex items-center justify-center ${bgColor}`}>
+                        <Icon className="h-12 w-12 text-gray-300" />
+                      </div>
+                      {type === 'video' && (
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                           <PlayCircle className="h-16 w-16 text-white" />
                         </div>
