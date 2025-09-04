@@ -10,6 +10,7 @@ import { AlertCircle, Film, PlayCircle, ArrowLeft, UploadCloud } from "lucide-re
 import { format } from "date-fns";
 import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
 import { UploadVideoDialog } from "@/components/koc/UploadVideoDialog";
+import { VideoThumbnail } from "@/components/koc/VideoThumbnail";
 
 type KocVideo = {
   name: string;
@@ -89,7 +90,7 @@ const KocDetail = () => {
               <Card key={video.url} className="overflow-hidden cursor-pointer group" onClick={() => handleVideoClick(video)}>
                 <CardContent className="p-0">
                   <div className="aspect-video bg-black flex items-center justify-center relative">
-                    <Film className="h-12 w-12 text-gray-600" />
+                    <VideoThumbnail videoUrl={video.url} />
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <PlayCircle className="h-16 w-16 text-white" />
                     </div>
