@@ -14,9 +14,9 @@ serve(async (req) => {
   }
 
   try {
-    const { kocId } = await req.json();
-    if (!kocId) {
-      throw new Error("Thiếu kocId.");
+    const { folderPath } = await req.json();
+    if (!folderPath) {
+      throw new Error("Thiếu folderPath.");
     }
 
     const R2_ACCOUNT_ID = Deno.env.get("R2_ACCOUNT_ID");
@@ -36,14 +36,14 @@ serve(async (req) => {
     // Trong S3/R2, thư mục được tạo bằng cách tạo một object rỗng có key kết thúc bằng "/"
     const command = new PutObjectCommand({
       Bucket: R2_BUCKET_NAME,
-      Key: `${kocId}/`,
+      Key: `${folderPath}/`,
       Body: "",
       ContentLength: 0, // Thêm dòng này để chỉ định rõ độ dài nội dung là 0
     });
 
     await s3.send(command);
 
-    return new Response(JSON.stringify({ success: true, message: `Thư mục ${kocId} đã được tạo.` }), {
+    return new Response(JSON.stringify({ success: true, message: `Thư mục ${folderPath} đã được tạo.` }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
