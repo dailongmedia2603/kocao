@@ -14,8 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileLibrary, UserFile } from "./FileLibrary";
+import { KocFileSelector, KocFile } from "./KocFileSelector";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên bước không được để trống"),
@@ -37,9 +36,8 @@ type EditTaskDialogProps = {
 export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTaskDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
-  const [newFile, setNewFile] = useState<File | null>(null);
+  const [selectedKocFile, setSelectedKocFile] = useState<KocFile | null>(null);
   const [currentFileName, setCurrentFileName] = useState<string | null>(null);
-  const [selectedLibraryFile, setSelectedLibraryFile] = useState<UserFile | null>(null);
   const loadingToastId = useRef<string | number | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({ resolver: zodResolver(formSchema) });
@@ -62,8 +60,7 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
           break;
       }
       form.reset(baseValues);
-      setNewFile(null);
-      setSelectedLibraryFile(null);
+      setSelectedKocFile(null);
     }
   }, [task, form]);
 
@@ -86,61 +83,20 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
           payloadData = { selector: values.selector };
           break;
         case "UPLOAD_FILE":
-          let fileUrl = task.payload?.fileUrl;
-          let fileName = task.payload?.fileName;
-          let fileType = task.payload?.fileType;
-          let storagePath = task.payload?.storagePath;
-
-          if (newFile) {
-            loadingToastId.current = showLoading("Đang tải tệp lên Supabase Storage...");
-            
-            const newStoragePath = `${user.id}/${projectId}/${Date.now()}-${newFile.name}`;
-            
-            const { data: uploadData, error: uploadError } = await supabase.storage
-              .from("user_files")
-              .upload(newStoragePath, newFile);
-
-            if (uploadError) {
-              throw new Error(`Lỗi tải tệp lên Supabase Storage: ${uploadError.message}`);
-            }
-
-            const { data: publicUrlData } = supabase.storage
-              .from("user_files")
-              .getPublicUrl(uploadData.path);
-
-            fileUrl = publicUrlData.publicUrl;
-            fileName = newFile.name;
-            fileType = newFile.type;
-            storagePath = uploadData.path;
-
-            // Thêm bản ghi vào bảng user_files để quản lý
-            const { error: dbError } = await supabase
-              .from("user_files")
-              .insert({
-                user_id: user.id,
-                project_id: projectId,
-                file_name: fileName,
-                file_url: fileUrl,
-                storage_path: storagePath,
-                source: 'upload',
-                storage_provider: 'supabase'
-              });
-            
-            if (dbError) {
-              // Cố gắng dọn dẹp file đã tải lên nếu không ghi được vào DB
-              await supabase.storage.from("user_files").remove([storagePath]);
-              throw new Error(`Lỗi lưu thông tin tệp: ${dbError.message}`);
-            }
-
-          } else if (selectedLibraryFile) {
-            fileUrl = selectedLibraryFile.file_url;
-            fileName = selectedLibraryFile.file_name;
-            storagePath = selectedLibraryFile.storage_path;
-            fileType = undefined; // Không biết type từ thư viện
+          if (selectedKocFile) {
+            payloadData = {
+              fileUrl: selectedKocFile.url,
+              fileName: selectedKocFile.display_name,
+              inputSelector: values.selector,
+              storagePath: selectedKocFile.r2_key,
+            };
+          } else {
+            if (!task.payload?.fileUrl) throw new Error("Không có tệp nào được chọn. Vui lòng chọn một tệp từ thư viện KOC.");
+            payloadData = {
+              ...task.payload,
+              inputSelector: values.selector,
+            };
           }
-
-          if (!fileUrl) throw new Error("Không tìm thấy tệp. Vui lòng chọn một tệp mới hoặc chọn từ thư viện.");
-          payloadData = { fileUrl, fileName, fileType, inputSelector: values.selector, storagePath };
           break;
         case "DELAY":
           if (!values.delayDuration || values.delayDuration <= 0) throw new Error("Vui lòng nhập thời gian chờ hợp lệ.");
@@ -166,11 +122,9 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
       showSuccess("Cập nhật bước thành công!");
       if (projectId) {
         queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
-        queryClient.invalidateQueries({ queryKey: ["user_files", user?.id] });
       }
       onOpenChange(false);
-      setNewFile(null);
-      setSelectedLibraryFile(null);
+      setSelectedKocFile(null);
     },
     onError: (error) => {
       if (loadingToastId.current) {
@@ -183,9 +137,7 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
 
   const onSubmit = (values: z.infer<typeof formSchema>) => { editTaskMutation.mutate(values); };
   const selectedType = form.watch("type");
-
-  const activeFileName = newFile?.name || selectedLibraryFile?.file_name || currentFileName;
-  const activeFileSource = newFile ? 'new' : selectedLibraryFile ? 'library' : currentFileName ? 'current' : 'none';
+  const activeFileName = selectedKocFile?.display_name || currentFileName;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -225,56 +177,24 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
               )} />
             )}
             {selectedType === "UPLOAD_FILE" && (
-              <>
-                <Tabs defaultValue="new" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="new">Tải lên tệp mới</TabsTrigger>
-                    <TabsTrigger value="library">Chọn từ thư viện</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="new">
-                    <FormItem className="mt-4">
-                      <FormLabel>Tệp để tải lên</FormLabel>
-                      {activeFileName && (
-                        <div className="text-sm text-muted-foreground mb-2">
-                          {activeFileSource === 'current' && 'Tệp hiện tại: '}
-                          {activeFileSource === 'library' && 'Tệp đã chọn: '}
-                          {activeFileSource === 'new' && 'Tệp mới: '}
-                          <Badge variant={activeFileSource === 'library' ? 'default' : 'secondary'}>
-                            {activeFileName}
-                          </Badge>
-                        </div>
-                      )}
-                      <FormControl>
-                        <Input type="file" onChange={(e) => {
-                          const file = e.target.files?.[0] || null;
-                          setNewFile(file);
-                          if (file) setSelectedLibraryFile(null);
-                        }} />
-                      </FormControl>
-                      <FormDescription>
-                        {activeFileSource !== 'none' ? 'Chọn tệp mới để thay thế.' : 'Chọn một tệp để tải lên.'}
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  </TabsContent>
-                  <TabsContent value="library">
-                    <div className="mt-4">
-                      <FileLibrary
-                        selectedFileUrl={selectedLibraryFile?.file_url || task?.payload?.fileUrl}
-                        onFileSelect={(file) => {
-                          setSelectedLibraryFile(file);
-                          setNewFile(null);
-                          const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-                          if (fileInput) fileInput.value = "";
-                        }}
-                      />
+              <div className="pt-2 space-y-4">
+                <div>
+                  {activeFileName && (
+                    <div className="text-sm text-muted-foreground mb-2">
+                      Tệp hiện tại: <Badge variant="secondary">{activeFileName}</Badge>
                     </div>
-                  </TabsContent>
-                </Tabs>
+                  )}
+                  <KocFileSelector
+                    onFileSelect={setSelectedKocFile}
+                  />
+                   <FormDescription className="mt-2">
+                      Chọn một tệp mới để thay thế tệp hiện tại.
+                    </FormDescription>
+                </div>
                 <FormField control={form.control} name="selector" render={({ field }) => (
-                  <FormItem><FormLabel>CSS Selector của ô nhập tệp</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>3. CSS Selector của ô nhập tệp</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
-              </>
+              </div>
             )}
             {selectedType === "DELAY" && (
               <FormField control={form.control} name="delayDuration" render={({ field }) => (
