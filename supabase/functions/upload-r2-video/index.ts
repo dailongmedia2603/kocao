@@ -23,6 +23,9 @@ serve(async (req) => {
       throw new Error("Thiếu thông tin tệp, folderPath, hoặc fileName.");
     }
 
+    // Sửa lỗi: Đọc toàn bộ file vào một ArrayBuffer trước khi gửi
+    const fileBuffer = await file.arrayBuffer();
+
     const s3 = new S3Client({
       region: "auto",
       endpoint: `https://${Deno.env.get("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
@@ -38,7 +41,7 @@ serve(async (req) => {
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: key,
-      Body: file,
+      Body: fileBuffer, // Sử dụng buffer thay vì stream
       ContentType: file.type,
     });
 
