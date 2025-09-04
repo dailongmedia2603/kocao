@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Eye, EyeOff, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Trash2, CheckCircle, Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -99,6 +99,30 @@ const ApiSettings = () => {
     },
   });
 
+  const checkConnectionMutation = useMutation({
+    mutationFn: async (apiKey: string) => {
+      const { data, error } = await supabase.functions.invoke("check-gemini-api-key", {
+        body: { apiKey },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (!data.success) {
+        throw new Error(data.message);
+      }
+
+      return data;
+    },
+    onSuccess: (data) => {
+      showSuccess(data.message);
+    },
+    onError: (error: Error) => {
+      showError(`Kiểm tra thất bại: ${error.message}`);
+    },
+  });
+
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     upsertMutation.mutate(values);
   };
@@ -125,7 +149,7 @@ const ApiSettings = () => {
           </div>
         ) : apiKeyData?.gemini_api_key ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <Input
                 readOnly
                 value={showKey ? apiKeyData.gemini_api_key : maskApiKey(apiKeyData.gemini_api_key)}
@@ -133,6 +157,18 @@ const ApiSettings = () => {
               />
               <Button variant="outline" size="icon" onClick={() => setShowKey(!showKey)}>
                 {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => checkConnectionMutation.mutate(apiKeyData.gemini_api_key!)}
+                disabled={checkConnectionMutation.isPending}
+              >
+                {checkConnectionMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                )}
+                Kiểm tra
               </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
