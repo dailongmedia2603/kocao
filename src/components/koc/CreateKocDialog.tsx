@@ -33,19 +33,40 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
   const createKocMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
-      const { error } = await supabase
+
+      // Bước 1: Tạo KOC trong database và lấy về ID
+      const { data: newKoc, error: dbError } = await supabase
         .from("kocs")
-        .insert({ user_id: user.id, ...values });
-      if (error) throw error;
+        .insert({ user_id: user.id, ...values })
+        .select("id")
+        .single();
+
+      if (dbError) {
+        throw new Error(`Lỗi tạo KOC trong database: ${dbError.message}`);
+      }
+
+      // Bước 2: Gọi Edge Function để tạo thư mục trên R2
+      const { error: functionError } = await supabase.functions.invoke("create-r2-folder", {
+        body: { kocId: newKoc.id },
+      });
+
+      if (functionError) {
+        // Nếu tạo thư mục lỗi, thông báo cho người dùng biết
+        // KOC vẫn được tạo thành công trong DB
+        throw new Error(`Tạo KOC thành công, nhưng không thể tạo thư mục trên R2: ${functionError.message}. Vui lòng tạo thư mục thủ công với ID: ${newKoc.id}`);
+      }
+
+      return newKoc;
     },
     onSuccess: () => {
-      showSuccess("Tạo KOC thành công!");
+      showSuccess("Tạo KOC và thư mục trên R2 thành công!");
       queryClient.invalidateQueries({ queryKey: ["kocs", user?.id] });
       onOpenChange(false);
       form.reset();
     },
     onError: (error: Error) => {
-      showError(`Lỗi: ${error.message}`);
+      // Hiển thị lỗi đã được tùy chỉnh ở trên
+      showError(error.message);
     },
   });
 
@@ -59,7 +80,7 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
         <DialogHeader>
           <DialogTitle>Tạo KOC mới</DialogTitle>
           <DialogDescription>
-            Thêm một KOC vào danh sách quản lý của bạn.
+            Thêm một KOC vào danh sách quản lý của bạn. Một thư mục tương ứng sẽ được tạo trên Cloudflare R2.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
