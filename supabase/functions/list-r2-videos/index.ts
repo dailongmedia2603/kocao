@@ -6,7 +6,7 @@ import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@^3.609.0";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET,OPTIONS",
+  "Access-Control-Allow-Methods": "POST,OPTIONS",
   "Access-Control-Max-Age": "86400"
 };
 
@@ -14,17 +14,17 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    const { kocId } = await req.json();
+    if (!kocId) {
+      throw new Error("Thiếu kocId.");
+    }
+
     const R2_ACCOUNT_ID = Deno.env.get("R2_ACCOUNT_ID");
     const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID");
     const R2_SECRET_ACCESS_KEY = Deno.env.get("R2_SECRET_ACCESS_KEY");
     const R2_BUCKET_NAME = Deno.env.get("R2_BUCKET_NAME");
     if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET_NAME) {
-      const missing = [];
-      if (!R2_ACCOUNT_ID) missing.push("R2_ACCOUNT_ID");
-      if (!R2_ACCESS_KEY_ID) missing.push("R2_ACCESS_KEY_ID");
-      if (!R2_SECRET_ACCESS_KEY) missing.push("R2_SECRET_ACCESS_KEY");
-      if (!R2_BUCKET_NAME) missing.push("R2_BUCKET_NAME");
-      throw new Error(`Thiếu cấu hình R2: ${missing.join(", ")}`);
+      throw new Error("Thiếu cấu hình R2.");
     }
 
     const s3 = new S3Client({
@@ -33,8 +33,14 @@ serve(async (req) => {
       credentials: { accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_ACCESS_KEY }
     });
 
-    const listed = await s3.send(new ListObjectsV2Command({ Bucket: R2_BUCKET_NAME }));
-    const objects = listed.Contents ?? [];
+    const listCommand = new ListObjectsV2Command({
+      Bucket: R2_BUCKET_NAME,
+      Prefix: `${kocId}/`, // Lấy các file trong "thư mục" của KOC
+    });
+
+    const listed = await s3.send(listCommand);
+    const objects = (listed.Contents ?? []).filter(obj => obj.Key !== `${kocId}/`); // Bỏ qua chính thư mục
+    
     const videoFiles = objects.filter(
       (o) => o.Key && (o.Key.endsWith(".mp4") || o.Key.endsWith(".mov") || o.Key.endsWith(".webm"))
     );
@@ -46,7 +52,9 @@ serve(async (req) => {
           new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: v.Key }),
           { expiresIn: 3600 }
         );
-        return { name: v.Key, url, lastModified: v.LastModified };
+        const nameParts = v.Key.split('/');
+        const displayName = nameParts[nameParts.length - 1];
+        return { name: displayName, url, lastModified: v.LastModified, key: v.Key };
       })
     );
 

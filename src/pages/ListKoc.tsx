@@ -1,132 +1,122 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/contexts/SessionContext";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Video, Film, RefreshCw, Loader2 } from "lucide-react";
-import { format } from "date-fns";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AlertCircle, Plus, UserSquare2, Tag, Copy } from "lucide-react";
+import { CreateKocDialog } from "@/components/koc/CreateKocDialog";
+import { showSuccess } from "@/utils/toast";
 
-type KocVideo = {
+type Koc = {
+  id: string;
   name: string;
-  url: string;
-  lastModified: string;
+  field: string | null;
+  avatar_url: string | null;
 };
 
-const fetchKocVideos = async (): Promise<KocVideo[]> => {
-  const { data, error } = await supabase.functions.invoke("list-r2-videos");
+const fetchKocs = async (userId: string): Promise<Koc[]> => {
+  const { data, error } = await supabase
+    .from("kocs")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+};
 
-  if (error) {
-    // Cố gắng lấy thông báo lỗi chi tiết hơn từ phản hồi của function
-    let detailedMessage = error.message;
-    if (error.context && typeof error.context.json === 'function') {
-      try {
-        const errorBody = await error.context.json();
-        if (errorBody.error) {
-          detailedMessage = errorBody.error;
-        }
-      } catch (e) {
-        // Bỏ qua nếu không phân tích được JSON, giữ lại lỗi gốc
-      }
-    }
-    throw new Error(`Không thể lấy danh sách video: ${detailedMessage}`);
-  }
+const KocCard = ({ koc }: { koc: Koc }) => {
+  const handleCopyId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    showSuccess("Đã sao chép ID của KOC!");
+  };
 
-  if (!data.videos) {
-    throw new Error("Phản hồi từ server không hợp lệ.");
-  }
-  return data.videos;
+  return (
+    <Card className="hover:shadow-lg transition-shadow relative group">
+      <Link to={`/list-koc/${koc.id}`} className="after:absolute after:inset-0">
+        <CardHeader>
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16">
+              <AvatarImage src={koc.avatar_url || undefined} alt={koc.name} />
+              <AvatarFallback className="text-2xl bg-red-100 text-red-600">
+                {koc.name.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <CardTitle>{koc.name}</CardTitle>
+              {koc.field && <CardDescription className="flex items-center gap-1.5 mt-1"><Tag className="h-3 w-3" />{koc.field}</CardDescription>}
+            </div>
+          </div>
+        </CardHeader>
+      </Link>
+      <CardContent>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleCopyId(koc.id);
+          }}
+        >
+          <Copy className="h-4 w-4 mr-2" /> Sao chép ID
+        </Button>
+      </CardContent>
+    </Card>
+  );
 };
 
 const ListKoc = () => {
-  const { data: videos, isLoading, isError, error, refetch, isFetching } = useQuery<KocVideo[]>({
-    queryKey: ["kocVideos"],
-    queryFn: fetchKocVideos,
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 5, // Cache trong 5 phút
+  const { user } = useSession();
+  const [isCreateOpen, setCreateOpen] = useState(false);
+
+  const { data: kocs, isLoading, isError, error } = useQuery<Koc[]>({
+    queryKey: ["kocs", user?.id],
+    queryFn: () => fetchKocs(user!.id),
+    enabled: !!user,
   });
 
   return (
-    <div className="p-6 lg:p-8">
-      <header className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">List KOC</h1>
-          <p className="text-muted-foreground mt-1">Xem các video hướng dẫn đã được tải lên.</p>
-        </div>
-        <Button onClick={() => refetch()} disabled={isFetching}>
-          {isFetching && !isLoading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="mr-2 h-4 w-4" />
-          )}
-          {isFetching && !isLoading ? "Đang tải..." : "Làm mới"}
-        </Button>
-      </header>
+    <>
+      <div className="p-6 lg:p-8">
+        <header className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold">Quản lý KOC</h1>
+            <p className="text-muted-foreground mt-1">Tạo và quản lý danh sách KOC của bạn.</p>
+          </div>
+          <Button onClick={() => setCreateOpen(true)} className="bg-red-600 hover:bg-red-700 text-white">
+            <Plus className="mr-2 h-4 w-4" /> Thêm KOC
+          </Button>
+        </header>
 
-      <div className="space-y-6">
-        {isLoading && (
-          Array.from({ length: 2 }).map((_, index) => (
-            <Card key={index} className="max-w-4xl mx-auto">
-              <CardHeader>
-                <Skeleton className="h-6 w-3/4" />
-                <Skeleton className="h-4 w-1/2 mt-1" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="w-full aspect-video rounded-lg" />
-              </CardContent>
-            </Card>
-          ))
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-36 w-full" />)}
+          </div>
+        ) : isError ? (
+          <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>
+        ) : kocs && kocs.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {kocs.map((koc) => <KocCard key={koc.id} koc={koc} />)}
+          </div>
+        ) : (
+          <div className="text-center py-16 border-2 border-dashed rounded-lg">
+            <UserSquare2 className="mx-auto h-12 w-12 text-muted-foreground" />
+            <h3 className="mt-4 text-xl font-semibold text-gray-700">Chưa có KOC nào</h3>
+            <p className="text-gray-500 mt-2 mb-4">Bắt đầu bằng cách thêm KOC đầu tiên của bạn.</p>
+            <Button onClick={() => setCreateOpen(true)} className="bg-red-600 hover:bg-red-700 text-white">
+              <Plus className="h-4 w-4 mr-2" /> Thêm KOC
+            </Button>
+          </div>
         )}
-
-        {isError && (
-          <Alert variant="destructive" className="max-w-4xl mx-auto">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Lỗi</AlertTitle>
-            <AlertDescription>
-              {error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định."}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {videos && videos.length === 0 && !isLoading && (
-            <Card className="max-w-4xl mx-auto">
-                <CardContent className="pt-6">
-                    <div className="text-center text-muted-foreground">
-                        <Film className="mx-auto h-12 w-12" />
-                        <h3 className="mt-4 text-lg font-semibold">Không tìm thấy video nào</h3>
-                        <p className="mt-1 text-sm">Chưa có video nào được tải lên Cloudflare R2.</p>
-                    </div>
-                </CardContent>
-            </Card>
-        )}
-
-        {videos && videos.map((video) => (
-          <Card key={video.name} className="max-w-4xl mx-auto">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Video className="text-red-500" />
-                {video.name}
-              </CardTitle>
-              <CardDescription>
-                Tải lên vào: {format(new Date(video.lastModified), "dd/MM/yyyy HH:mm")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                <video
-                  controls
-                  src={video.url}
-                  className="w-full h-full"
-                  preload="metadata"
-                >
-                  Trình duyệt của bạn không hỗ trợ thẻ video.
-                </video>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
       </div>
-    </div>
+      <CreateKocDialog isOpen={isCreateOpen} onOpenChange={setCreateOpen} />
+    </>
   );
 };
 

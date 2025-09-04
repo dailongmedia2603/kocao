@@ -10,6 +10,7 @@ import { SessionContextProvider } from "./contexts/SessionContext";
 import { Toaster } from "sonner";
 import Extensions from "./pages/Extensions";
 import ListKoc from "./pages/ListKoc";
+import KocDetail from "./pages/KocDetail";
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
               <Route path="/projects/:id" element={<ProjectDetail />} />
               <Route path="/extensions" element={<Extensions />} />
               <Route path="/list-koc" element={<ListKoc />} />
+              <Route path="/list-koc/:kocId" element={<KocDetail />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>
