@@ -20,7 +20,13 @@ serve(async (req) => {
     const R2_BUCKET_NAME = Deno.env.get("R2_BUCKET_NAME");
 
     if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET_NAME) {
-      throw new Error("Thiếu cấu hình Cloudflare R2.");
+      // Check which specific secrets are missing
+      const missing = [];
+      if (!R2_ACCOUNT_ID) missing.push("R2_ACCOUNT_ID");
+      if (!R2_ACCESS_KEY_ID) missing.push("R2_ACCESS_KEY_ID");
+      if (!R2_SECRET_ACCESS_KEY) missing.push("R2_SECRET_ACCESS_KEY");
+      if (!R2_BUCKET_NAME) missing.push("R2_BUCKET_NAME");
+      throw new Error(`Thiếu cấu hình R2. Vui lòng kiểm tra các secrets sau trong Supabase: ${missing.join(", ")}`);
     }
 
     const s3 = new S3Client({
@@ -32,26 +38,23 @@ serve(async (req) => {
       },
     });
 
-    // 1. Lấy danh sách tất cả các đối tượng trong bucket
     const listCommand = new ListObjectsV2Command({
       Bucket: R2_BUCKET_NAME,
     });
     const listOutput = await s3.send(listCommand);
     const objects = listOutput.Contents || [];
 
-    // Lọc các tệp video
     const videoFiles = objects.filter(obj => 
         obj.Key && (obj.Key.endsWith('.mp4') || obj.Key.endsWith('.mov') || obj.Key.endsWith('.webm'))
     );
 
-    // 2. Tạo presigned URL cho mỗi video
     const videosWithUrls = await Promise.all(
       videoFiles.map(async (video) => {
         const getCommand = new GetObjectCommand({
           Bucket: R2_BUCKET_NAME,
           Key: video.Key,
         });
-        const url = await getSignedUrl(s3, getCommand, { expiresIn: 3600 }); // URL có hiệu lực trong 1 giờ
+        const url = await getSignedUrl(s3, getCommand, { expiresIn: 3600 });
         return {
           name: video.Key,
           url: url,
@@ -60,7 +63,6 @@ serve(async (req) => {
       })
     );
     
-    // Sắp xếp theo ngày sửa đổi, mới nhất lên đầu
     videosWithUrls.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
 
     return new Response(JSON.stringify({ videos: videosWithUrls }), {
@@ -70,7 +72,20 @@ serve(async (req) => {
 
   } catch (err) {
     console.error("Lỗi trong Edge Function list-r2-videos:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
+    
+    // Cung cấp thông báo lỗi chi tiết hơn
+    let errorMessage = err.message;
+    if (err.name === 'CredentialsProviderError') {
+        errorMessage = "Lỗi xác thực. Access Key ID hoặc Secret Access Key không hợp lệ.";
+    } else if (err.name === 'NoSuchBucket') {
+        errorMessage = `Không tìm thấy bucket. Vui lòng kiểm tra lại giá trị của secret R2_BUCKET_NAME.`;
+    } else if (err.name === 'InvalidAccessKeyId') {
+        errorMessage = "Access Key ID không hợp lệ. Vui lòng kiểm tra lại secret R2_ACCESS_KEY_ID.";
+    } else if (err.name === 'SignatureDoesNotMatch') {
+        errorMessage = "Chữ ký không hợp lệ. Secret Access Key có thể đã bị sao chép sai. Vui lòng kiểm tra lại secret R2_SECRET_ACCESS_KEY.";
+    }
+
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
