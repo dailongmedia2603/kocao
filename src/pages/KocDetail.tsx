@@ -9,13 +9,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Film, PlayCircle, ArrowLeft, UploadCloud } from "lucide-react";
 import { format } from "date-fns";
 import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-
+import { UploadVideoDialog } from "@/components/koc/UploadVideoDialog";
 
 type KocVideo = {
   name: string;
@@ -48,6 +42,7 @@ const KocDetail = () => {
   const { kocId } = useParams<{ kocId: string }>();
   const [selectedVideo, setSelectedVideo] = useState<KocVideo | null>(null);
   const [isPlayerOpen, setPlayerOpen] = useState(false);
+  const [isUploadOpen, setUploadOpen] = useState(false);
 
   const { data: koc, isLoading: isKocLoading } = useQuery<Koc>({
     queryKey: ["koc", kocId],
@@ -77,21 +72,9 @@ const KocDetail = () => {
             {isKocLoading ? <Skeleton className="h-8 w-64" /> : <h1 className="text-3xl font-bold">{koc?.name}</h1>}
             <p className="text-muted-foreground mt-1">Danh sách các video của KOC.</p>
           </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer">
-                  <Button variant="outline">
-                    <UploadCloud className="mr-2 h-4 w-4" /> Tải lên video
-                  </Button>
-                </a>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Tải video lên thư mục có tên:</p>
-                <p className="font-mono bg-muted p-1 rounded text-xs mt-1">{koc?.folder_path}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Button variant="outline" onClick={() => setUploadOpen(true)} disabled={!koc?.folder_path}>
+            <UploadCloud className="mr-2 h-4 w-4" /> Tải lên video
+          </Button>
         </header>
 
         {areVideosLoading ? (
@@ -120,10 +103,18 @@ const KocDetail = () => {
             ))}
           </div>
         ) : (
-          <Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Film className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có video nào</h3><p className="mt-1 text-sm">Hãy tải video lên Cloudflare R2 để bắt đầu.</p></div></CardContent></Card>
+          <Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Film className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có video nào</h3><p className="mt-1 text-sm">Bấm "Tải lên video" để thêm video đầu tiên của bạn.</p></div></CardContent></Card>
         )}
       </div>
       <VideoPlayerDialog isOpen={isPlayerOpen} onOpenChange={setPlayerOpen} videoUrl={selectedVideo?.url} videoName={selectedVideo?.name} />
+      {koc && koc.folder_path && (
+        <UploadVideoDialog
+          isOpen={isUploadOpen}
+          onOpenChange={setUploadOpen}
+          folderPath={koc.folder_path}
+          kocName={koc.name}
+        />
+      )}
     </>
   );
 };
