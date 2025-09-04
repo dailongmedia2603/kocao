@@ -36,7 +36,6 @@ serve(async (req) => {
       .limit(1)
       .single();
 
-    // If no task is found, it's not an error, just return null
     if (findError || !task) {
       return new Response(JSON.stringify({ task: null }), {
         status: 200,
@@ -44,14 +43,23 @@ serve(async (req) => {
       });
     }
 
-    // Step 2: If it's an upload task, generate the signed URL
-    let finalPayload = task.payload;
-    if (task.type === 'UPLOAD_FILE') {
-      if (!task.payload?.storagePath) {
-        throw new Error(`Task ${task.id} is UPLOAD_FILE but has no storagePath in payload.`);
-      }
+    // Step 2: Lock the task by updating its status to 'running' first.
+    // This prevents other workers from picking up the same task.
+    const { data: lockedTask, error: lockError } = await supabaseAdmin
+      .from("tasks")
+      .update({ status: "running" })
+      .eq("id", task.id)
+      .select()
+      .single();
 
-      // This block is now a direct copy of the working logic from list-koc-files
+    if (lockError) {
+      console.error("Error locking task:", lockError);
+      throw lockError;
+    }
+
+    // Step 3: If it's an upload task, generate the signed URL and enrich the payload.
+    let finalTask = lockedTask;
+    if (lockedTask.type === 'UPLOAD_FILE' && lockedTask.payload?.storagePath) {
       const s3 = new S3Client({
         region: "auto",
         endpoint: `https://${Deno.env.get("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
@@ -65,33 +73,35 @@ serve(async (req) => {
         s3,
         new GetObjectCommand({
           Bucket: Deno.env.get("R2_BUCKET_NAME"),
-          Key: task.payload.storagePath,
+          Key: lockedTask.payload.storagePath,
         }),
         { expiresIn: 300 } // URL is valid for 5 minutes
       );
       
-      // Create a new payload object with the fresh URL
-      finalPayload = {
-        ...task.payload,
+      const enrichedPayload = {
+        ...lockedTask.payload,
         fileUrl: signedUrl,
       };
+
+      // Step 4: Update the task a second time with the enriched payload.
+      const { data: updatedTaskWithUrl, error: payloadUpdateError } = await supabaseAdmin
+        .from("tasks")
+        .update({ payload: enrichedPayload })
+        .eq("id", lockedTask.id)
+        .select()
+        .single();
+
+      if (payloadUpdateError) {
+        console.error("Error updating payload with signed URL:", payloadUpdateError);
+        // Attempt to revert status to 'queued' on failure
+        await supabaseAdmin.from("tasks").update({ status: "queued" }).eq("id", lockedTask.id);
+        throw payloadUpdateError;
+      }
+      finalTask = updatedTaskWithUrl;
     }
 
-    // Step 3: Atomically update the task status to 'running' and save the new payload
-    const { data: updatedTask, error: updateError } = await supabaseAdmin
-      .from("tasks")
-      .update({ status: "running", payload: finalPayload })
-      .eq("id", task.id)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error("Error updating task status to running:", updateError);
-      throw updateError;
-    }
-
-    // Step 4: Return the fully updated task to the extension
-    return new Response(JSON.stringify({ task: updatedTask }), {
+    // Step 5: Return the fully prepared task to the extension.
+    return new Response(JSON.stringify({ task: finalTask }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
