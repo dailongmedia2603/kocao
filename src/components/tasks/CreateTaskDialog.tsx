@@ -87,7 +87,6 @@ export const CreateTaskDialog = ({
           if (!selectedKocFile) throw new Error("Vui lòng chọn một tệp từ thư viện KOC.");
           
           payloadData = {
-            fileUrl: selectedKocFile.url,
             fileName: selectedKocFile.display_name,
             inputSelector: values.selector,
             storagePath: selectedKocFile.r2_key,

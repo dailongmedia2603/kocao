@@ -85,17 +85,17 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
         case "UPLOAD_FILE":
           if (selectedKocFile) {
             payloadData = {
-              fileUrl: selectedKocFile.url,
               fileName: selectedKocFile.display_name,
               inputSelector: values.selector,
               storagePath: selectedKocFile.r2_key,
             };
           } else {
-            if (!task.payload?.fileUrl) throw new Error("Không có tệp nào được chọn. Vui lòng chọn một tệp từ thư viện KOC.");
+            if (!task.payload?.storagePath) throw new Error("Không có tệp nào được chọn. Vui lòng chọn một tệp từ thư viện KOC.");
             payloadData = {
               ...task.payload,
               inputSelector: values.selector,
             };
+            delete payloadData.fileUrl; // Ensure old, expired URL is removed
           }
           break;
         case "DELAY":

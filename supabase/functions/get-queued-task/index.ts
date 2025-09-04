@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { S3Client, GetObjectCommand } from "npm:@aws-sdk/client-s3@^3.609.0";
+import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@^3.609.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,7 +26,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Tìm một task đang chờ được gán cho extension này
+    // Find a queued task for this extension
     const { data: task, error: findError } = await supabaseAdmin
       .from("tasks")
       .select("*")
@@ -35,17 +37,40 @@ serve(async (req) => {
       .single();
 
     if (findError || !task) {
-      // Không có task nào hoặc có lỗi, trả về rỗng
       return new Response(JSON.stringify({ task: null }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Nếu tìm thấy task, ngay lập tức cập nhật trạng thái thành 'running' để khóa nó lại
+    // If the task is an UPLOAD_FILE task, generate a fresh signed URL
+    if (task.type === 'UPLOAD_FILE' && task.payload?.storagePath) {
+      const s3 = new S3Client({
+        region: "auto",
+        endpoint: `https://${Deno.env.get("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
+        credentials: {
+          accessKeyId: Deno.env.get("R2_ACCESS_KEY_ID"),
+          secretAccessKey: Deno.env.get("R2_SECRET_ACCESS_KEY"),
+        },
+      });
+
+      const signedUrl = await getSignedUrl(
+        s3,
+        new GetObjectCommand({
+          Bucket: Deno.env.get("R2_BUCKET_NAME"),
+          Key: task.payload.storagePath,
+        }),
+        { expiresIn: 300 } // URL is valid for 5 minutes
+      );
+      
+      // Add the fresh URL to the payload
+      task.payload.fileUrl = signedUrl;
+    }
+
+    // Lock the task by updating its status to 'running' and saving the new payload
     const { data: updatedTask, error: updateError } = await supabaseAdmin
       .from("tasks")
-      .update({ status: "running" })
+      .update({ status: "running", payload: task.payload })
       .eq("id", task.id)
       .select()
       .single();
@@ -54,7 +79,7 @@ serve(async (req) => {
       throw updateError;
     }
 
-    // Trả task đã được cập nhật về cho extension
+    // Return the updated task to the extension
     return new Response(JSON.stringify({ task: updatedTask }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
