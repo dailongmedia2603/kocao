@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { Link } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -36,37 +36,40 @@ const KocCard = ({ koc }: { koc: Koc }) => {
   };
 
   return (
-    <Card className="hover:shadow-lg transition-shadow relative group">
+    <Card className="hover:shadow-lg transition-shadow relative group text-center">
       <Link to={`/list-koc/${koc.id}`} className="after:absolute after:inset-0">
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
+        <CardContent className="p-6">
+          <div className="flex flex-col items-center gap-3">
+            <Avatar className="h-20 w-20">
               <AvatarImage src={koc.avatar_url || undefined} alt={koc.name} />
-              <AvatarFallback className="text-2xl bg-red-100 text-red-600">
+              <AvatarFallback className="text-3xl bg-red-100 text-red-600">
                 {koc.name.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div className="flex-1">
-              <CardTitle>{koc.name}</CardTitle>
-              {koc.field && <CardDescription className="flex items-center gap-1.5 mt-1"><Tag className="h-3 w-3" />{koc.field}</CardDescription>}
+            <div>
+              <CardTitle className="text-lg">{koc.name}</CardTitle>
+              {koc.field && (
+                <CardDescription className="flex items-center justify-center gap-1.5 mt-1">
+                  <Tag className="h-3 w-3" />
+                  {koc.field}
+                </CardDescription>
+              )}
             </div>
           </div>
-        </CardHeader>
+        </CardContent>
       </Link>
-      <CardContent>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleCopyId(koc.id);
-          }}
-        >
-          <Copy className="h-4 w-4 mr-2" /> Sao chép ID
-        </Button>
-      </CardContent>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleCopyId(koc.id);
+        }}
+      >
+        <Copy className="h-4 w-4 mr-2" /> Sao chép ID
+      </Button>
     </Card>
   );
 };
@@ -95,13 +98,13 @@ const ListKoc = () => {
         </header>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-36 w-full" />)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-48 w-full" />)}
           </div>
         ) : isError ? (
           <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>
         ) : kocs && kocs.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {kocs.map((koc) => <KocCard key={koc.id} koc={koc} />)}
           </div>
         ) : (
