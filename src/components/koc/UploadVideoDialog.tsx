@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { UploadCloud, FileVideo, X } from "lucide-react";
+import { UploadCloud, File as FileIcon, X } from "lucide-react";
 
 type UploadVideoDialogProps = {
   isOpen: boolean;
@@ -40,7 +40,7 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocName }:
       return files.length;
     },
     onSuccess: (fileCount) => {
-      showSuccess(`Đã tải lên thành công ${fileCount} video!`);
+      showSuccess(`Đã tải lên thành công ${fileCount} tệp!`);
       queryClient.invalidateQueries({ queryKey: ["kocVideos", folderPath] });
       handleClose();
     },
@@ -79,27 +79,27 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocName }:
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Tải lên video cho {kocName}</DialogTitle>
+          <DialogTitle>Tải lên tệp cho {kocName}</DialogTitle>
           <DialogDescription>
-            Chọn một hoặc nhiều file video để tải lên thư mục <span className="font-mono bg-muted p-1 rounded text-xs">{folderPath}</span>.
+            Chọn một hoặc nhiều tệp để tải lên thư mục <span className="font-mono bg-muted p-1 rounded text-xs">{folderPath}</span>.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
-          <label htmlFor="video-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted transition-colors">
+          <label htmlFor="file-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted transition-colors">
             <UploadCloud className="h-8 w-8 text-muted-foreground" />
-            <p className="mt-2 text-sm text-muted-foreground">Bấm để chọn video</p>
-            <Input id="video-upload" type="file" className="hidden" onChange={handleFileChange} accept="video/mp4,video/webm,video/quicktime,video/x-matroska" multiple />
+            <p className="mt-2 text-sm text-muted-foreground">Bấm để chọn tệp</p>
+            <Input id="file-upload" type="file" className="hidden" onChange={handleFileChange} multiple />
           </label>
 
           {selectedFiles.length > 0 && (
             <div>
-              <p className="text-sm font-medium mb-2">Đã chọn {selectedFiles.length} video:</p>
+              <p className="text-sm font-medium mb-2">Đã chọn {selectedFiles.length} tệp:</p>
               <ScrollArea className="h-40 border rounded-lg p-2">
                 <div className="space-y-2">
                   {selectedFiles.map((file, index) => (
                     <div key={index} className="flex items-center justify-between p-2 rounded-md bg-muted">
                       <div className="flex items-center gap-3 min-w-0">
-                        <FileVideo className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        <FileIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                         <div className="flex-grow min-w-0">
                           <p className="font-medium truncate text-sm" title={file.name}>{file.name}</p>
                           <p className="text-xs text-muted-foreground">
@@ -120,7 +120,7 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocName }:
         <DialogFooter>
           <Button type="button" variant="outline" onClick={handleClose}>Hủy</Button>
           <Button onClick={handleUpload} disabled={selectedFiles.length === 0 || uploadMutation.isPending}>
-            {uploadMutation.isPending ? `Đang tải lên (${selectedFiles.length})...` : `Tải lên ${selectedFiles.length} video`}
+            {uploadMutation.isPending ? `Đang tải lên (${selectedFiles.length})...` : `Tải lên ${selectedFiles.length} tệp`}
           </Button>
         </DialogFooter>
       </DialogContent>
