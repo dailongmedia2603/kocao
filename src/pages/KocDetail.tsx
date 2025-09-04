@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Film, PlayCircle, ArrowLeft, UploadCloud, Trash2 } from "lucide-react";
+import { AlertCircle, Film, PlayCircle, ArrowLeft, UploadCloud, Trash2, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
 import { UploadVideoDialog } from "@/components/koc/UploadVideoDialog";
@@ -23,11 +23,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { showSuccess, showError } from "@/utils/toast";
 
-type KocVideo = {
+type KocFile = {
   name: string;
   url: string;
   lastModified: string;
-  key: string; // Thêm key để xác định file trên R2
+  key: string;
 };
 
 type Koc = {
@@ -42,20 +42,25 @@ const fetchKocDetails = async (kocId: string) => {
   return data;
 };
 
-const fetchKocVideos = async (folderPath: string): Promise<KocVideo[]> => {
-  const { data, error } = await supabase.functions.invoke("list-r2-videos", {
+const fetchKocFiles = async (folderPath: string): Promise<KocFile[]> => {
+  const { data, error } = await supabase.functions.invoke("list-r2-videos", { // Tên function trên Supabase vẫn là list-r2-videos
     body: { folderPath },
   });
-  if (error) throw new Error(`Không thể lấy danh sách video: ${error.message}`);
-  if (!data.videos) throw new Error("Phản hồi từ server không hợp lệ.");
-  return data.videos;
+  if (error) throw new Error(`Không thể lấy danh sách tệp: ${error.message}`);
+  if (!data.files) throw new Error("Phản hồi từ server không hợp lệ.");
+  return data.files;
+};
+
+const isVideoFile = (fileName: string) => {
+  const videoExtensions = ['.mp4', '.mov', '.webm', '.ogg'];
+  return videoExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
 };
 
 const KocDetail = () => {
   const { kocId } = useParams<{ kocId: string }>();
   const queryClient = useQueryClient();
-  const [selectedVideo, setSelectedVideo] = useState<KocVideo | null>(null);
-  const [videoToDelete, setVideoToDelete] = useState<KocVideo | null>(null);
+  const [selectedFile, setSelectedFile] = useState<KocFile | null>(null);
+  const [fileToDelete, setFileToDelete] = useState<KocFile | null>(null);
   const [isPlayerOpen, setPlayerOpen] = useState(false);
   const [isUploadOpen, setUploadOpen] = useState(false);
 
@@ -65,42 +70,46 @@ const KocDetail = () => {
     enabled: !!kocId,
   });
 
-  const { data: videos, isLoading: areVideosLoading, isError, error } = useQuery<KocVideo[]>({
-    queryKey: ["kocVideos", koc?.folder_path],
-    queryFn: () => fetchKocVideos(koc!.folder_path!),
+  const { data: files, isLoading: areFilesLoading, isError, error } = useQuery<KocFile[]>({
+    queryKey: ["kocFiles", koc?.folder_path],
+    queryFn: () => fetchKocFiles(koc!.folder_path!),
     enabled: !!koc && !!koc.folder_path,
   });
 
-  const deleteVideoMutation = useMutation({
-    mutationFn: async (videoKey: string) => {
-      const { error } = await supabase.functions.invoke("delete-r2-video", {
-        body: { videoKey },
+  const deleteFileMutation = useMutation({
+    mutationFn: async (fileKey: string) => {
+      const { error } = await supabase.functions.invoke("delete-r2-video", { // Tên function trên Supabase vẫn là delete-r2-video
+        body: { videoKey: fileKey },
       });
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
-      showSuccess("Xóa video thành công!");
-      queryClient.invalidateQueries({ queryKey: ["kocVideos", koc?.folder_path] });
-      setVideoToDelete(null);
+      showSuccess("Xóa tệp thành công!");
+      queryClient.invalidateQueries({ queryKey: ["kocFiles", koc?.folder_path] });
+      setFileToDelete(null);
     },
     onError: (error: Error) => {
-      showError(`Lỗi xóa video: ${error.message}`);
+      showError(`Lỗi xóa tệp: ${error.message}`);
     },
   });
 
-  const handlePlayVideo = (video: KocVideo) => {
-    setSelectedVideo(video);
-    setPlayerOpen(true);
+  const handleFileClick = (file: KocFile) => {
+    if (isVideoFile(file.name)) {
+      setSelectedFile(file);
+      setPlayerOpen(true);
+    } else {
+      window.open(file.url, '_blank');
+    }
   };
 
-  const handleDeleteVideo = (e: React.MouseEvent, video: KocVideo) => {
-    e.stopPropagation(); // Ngăn không cho mở player khi bấm xóa
-    setVideoToDelete(video);
+  const handleDeleteFile = (e: React.MouseEvent, file: KocFile) => {
+    e.stopPropagation();
+    setFileToDelete(file);
   };
 
   const confirmDelete = () => {
-    if (videoToDelete) {
-      deleteVideoMutation.mutate(videoToDelete.key);
+    if (fileToDelete) {
+      deleteFileMutation.mutate(fileToDelete.key);
     }
   };
 
@@ -113,51 +122,62 @@ const KocDetail = () => {
               <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách KOC
             </Link>
             {isKocLoading ? <Skeleton className="h-8 w-64" /> : <h1 className="text-3xl font-bold">{koc?.name}</h1>}
-            <p className="text-muted-foreground mt-1">Danh sách các video của KOC.</p>
+            <p className="text-muted-foreground mt-1">Danh sách các tệp của KOC.</p>
           </div>
           <Button variant="outline" onClick={() => setUploadOpen(true)} disabled={!koc?.folder_path}>
-            <UploadCloud className="mr-2 h-4 w-4" /> Tải lên video
+            <UploadCloud className="mr-2 h-4 w-4" /> Tải lên tệp
           </Button>
         </header>
 
-        {areVideosLoading ? (
+        {areFilesLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}
           </div>
         ) : isError ? (
           <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>
-        ) : videos && videos.length > 0 ? (
+        ) : files && files.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {videos.map((video) => (
-              <Card key={video.key} className="overflow-hidden group">
-                <CardContent className="p-0">
-                  <div className="aspect-video bg-black flex items-center justify-center relative cursor-pointer" onClick={() => handlePlayVideo(video)}>
-                    <VideoThumbnail videoUrl={video.url} />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <PlayCircle className="h-16 w-16 text-white" />
+            {files.map((file) => {
+              const isVideo = isVideoFile(file.name);
+              return (
+                <Card key={file.key} className="overflow-hidden group">
+                  <CardContent className="p-0">
+                    <div className="aspect-video bg-black flex items-center justify-center relative cursor-pointer" onClick={() => handleFileClick(file)}>
+                      {isVideo ? (
+                        <VideoThumbnail videoUrl={file.url} />
+                      ) : (
+                        <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                          <FileText className="h-12 w-12 text-gray-500" />
+                        </div>
+                      )}
+                      {isVideo && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <PlayCircle className="h-16 w-16 text-white" />
+                        </div>
+                      )}
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => handleDeleteFile(e, file)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => handleDeleteVideo(e, video)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="p-3">
-                    <p className="font-semibold text-sm truncate" title={video.name}>{video.name}</p>
-                    <p className="text-xs text-muted-foreground">{format(new Date(video.lastModified), "dd/MM/yyyy")}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <div className="p-3">
+                      <p className="font-semibold text-sm truncate" title={file.name}>{file.name}</p>
+                      <p className="text-xs text-muted-foreground">{format(new Date(file.lastModified), "dd/MM/yyyy")}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         ) : (
-          <Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Film className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có video nào</h3><p className="mt-1 text-sm">Bấm "Tải lên video" để thêm video đầu tiên của bạn.</p></div></CardContent></Card>
+          <Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Film className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có tệp nào</h3><p className="mt-1 text-sm">Bấm "Tải lên tệp" để thêm tệp đầu tiên của bạn.</p></div></CardContent></Card>
         )}
       </div>
-      <VideoPlayerDialog isOpen={isPlayerOpen} onOpenChange={setPlayerOpen} videoUrl={selectedVideo?.url} videoName={selectedVideo?.name} />
+      <VideoPlayerDialog isOpen={isPlayerOpen} onOpenChange={setPlayerOpen} videoUrl={selectedFile?.url} videoName={selectedFile?.name} />
       {koc && koc.folder_path && (
         <UploadVideoDialog
           isOpen={isUploadOpen}
@@ -166,18 +186,18 @@ const KocDetail = () => {
           kocName={koc.name}
         />
       )}
-      <AlertDialog open={!!videoToDelete} onOpenChange={() => setVideoToDelete(null)}>
+      <AlertDialog open={!!fileToDelete} onOpenChange={() => setFileToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Bạn có chắc chắn muốn xóa video?</AlertDialogTitle>
+            <AlertDialogTitle>Bạn có chắc chắn muốn xóa tệp?</AlertDialogTitle>
             <AlertDialogDescription>
-              Hành động này không thể hoàn tác. Video "{videoToDelete?.name}" sẽ bị xóa vĩnh viễn khỏi Cloudflare R2.
+              Hành động này không thể hoàn tác. Tệp "{fileToDelete?.name}" sẽ bị xóa vĩnh viễn khỏi Cloudflare R2.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} disabled={deleteVideoMutation.isPending}>
-              {deleteVideoMutation.isPending ? "Đang xóa..." : "Xóa"}
+            <AlertDialogAction onClick={confirmDelete} disabled={deleteFileMutation.isPending}>
+              {deleteFileMutation.isPending ? "Đang xóa..." : "Xóa"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

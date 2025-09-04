@@ -35,18 +35,16 @@ serve(async (req) => {
 
     const listCommand = new ListObjectsV2Command({
       Bucket: R2_BUCKET_NAME,
-      Prefix: `${folderPath}/`, // Sử dụng folderPath
+      Prefix: `${folderPath}/`,
     });
 
     const listed = await s3.send(listCommand);
+    // Lọc bỏ đối tượng thư mục trống (nếu có)
     const objects = (listed.Contents ?? []).filter(obj => obj.Key !== `${folderPath}/`);
     
-    const videoFiles = objects.filter(
-      (o) => o.Key && (o.Key.endsWith(".mp4") || o.Key.endsWith(".mov") || o.Key.endsWith(".webm"))
-    );
-
-    const videos = await Promise.all(
-      videoFiles.map(async (v) => {
+    // Không còn lọc theo loại tệp, lấy tất cả các đối tượng
+    const files = await Promise.all(
+      objects.map(async (v) => {
         const url = await getSignedUrl(
           s3,
           new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: v.Key }),
@@ -58,14 +56,15 @@ serve(async (req) => {
       })
     );
 
-    videos.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
+    files.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
 
-    return new Response(JSON.stringify({ videos }), {
+    // Trả về một mảng 'files' thay vì 'videos'
+    return new Response(JSON.stringify({ files }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   } catch (err) {
-    console.error("list-r2-videos error:", err);
+    console.error("list-r2-files error:", err);
     return new Response(JSON.stringify({ error: err.message ?? String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" }
