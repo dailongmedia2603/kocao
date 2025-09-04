@@ -26,17 +26,18 @@ type KocVideo = {
 type Koc = {
   id: string;
   name: string;
+  folder_path: string | null;
 };
 
 const fetchKocDetails = async (kocId: string) => {
-  const { data, error } = await supabase.from("kocs").select("id, name").eq("id", kocId).single();
+  const { data, error } = await supabase.from("kocs").select("id, name, folder_path").eq("id", kocId).single();
   if (error) throw error;
   return data;
 };
 
-const fetchKocVideos = async (kocId: string): Promise<KocVideo[]> => {
+const fetchKocVideos = async (folderPath: string): Promise<KocVideo[]> => {
   const { data, error } = await supabase.functions.invoke("list-r2-videos", {
-    body: { kocId },
+    body: { folderPath },
   });
   if (error) throw new Error(`Không thể lấy danh sách video: ${error.message}`);
   if (!data.videos) throw new Error("Phản hồi từ server không hợp lệ.");
@@ -55,9 +56,9 @@ const KocDetail = () => {
   });
 
   const { data: videos, isLoading: areVideosLoading, isError, error } = useQuery<KocVideo[]>({
-    queryKey: ["kocVideos", kocId],
-    queryFn: () => fetchKocVideos(kocId!),
-    enabled: !!kocId,
+    queryKey: ["kocVideos", koc?.folder_path],
+    queryFn: () => fetchKocVideos(koc!.folder_path!),
+    enabled: !!koc && !!koc.folder_path,
   });
 
   const handleVideoClick = (video: KocVideo) => {
@@ -86,8 +87,8 @@ const KocDetail = () => {
                 </a>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Tải video lên thư mục có tên là ID của KOC:</p>
-                <p className="font-mono bg-muted p-1 rounded text-xs mt-1">{kocId}</p>
+                <p>Tải video lên thư mục có tên:</p>
+                <p className="font-mono bg-muted p-1 rounded text-xs mt-1">{koc?.folder_path}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

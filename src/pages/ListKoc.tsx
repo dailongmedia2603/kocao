@@ -8,15 +8,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { AlertCircle, Plus, UserSquare2, Tag, Copy } from "lucide-react";
+import { AlertCircle, Plus, UserSquare2, Tag, Copy, MoreVertical, Edit, Trash2 } from "lucide-react";
 import { CreateKocDialog } from "@/components/koc/CreateKocDialog";
 import { showSuccess } from "@/utils/toast";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type Koc = {
   id: string;
   name: string;
   field: string | null;
   avatar_url: string | null;
+  folder_path: string | null;
 };
 
 const fetchKocs = async (userId: string): Promise<Koc[]> => {
@@ -30,15 +32,35 @@ const fetchKocs = async (userId: string): Promise<Koc[]> => {
 };
 
 const KocCard = ({ koc }: { koc: Koc }) => {
-  const handleCopyId = (id: string) => {
-    navigator.clipboard.writeText(id);
-    showSuccess("Đã sao chép ID của KOC!");
+  const handleCopy = (text: string, type: string) => {
+    navigator.clipboard.writeText(text);
+    showSuccess(`Đã sao chép ${type} của KOC!`);
   };
 
   return (
     <Card className="hover:shadow-lg transition-shadow relative group text-center">
-      <Link to={`/list-koc/${koc.id}`} className="after:absolute after:inset-0">
-        <CardContent className="p-6">
+      <div className="absolute top-2 right-2 z-10">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => alert("Chức năng sửa đang được phát triển")}>
+              <Edit className="mr-2 h-4 w-4" /> Sửa
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={() => alert("Chức năng xóa đang được phát triển")}>
+              <Trash2 className="mr-2 h-4 w-4" /> Xóa
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleCopy(koc.folder_path || koc.id, "thư mục")}>
+              <Copy className="mr-2 h-4 w-4" /> Sao chép tên thư mục
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <Link to={`/list-koc/${koc.id}`}>
+        <CardContent className="p-6 pt-12">
           <div className="flex flex-col items-center gap-3">
             <Avatar className="h-20 w-20">
               <AvatarImage src={koc.avatar_url || undefined} alt={koc.name} />
@@ -58,18 +80,6 @@ const KocCard = ({ koc }: { koc: Koc }) => {
           </div>
         </CardContent>
       </Link>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleCopyId(koc.id);
-        }}
-      >
-        <Copy className="h-4 w-4 mr-2" /> Sao chép ID
-      </Button>
     </Card>
   );
 };

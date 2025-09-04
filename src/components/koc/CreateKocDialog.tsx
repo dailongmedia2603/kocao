@@ -16,6 +16,15 @@ const formSchema = z.object({
   avatar_url: z.string().url("URL ảnh đại diện không hợp lệ").optional().or(z.literal('')),
 });
 
+const slugify = (text: string) => {
+  return text.toString().toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\-]+/g, '')
+    .replace(/\-\-+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+};
+
 type CreateKocDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
@@ -34,29 +43,35 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
 
-      // Bước 1: Tạo KOC trong database và lấy về ID
       const { data: newKoc, error: dbError } = await supabase
         .from("kocs")
-        .insert({ user_id: user.id, ...values })
+        .insert({ user_id: user.id, name: values.name, field: values.field, avatar_url: values.avatar_url })
         .select("id")
         .single();
 
-      if (dbError) {
-        throw new Error(`Lỗi tạo KOC trong database: ${dbError.message}`);
-      }
+      if (dbError) throw new Error(`Lỗi tạo KOC: ${dbError.message}`);
 
-      // Bước 2: Gọi Edge Function để tạo thư mục trên R2
+      const folderPath = `${slugify(values.name)}-${newKoc.id.substring(0, 8)}`;
+      
       const { error: functionError } = await supabase.functions.invoke("create-r2-folder", {
-        body: { kocId: newKoc.id },
+        body: { folderPath },
       });
 
       if (functionError) {
-        // Nếu tạo thư mục lỗi, thông báo cho người dùng biết
-        // KOC vẫn được tạo thành công trong DB
-        throw new Error(`Tạo KOC thành công, nhưng không thể tạo thư mục trên R2: ${functionError.message}. Vui lòng tạo thư mục thủ công với ID: ${newKoc.id}`);
+        await supabase.from("kocs").delete().eq("id", newKoc.id);
+        throw new Error(`Lỗi tạo thư mục R2: ${functionError.message}`);
       }
 
-      return newKoc;
+      const { error: updateError } = await supabase
+        .from("kocs")
+        .update({ folder_path: folderPath })
+        .eq("id", newKoc.id);
+
+      if (updateError) {
+        // Attempt to clean up R2 folder
+        await supabase.functions.invoke("delete-r2-folder", { body: { folderPath } });
+        throw new Error(`Lỗi cập nhật KOC: ${updateError.message}`);
+      }
     },
     onSuccess: () => {
       showSuccess("Tạo KOC và thư mục trên R2 thành công!");
@@ -65,7 +80,6 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
       form.reset();
     },
     onError: (error: Error) => {
-      // Hiển thị lỗi đã được tùy chỉnh ở trên
       showError(error.message);
     },
   });
@@ -80,31 +94,19 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
         <DialogHeader>
           <DialogTitle>Tạo KOC mới</DialogTitle>
           <DialogDescription>
-            Thêm một KOC vào danh sách quản lý của bạn. Một thư mục tương ứng sẽ được tạo trên Cloudflare R2.
+            Một thư mục tương ứng sẽ được tạo trên Cloudflare R2.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
             <FormField control={form.control} name="name" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tên KOC</FormLabel>
-                <FormControl><Input placeholder="Ví dụ: Nguyễn Văn A" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
+              <FormItem><FormLabel>Tên KOC</FormLabel><FormControl><Input placeholder="Ví dụ: Nguyễn Văn A" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="field" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Lĩnh vực</FormLabel>
-                <FormControl><Input placeholder="Ví dụ: Beauty, Food,..." {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
+              <FormItem><FormLabel>Lĩnh vực</FormLabel><FormControl><Input placeholder="Ví dụ: Beauty, Food,..." {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="avatar_url" render={({ field }) => (
-              <FormItem>
-                <FormLabel>URL Ảnh đại diện</FormLabel>
-                <FormControl><Input placeholder="https://example.com/avatar.png" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
+              <FormItem><FormLabel>URL Ảnh đại diện</FormLabel><FormControl><Input placeholder="https://example.com/avatar.png" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
