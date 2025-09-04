@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
+import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,12 @@ type UploadVideoDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   folderPath: string;
+  kocId: string;
+  userId: string;
   kocName: string;
 };
 
-export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocName }: UploadVideoDialogProps) => {
+export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocId, userId, kocName }: UploadVideoDialogProps) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const queryClient = useQueryClient();
 
@@ -26,50 +28,33 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocName }:
         formData.append("file", file);
         formData.append("folderPath", folderPath);
         formData.append("fileName", file.name);
+        formData.append("kocId", kocId);
+        formData.append("userId", userId);
 
-        return supabase.functions.invoke("upload-r2-video", {
-          body: formData,
-        }).then(({ error }) => {
-          if (error) {
-            throw new Error(`Lỗi tải lên tệp ${file.name}: ${error.message}`);
-          }
-        });
+        return supabase.functions.invoke("upload-koc-file", { body: formData })
+          .then(({ error }) => {
+            if (error) throw new Error(`Lỗi tải lên ${file.name}: ${error.message}`);
+          });
       });
-
       await Promise.all(uploadPromises);
       return files.length;
     },
     onSuccess: (fileCount) => {
       showSuccess(`Đã tải lên thành công ${fileCount} tệp!`);
-      queryClient.invalidateQueries({ queryKey: ["kocVideos", folderPath] });
+      queryClient.invalidateQueries({ queryKey: ["kocFiles", kocId] });
       handleClose();
     },
-    onError: (error: Error) => {
-      showError(`Lỗi tải lên: ${error.message}`);
-    },
+    onError: (error: Error) => showError(`Lỗi tải lên: ${error.message}`),
   });
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files) {
-      setSelectedFiles(prevFiles => {
-        const newFiles = Array.from(files);
-        const uniqueNewFiles = newFiles.filter(nf => !prevFiles.some(pf => pf.name === nf.name && pf.size === nf.size));
-        return [...prevFiles, ...uniqueNewFiles];
-      });
+    if (event.target.files) {
+      setSelectedFiles(prev => [...prev, ...Array.from(event.target.files!)]);
     }
   };
   
-  const removeFile = (fileToRemove: File) => {
-    setSelectedFiles(prevFiles => prevFiles.filter(file => file !== fileToRemove));
-  };
-
-  const handleUpload = () => {
-    if (selectedFiles.length > 0) {
-      uploadMutation.mutate(selectedFiles);
-    }
-  };
-
+  const removeFile = (fileToRemove: File) => setSelectedFiles(prev => prev.filter(f => f !== fileToRemove));
+  const handleUpload = () => uploadMutation.mutate(selectedFiles);
   const handleClose = () => {
     setSelectedFiles([]);
     onOpenChange(false);
@@ -80,9 +65,7 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocName }:
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Tải lên tệp cho {kocName}</DialogTitle>
-          <DialogDescription>
-            Chọn một hoặc nhiều tệp để tải lên thư mục <span className="font-mono bg-muted p-1 rounded text-xs">{folderPath}</span>.
-          </DialogDescription>
+          <DialogDescription>Chọn tệp để tải lên thư mục <span className="font-mono bg-muted p-1 rounded text-xs">{folderPath}</span>.</DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
           <label htmlFor="file-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted transition-colors">
@@ -90,7 +73,6 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocName }:
             <p className="mt-2 text-sm text-muted-foreground">Bấm để chọn tệp</p>
             <Input id="file-upload" type="file" className="hidden" onChange={handleFileChange} multiple />
           </label>
-
           {selectedFiles.length > 0 && (
             <div>
               <p className="text-sm font-medium mb-2">Đã chọn {selectedFiles.length} tệp:</p>
@@ -102,14 +84,10 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocName }:
                         <FileIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                         <div className="flex-grow min-w-0">
                           <p className="font-medium truncate text-sm" title={file.name}>{file.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
+                          <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => removeFile(file)}>
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => removeFile(file)}><X className="h-4 w-4" /></Button>
                     </div>
                   ))}
                 </div>
@@ -120,7 +98,7 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocName }:
         <DialogFooter>
           <Button type="button" variant="outline" onClick={handleClose}>Hủy</Button>
           <Button onClick={handleUpload} disabled={selectedFiles.length === 0 || uploadMutation.isPending}>
-            {uploadMutation.isPending ? `Đang tải lên (${selectedFiles.length})...` : `Tải lên ${selectedFiles.length} tệp`}
+            {uploadMutation.isPending ? `Đang tải lên...` : `Tải lên ${selectedFiles.length} tệp`}
           </Button>
         </DialogFooter>
       </DialogContent>
