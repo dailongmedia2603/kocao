@@ -26,7 +26,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Find a queued task for this extension
+    // Step 1: Find a queued task for this extension
     const { data: task, error: findError } = await supabaseAdmin
       .from("tasks")
       .select("*")
@@ -36,6 +36,7 @@ serve(async (req) => {
       .limit(1)
       .single();
 
+    // If no task is found, it's not an error, just return null
     if (findError || !task) {
       return new Response(JSON.stringify({ task: null }), {
         status: 200,
@@ -43,8 +44,14 @@ serve(async (req) => {
       });
     }
 
-    // If the task is an UPLOAD_FILE task, generate a fresh signed URL
-    if (task.type === 'UPLOAD_FILE' && task.payload?.storagePath) {
+    // Step 2: If it's an upload task, generate the signed URL
+    let finalPayload = task.payload;
+    if (task.type === 'UPLOAD_FILE') {
+      if (!task.payload?.storagePath) {
+        throw new Error(`Task ${task.id} is UPLOAD_FILE but has no storagePath in payload.`);
+      }
+
+      // This block is now a direct copy of the working logic from list-koc-files
       const s3 = new S3Client({
         region: "auto",
         endpoint: `https://${Deno.env.get("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
@@ -63,29 +70,34 @@ serve(async (req) => {
         { expiresIn: 300 } // URL is valid for 5 minutes
       );
       
-      // Add the fresh URL to the payload
-      task.payload.fileUrl = signedUrl;
+      // Create a new payload object with the fresh URL
+      finalPayload = {
+        ...task.payload,
+        fileUrl: signedUrl,
+      };
     }
 
-    // Lock the task by updating its status to 'running' and saving the new payload
+    // Step 3: Atomically update the task status to 'running' and save the new payload
     const { data: updatedTask, error: updateError } = await supabaseAdmin
       .from("tasks")
-      .update({ status: "running", payload: task.payload })
+      .update({ status: "running", payload: finalPayload })
       .eq("id", task.id)
       .select()
       .single();
 
     if (updateError) {
+      console.error("Error updating task status to running:", updateError);
       throw updateError;
     }
 
-    // Return the updated task to the extension
+    // Step 4: Return the fully updated task to the extension
     return new Response(JSON.stringify({ task: updatedTask }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (err) {
+    console.error("Error in get-queued-task function:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
