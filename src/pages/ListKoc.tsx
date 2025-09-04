@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { Link } from "react-router-dom";
@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertCircle, Plus, UserSquare2, Tag, Copy, MoreVertical, Edit, Trash2 } from "lucide-react";
 import { CreateKocDialog } from "@/components/koc/CreateKocDialog";
-import { showSuccess } from "@/utils/toast";
+import { EditKocDialog } from "@/components/koc/EditKocDialog";
+import { DeleteKocDialog } from "@/components/koc/DeleteKocDialog";
+import { showSuccess, showError } from "@/utils/toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type Koc = {
@@ -31,7 +33,7 @@ const fetchKocs = async (userId: string): Promise<Koc[]> => {
   return data;
 };
 
-const KocCard = ({ koc }: { koc: Koc }) => {
+const KocCard = ({ koc, onEdit, onDelete }: { koc: Koc; onEdit: (koc: Koc) => void; onDelete: (koc: Koc) => void; }) => {
   const handleCopy = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
     showSuccess(`Đã sao chép ${type} của KOC!`);
@@ -47,10 +49,10 @@ const KocCard = ({ koc }: { koc: Koc }) => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => alert("Chức năng sửa đang được phát triển")}>
+            <DropdownMenuItem onClick={() => onEdit(koc)}>
               <Edit className="mr-2 h-4 w-4" /> Sửa
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={() => alert("Chức năng xóa đang được phát triển")}>
+            <DropdownMenuItem className="text-destructive" onClick={() => onDelete(koc)}>
               <Trash2 className="mr-2 h-4 w-4" /> Xóa
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleCopy(koc.folder_path || koc.id, "thư mục")}>
@@ -86,13 +88,55 @@ const KocCard = ({ koc }: { koc: Koc }) => {
 
 const ListKoc = () => {
   const { user } = useSession();
+  const queryClient = useQueryClient();
   const [isCreateOpen, setCreateOpen] = useState(false);
+  const [isEditOpen, setEditOpen] = useState(false);
+  const [isDeleteOpen, setDeleteOpen] = useState(false);
+  const [selectedKoc, setSelectedKoc] = useState<Koc | null>(null);
 
   const { data: kocs, isLoading, isError, error } = useQuery<Koc[]>({
     queryKey: ["kocs", user?.id],
     queryFn: () => fetchKocs(user!.id),
     enabled: !!user,
   });
+
+  const deleteKocMutation = useMutation({
+    mutationFn: async (kocToDelete: Koc) => {
+      if (!kocToDelete.folder_path) throw new Error("KOC không có thư mục để xóa.");
+
+      const { error: functionError } = await supabase.functions.invoke("delete-r2-folder", {
+        body: { folderPath: kocToDelete.folder_path },
+      });
+      if (functionError) throw new Error(`Lỗi xóa thư mục R2: ${functionError.message}`);
+
+      const { error: dbError } = await supabase.from("kocs").delete().eq("id", kocToDelete.id);
+      if (dbError) throw new Error(`Lỗi xóa KOC: ${dbError.message}`);
+    },
+    onSuccess: () => {
+      showSuccess("Xóa KOC thành công!");
+      queryClient.invalidateQueries({ queryKey: ["kocs", user?.id] });
+      setDeleteOpen(false);
+    },
+    onError: (error: Error) => {
+      showError(error.message);
+    },
+  });
+
+  const handleEdit = (koc: Koc) => {
+    setSelectedKoc(koc);
+    setEditOpen(true);
+  };
+
+  const handleDelete = (koc: Koc) => {
+    setSelectedKoc(koc);
+    setDeleteOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedKoc) {
+      deleteKocMutation.mutate(selectedKoc);
+    }
+  };
 
   return (
     <>
@@ -115,7 +159,7 @@ const ListKoc = () => {
           <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>
         ) : kocs && kocs.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {kocs.map((koc) => <KocCard key={koc.id} koc={koc} />)}
+            {kocs.map((koc) => <KocCard key={koc.id} koc={koc} onEdit={handleEdit} onDelete={handleDelete} />)}
           </div>
         ) : (
           <div className="text-center py-16 border-2 border-dashed rounded-lg">
@@ -129,6 +173,13 @@ const ListKoc = () => {
         )}
       </div>
       <CreateKocDialog isOpen={isCreateOpen} onOpenChange={setCreateOpen} />
+      <EditKocDialog isOpen={isEditOpen} onOpenChange={setEditOpen} koc={selectedKoc} />
+      <DeleteKocDialog
+        isOpen={isDeleteOpen}
+        onOpenChange={setDeleteOpen}
+        onConfirm={confirmDelete}
+        isPending={deleteKocMutation.isPending}
+      />
     </>
   );
 };
