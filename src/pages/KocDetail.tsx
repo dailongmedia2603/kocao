@@ -395,7 +395,7 @@ const KocDetail = () => {
                     <AccordionTrigger className="bg-white p-4 rounded-lg border hover:no-underline data-[state=open]:rounded-b-none">
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-100 text-red-600">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-600 text-white">
                             <Video className="h-5 w-5" />
                           </div>
                           <h4 className="font-semibold text-lg">Nguồn Video</h4>
@@ -429,7 +429,7 @@ const KocDetail = () => {
                     <AccordionTrigger className="bg-white p-4 rounded-lg border hover:no-underline data-[state=open]:rounded-b-none">
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-100 text-red-600">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-600 text-white">
                             <Music className="h-5 w-5" />
                           </div>
                           <h4 className="font-semibold text-lg">Nguồn Audio</h4>
