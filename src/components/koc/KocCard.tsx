@@ -34,13 +34,6 @@ const getInitials = (name: string) => {
     .toUpperCase();
 };
 
-const formatChannelUrl = (url: string | null): string => {
-  if (!url) return "";
-  // This will extract the last part of the URL path, e.g., @username
-  const handle = url.split('/').filter(Boolean).pop();
-  return handle || url;
-};
-
 export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
   return (
     <Card className="relative flex flex-col hover:shadow-lg transition-shadow duration-300">
@@ -109,7 +102,7 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
             >
               <LinkIcon className="h-4 w-4 flex-shrink-0" />
               <span className="truncate" title={koc.channel_url}>
-                {formatChannelUrl(koc.channel_url)}
+                Xem kênh
               </span>
             </a>
           )}
