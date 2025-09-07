@@ -1,4 +1,4 @@
-import { Bell, Plus } from "lucide-react";
+import { Bell, Plus, Users, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -24,7 +24,7 @@ const KocHeader = () => {
 
   const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
     cn(
-      "px-4 py-2 rounded-md text-sm font-semibold transition-colors",
+      "px-4 py-2 rounded-md text-sm font-semibold transition-colors flex items-center",
       isActive
         ? "bg-gray-100 text-gray-900"
         : "text-gray-600 hover:bg-gray-100"
@@ -33,15 +33,20 @@ const KocHeader = () => {
   return (
     <header className="flex h-16 items-center justify-between border-b bg-white px-6 flex-shrink-0">
       <div className="flex items-center gap-2">
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+        <NavLink
+          to="/create-video"
+          className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white h-10 px-4 py-2"
+        >
           <Plus className="mr-2 h-4 w-4" />
           Tạo video
-        </Button>
+        </NavLink>
         <nav className="flex items-center gap-2 ml-4">
           <NavLink to="/list-koc" end className={navLinkClasses}>
+            <Users className="mr-2 h-4 w-4" />
             KOCs
           </NavLink>
           <NavLink to="/reports" className={navLinkClasses}>
+            <BarChart3 className="mr-2 h-4 w-4" />
             Report
           </NavLink>
         </nav>
