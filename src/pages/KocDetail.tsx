@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EditKocDialog } from "@/components/koc/EditKocDialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -20,7 +19,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Checkbox } from "@/components/ui/checkbox";
 
 // Icons
-import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, SlidersHorizontal, CreditCard, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, CalendarDays } from "lucide-react";
+import { Edit, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, CalendarDays } from "lucide-react";
 
 // Custom Components
 import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
@@ -75,19 +74,6 @@ const fetchKocFiles = async (kocId: string): Promise<KocFile[]> => {
   if (!data.files) throw new Error("Phản hồi từ server không hợp lệ.");
   return data.files as KocFile[];
 };
-
-// Mock data
-const performanceMetrics = [
-  { title: "Tỷ lệ tương tác", value: "4.5%", icon: ThumbsUp, color: "bg-blue-100 text-blue-600" },
-  { title: "Lượt tiếp cận", value: "15K", icon: Eye, color: "bg-green-100 text-green-600" },
-  { title: "Lượt chuyển đổi", value: "500", icon: ShoppingCart, color: "bg-orange-100 text-orange-600" },
-  { title: "ROI", value: "120%", icon: TrendingUp, color: "bg-purple-100 text-purple-600" },
-];
-const assignedCampaigns = [
-  { name: "Summer Style Showcase", status: "Active", startDate: "2024-07-01", endDate: "2024-07-31", budget: "$5,000" },
-  { name: "Autumn Beauty Launch", status: "Completed", startDate: "2024-06-15", endDate: "2024-06-30", budget: "$3,200" },
-  { name: "Winter Wellness", status: "Planned", startDate: "2024-08-01", endDate: "2024-08-15", budget: "$4,500" },
-];
 
 // Helper functions
 const getInitials = (name: string) => name.split(" ").map((n) => n[0]).join("").toUpperCase();
@@ -250,9 +236,10 @@ const KocDetail = () => {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="overview" className="mt-6">
-                <div className="space-y-8">
-                  <div><h3 className="text-xl font-semibold mb-4">Chỉ số hiệu suất</h3><div className="grid grid-cols-2 md:grid-cols-4 gap-4">{performanceMetrics.map((metric) => (<Card key={metric.title}><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4"><CardTitle className="text-sm font-medium text-muted-foreground">{metric.title}</CardTitle><div className={`flex h-8 w-8 items-center justify-center rounded-full ${metric.color}`}><metric.icon className="h-4 w-4" /></div></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{metric.value}</p></CardContent></Card>))}</div></div>
-                  <div><h3 className="text-xl font-semibold mb-4">Chiến dịch đã tham gia</h3><Card><Table><TableHeader><TableRow><TableHead>Tên chiến dịch</TableHead><TableHead>Trạng thái</TableHead><TableHead>Ngày bắt đầu</TableHead><TableHead>Ngày kết thúc</TableHead><TableHead>Ngân sách</TableHead></TableRow></TableHeader><TableBody>{assignedCampaigns.map((campaign) => (<TableRow key={campaign.name}><TableCell className="font-medium">{campaign.name}</TableCell><TableCell><Badge variant={campaign.status === "Active" ? "default" : "outline"} className={campaign.status === "Active" ? "bg-green-100 text-green-800" : campaign.status === "Completed" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}>{campaign.status}</Badge></TableCell><TableCell>{campaign.startDate}</TableCell><TableCell>{campaign.endDate}</TableCell><TableCell>{campaign.budget}</TableCell></TableRow>))}</TableBody></Table></Card></div>
+                <div className="text-center text-muted-foreground py-16">
+                  <LayoutDashboard className="mx-auto h-12 w-12" />
+                  <h3 className="mt-4 text-lg font-semibold">Tính năng đang được phát triển</h3>
+                  <p className="mt-1 text-sm">Phần tổng quan và báo cáo sẽ sớm được ra mắt.</p>
                 </div>
               </TabsContent>
               <TabsContent value="content" className="mt-6">
