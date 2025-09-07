@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 const formSchema = z.object({
   name: z.string().min(1, "Tên không được để trống"),
   access_token: z.string().min(10, "Access Token không hợp lệ"),
+  check_url: z.string().url("URL kiểm tra không hợp lệ").min(1, "URL kiểm tra không được để trống"),
 });
 
 type AddTiktokTokenDialogProps = {
@@ -26,7 +27,7 @@ export const AddTiktokTokenDialog = ({ isOpen, onOpenChange }: AddTiktokTokenDia
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", access_token: "" },
+    defaultValues: { name: "", access_token: "", check_url: "https://api.akng.io.vn/tiktok/user/info/" },
   });
 
   const addTokenMutation = useMutation({
@@ -34,7 +35,7 @@ export const AddTiktokTokenDialog = ({ isOpen, onOpenChange }: AddTiktokTokenDia
       if (!user) throw new Error("User not authenticated");
       const { error } = await supabase
         .from("user_tiktok_tokens")
-        .insert({ user_id: user.id, name: values.name, access_token: values.access_token });
+        .insert({ user_id: user.id, name: values.name, access_token: values.access_token, check_url: values.check_url });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -58,7 +59,7 @@ export const AddTiktokTokenDialog = ({ isOpen, onOpenChange }: AddTiktokTokenDia
         <DialogHeader>
           <DialogTitle>Thêm Access Token TikTok mới</DialogTitle>
           <DialogDescription>
-            Đặt tên để dễ dàng nhận biết và dán Access Token của bạn vào đây.
+            Nhập thông tin chi tiết và URL để kiểm tra kết nối cho token của bạn.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -84,6 +85,19 @@ export const AddTiktokTokenDialog = ({ isOpen, onOpenChange }: AddTiktokTokenDia
                   <FormLabel>TikTok Access Token</FormLabel>
                   <FormControl>
                     <Input placeholder="Dán Access Token của bạn ở đây" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="check_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>URL Kiểm tra</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://api.example.com/check" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

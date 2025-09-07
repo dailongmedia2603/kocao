@@ -6,7 +6,7 @@ import { showSuccess, showError } from "@/utils/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Eye, EyeOff, Trash2, CheckCircle, Loader2, Plus, KeyRound } from "lucide-react";
+import { Eye, EyeOff, Trash2, CheckCircle, Loader2, Plus, KeyRound, Link } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { AddTiktokTokenDialog } from "./AddTiktokTokenDialog";
 
@@ -14,12 +14,13 @@ type TiktokToken = {
   id: string;
   name: string;
   access_token: string;
+  check_url: string | null;
 };
 
 const fetchTiktokTokens = async (userId: string): Promise<TiktokToken[]> => {
   const { data, error } = await supabase
     .from("user_tiktok_tokens")
-    .select("id, name, access_token")
+    .select("id, name, access_token, check_url")
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
 
@@ -50,8 +51,8 @@ const TiktokTokenRow = ({ token }: { token: TiktokToken }) => {
   });
 
   const checkConnectionMutation = useMutation({
-    mutationFn: async (accessToken: string) => {
-      const { data, error } = await supabase.functions.invoke("check-tiktok-token", { body: { accessToken } });
+    mutationFn: async ({ accessToken, checkUrl }: { accessToken: string; checkUrl: string }) => {
+      const { data, error } = await supabase.functions.invoke("check-tiktok-token", { body: { accessToken, checkUrl } });
       if (error) throw new Error(error.message);
       if (!data.success) throw new Error(data.message);
       return data;
@@ -71,9 +72,15 @@ const TiktokTokenRow = ({ token }: { token: TiktokToken }) => {
 
   return (
     <div className="flex items-center justify-between gap-4 p-4 border rounded-lg bg-background/50">
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 space-y-1">
         <p className="font-medium truncate">{token.name}</p>
         <p className="text-sm text-muted-foreground font-mono">{showToken ? token.access_token : maskToken(token.access_token)}</p>
+        {token.check_url && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Link className="h-3 w-3" />
+            <p className="truncate">{token.check_url}</p>
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <Button variant="outline" size="icon" onClick={() => setShowToken(!showToken)}>
@@ -81,8 +88,14 @@ const TiktokTokenRow = ({ token }: { token: TiktokToken }) => {
         </Button>
         <Button
           variant="outline"
-          onClick={() => checkConnectionMutation.mutate(token.access_token)}
-          disabled={checkConnectionMutation.isPending}
+          onClick={() => {
+            if (token.check_url) {
+              checkConnectionMutation.mutate({ accessToken: token.access_token, checkUrl: token.check_url });
+            } else {
+              showError("URL kiểm tra không được cấu hình cho token này.");
+            }
+          }}
+          disabled={checkConnectionMutation.isPending || !token.check_url}
         >
           {checkConnectionMutation.isPending ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -144,7 +157,7 @@ const TiktokApiSettings = () => {
         <CardContent>
           {isLoading ? (
             <div className="space-y-4">
-              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-24 w-full" />
             </div>
           ) : tiktokTokens && tiktokTokens.length > 0 ? (
             <div className="space-y-4">

@@ -13,56 +13,46 @@ serve(async (req) => {
   }
 
   try {
-    const { accessToken } = await req.json();
+    const { accessToken, checkUrl } = await req.json();
     if (!accessToken) {
-      throw new Error("Thiếu Access Token.");
+      return new Response(JSON.stringify({ success: false, message: "Thiếu Access Token." }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!checkUrl) {
+      return new Response(JSON.stringify({ success: false, message: "Thiếu URL kiểm tra." }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const validationUrl = `https://api.akng.io.vn/tiktok/user/info/`;
-    
-    const response = await fetch(validationUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.data && data.data.user) {
-         return new Response(JSON.stringify({ success: true, message: `Kết nối thành công! Token hợp lệ cho user: ${data.data.user.display_name}` }), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-      } else {
-         return new Response(JSON.stringify({ success: true, message: "Kết nối thành công! Token hợp lệ." }), {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-      }
-    } else {
-      let errorMessage = `Proxy API đã trả về lỗi với mã trạng thái ${response.status}.`;
-      try {
-        const errorData = await response.json();
-        if (errorData?.error?.message) {
-          errorMessage = errorData.error.message;
-        } else if (errorData?.message) {
-          errorMessage = errorData.message;
-        } else {
-           errorMessage += ` Nội dung: ${JSON.stringify(errorData)}`;
+    let responseData;
+    try {
+      const response = await fetch(checkUrl, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
         }
-      } catch (e) {
-        errorMessage += " Không thể đọc phản hồi từ proxy.";
-      }
-      
+      });
+      responseData = await response.json();
+    } catch (fetchError) {
+      throw new Error(`Không thể kết nối đến URL kiểm tra hoặc phản hồi không hợp lệ: ${fetchError.message}`);
+    }
+
+    if (responseData && responseData.success === true) {
+      return new Response(JSON.stringify({ success: true, message: responseData.message || "Kết nối thành công!" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } else {
+      const errorMessage = responseData.message || "Kiểm tra thất bại. Proxy không trả về 'success: true'.";
       return new Response(JSON.stringify({ success: false, message: errorMessage }), {
-        status: 200, // Always return 200 OK, let the JSON body indicate the error.
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
   } catch (err) {
     return new Response(JSON.stringify({ success: false, message: err.message }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
