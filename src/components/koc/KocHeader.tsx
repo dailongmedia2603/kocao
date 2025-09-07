@@ -1,4 +1,4 @@
-import { Bell, Users, BarChart3, Video } from "lucide-react";
+import { Bell, Users, BarChart3, Video, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -56,6 +56,16 @@ const KocHeader = () => {
                 <Video className="h-4 w-4" />
               </div>
               <span className="ml-2">Tạo Video</span>
+            </>
+          )}
+        </NavLink>
+        <NavLink to="/create-voice" className={navLinkClasses}>
+          {({ isActive }) => (
+            <>
+              <div className={iconContainerClasses(isActive)}>
+                <Mic className="h-4 w-4" />
+              </div>
+              <span className="ml-2">Tạo Voice</span>
             </>
           )}
         </NavLink>
