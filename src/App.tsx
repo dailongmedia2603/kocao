@@ -1,45 +1,27 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import AppLayout from "./components/AppLayout";
-import Dashboard from "./pages/Dashboard";
-import ProjectsList from "./pages/ProjectsList";
-import ProjectDetail from "./pages/ProjectDetail";
-import Settings from "./pages/Settings";
-import Login from "./pages/Login";
-import ProtectedRoute from "./components/ProtectedRoute";
-import { SessionContextProvider } from "./contexts/SessionContext";
-import { Toaster } from "sonner";
-import Extensions from "./pages/Extensions";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Index from "./pages/Index";
+import About from "./pages/About";
 import ListKoc from "./pages/ListKoc";
 import KocDetail from "./pages/KocDetail";
-import KocLayout from "./components/koc/KocLayout";
+import Projects from "./pages/Projects";
+import ProjectDetail from "./pages/ProjectDetail";
 import Reports from "./pages/Reports";
-import KocContent from "./pages/KocContent";
+import { Toaster } from "@/components/ui/toaster";
 
 function App() {
   return (
-    <BrowserRouter>
-      <SessionContextProvider>
-        <Toaster richColors position="top-right" />
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route element={<ProtectedRoute />}>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/extensions" element={<Extensions />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-            <Route element={<KocLayout />}>
-              <Route path="/projects" element={<ProjectsList />} />
-              <Route path="/projects/:id" element={<ProjectDetail />} />
-              <Route path="/list-koc" element={<ListKoc />} />
-              <Route path="/list-koc/:kocId" element={<KocDetail />} />
-              <Route path="/list-koc/:kocId/content" element={<KocContent />} />
-              <Route path="/reports" element={<Reports />} />
-            </Route>
-          </Route>
-        </Routes>
-      </SessionContextProvider>
-    </BrowserRouter>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/list-koc" element={<ListKoc />} />
+        <Route path="/list-koc/:kocId" element={<KocDetail />} />
+        <Route path="/projects" element={<Projects />} />
+        <Route path="/projects/:projectId" element={<ProjectDetail />} />
+        <Route path="/reports" element={<Reports />} />
+      </Routes>
+      <Toaster />
+    </Router>
   );
 }
 
