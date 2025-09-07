@@ -19,6 +19,12 @@ type DeleteKocDialogProps = {
 };
 
 export const DeleteKocDialog = ({ isOpen, onOpenChange, onConfirm, isPending }: DeleteKocDialogProps) => {
+  const handleConfirmClick = (event: React.MouseEvent) => {
+    // Ngăn hộp thoại đóng ngay lập tức để chờ xử lý xóa
+    event.preventDefault();
+    onConfirm();
+  };
+
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -31,7 +37,7 @@ export const DeleteKocDialog = ({ isOpen, onOpenChange, onConfirm, isPending }: 
         <AlertDialogFooter>
           <AlertDialogCancel>Hủy</AlertDialogCancel>
           <AlertDialogAction asChild>
-            <Button onClick={onConfirm} disabled={isPending} variant="destructive">
+            <Button onClick={handleConfirmClick} disabled={isPending} variant="destructive">
               {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isPending ? "Đang xóa..." : "Xóa"}
             </Button>
