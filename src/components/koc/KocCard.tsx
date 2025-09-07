@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Edit, Trash2, Tag, Link as LinkIcon, Video, ScanLine, Loader2, Users, Heart } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Tag, Link as LinkIcon, Video, ScanLine, Loader2, Users, Heart, Clapperboard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +25,7 @@ type Koc = {
   video_count: number;
   follower_count?: number | null;
   like_count?: number | null;
+  generated_video_count?: number;
 };
 
 type KocCardProps = {
@@ -160,6 +161,10 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
               </span>
             </a>
           )}
+          <div className="relative z-10 flex items-center gap-2">
+            <Clapperboard className="h-4 w-4 flex-shrink-0" />
+            <span>{koc.generated_video_count || 0} video đã tạo</span>
+          </div>
         </div>
         <div className="grid grid-cols-3 gap-2 text-center border-t pt-4">
           <div className="flex flex-col items-center space-y-1">
