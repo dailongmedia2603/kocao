@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, LayoutDashboard, Settings, Plug, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,12 @@ const menuItems = [
 
 const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const location = useLocation();
+
+  const isKocSectionActive =
+    location.pathname.startsWith("/list-koc") ||
+    location.pathname.startsWith("/projects") ||
+    location.pathname.startsWith("/reports");
 
   return (
     <aside className={cn("bg-white border-r flex flex-col transition-all duration-300 relative", isCollapsed ? "w-20" : "w-64")}>
@@ -56,24 +62,28 @@ const Sidebar = () => {
                   <NavLink
                     to={item.to}
                     end={item.to === "/"}
-                    className={({ isActive }) =>
-                      cn(
+                    className={({ isActive }) => {
+                      const finalIsActive = item.to === "/list-koc" ? isKocSectionActive : isActive;
+                      return cn(
                         "group flex items-center p-2 rounded-md text-sm font-semibold transition-colors text-gray-700 hover:bg-red-50 hover:text-red-600",
-                        isActive && "bg-red-50 text-red-600"
-                      )
-                    }
+                        finalIsActive && "bg-red-50 text-red-600"
+                      );
+                    }}
                   >
-                    {({ isActive }) => (
-                      <>
-                        <div className={cn(
-                          "flex h-8 w-8 items-center justify-center rounded-md transition-colors group-hover:bg-red-600 group-hover:text-white",
-                          isActive ? "bg-red-600 text-white" : "bg-transparent"
-                        )}>
-                          <item.icon className="h-5 w-5" />
-                        </div>
-                        {!isCollapsed && <span className="ml-3">{item.label}</span>}
-                      </>
-                    )}
+                    {({ isActive }) => {
+                      const finalIsActive = item.to === "/list-koc" ? isKocSectionActive : isActive;
+                      return (
+                        <>
+                          <div className={cn(
+                            "flex h-8 w-8 items-center justify-center rounded-md transition-colors group-hover:bg-red-600 group-hover:text-white",
+                            finalIsActive ? "bg-red-600 text-white" : "bg-transparent"
+                          )}>
+                            <item.icon className="h-5 w-5" />
+                          </div>
+                          {!isCollapsed && <span className="ml-3">{item.label}</span>}
+                        </>
+                      );
+                    }}
                   </NavLink>
                 </TooltipTrigger>
                 {isCollapsed && (
