@@ -2,17 +2,14 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, Edit, Trash2, Folder, FileText } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 import { CreateKocDialog } from "@/components/koc/CreateKocDialog";
 import { EditKocDialog } from "@/components/koc/EditKocDialog";
 import { DeleteKocDialog } from "@/components/koc/DeleteKocDialog";
 import { showSuccess, showError } from "@/utils/toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { KocCard } from "@/components/koc/KocCard";
 
 type Koc = {
   id: string;
@@ -91,10 +88,6 @@ const ListKoc = () => {
     }
   };
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  }
-
   return (
     <>
       <div className="p-8">
@@ -109,61 +102,18 @@ const ListKoc = () => {
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {Array.from({ length: 8 }).map((_, i) => (
-              <Card key={i}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <Skeleton className="h-10 w-10 rounded-full" />
-                  <Skeleton className="h-4 w-4" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-4 w-1/2 mt-2" />
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Skeleton className="h-8 w-20" />
-                </CardFooter>
-              </Card>
+              <Skeleton key={i} className="h-48 w-full" />
             ))}
           </div>
         ) : kocs && kocs.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {kocs.map((koc) => (
-              <Card key={koc.id}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <Avatar className="h-10 w-10 border">
-                    <AvatarImage src={koc.avatar_url || undefined} />
-                    <AvatarFallback>{getInitials(koc.name)}</AvatarFallback>
-                  </Avatar>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(koc)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        <span>Chỉnh sửa</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(koc)} className="text-red-600">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        <span>Xóa</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </CardHeader>
-                <CardContent>
-                  <CardTitle className="text-lg font-bold">{koc.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">{koc.field}</p>
-                </CardContent>
-                <CardFooter>
-                  <Button asChild variant="secondary" className="w-full">
-                    <Link to={`/list-koc/${koc.id}`}>
-                      <Folder className="mr-2 h-4 w-4" />
-                      Quản lý file
-                    </Link>
-                  </Button>
-                </CardFooter>
-              </Card>
+              <KocCard
+                key={koc.id}
+                koc={koc}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
             ))}
           </div>
         ) : (
