@@ -72,16 +72,16 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
       <CardContent className="p-4 pt-2">
         <div className="grid grid-cols-3 gap-2 text-center border-t pt-4">
           <div>
-            <p className="text-sm font-semibold text-red-600">1.2M</p>
-            <p className="text-xs text-red-600">Followers</p>
+            <p className="text-sm font-bold text-red-600">1.2M</p>
+            <p className="text-xs font-bold text-red-600">Followers</p>
           </div>
           <div>
-            <p className="text-sm font-semibold text-red-600">5.8%</p>
-            <p className="text-xs text-red-600">Engagement</p>
+            <p className="text-sm font-bold text-red-600">5.8%</p>
+            <p className="text-xs font-bold text-red-600">Engagement</p>
           </div>
           <div>
-            <p className="text-sm font-semibold text-red-600">120K</p>
-            <p className="text-xs text-red-600">Avg. Likes</p>
+            <p className="text-sm font-bold text-red-600">120K</p>
+            <p className="text-xs font-bold text-red-600">Avg. Likes</p>
           </div>
         </div>
       </CardContent>
