@@ -9,11 +9,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { ImageUploadInput } from "./ImageUploadInput";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên KOC không được để trống"),
   field: z.string().min(1, "Lĩnh vực không được để trống"),
-  avatar_url: z.string().url("URL ảnh đại diện không hợp lệ").optional().or(z.literal('')),
+  avatar_file: z.instanceof(FileList).optional(),
 });
 
 const slugify = (text: string) => {
@@ -36,20 +37,44 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", field: "", avatar_url: "" },
+    defaultValues: { name: "", field: "" },
   });
 
   const createKocMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
 
+      let avatarUrl: string | null = null;
+      const avatarFile = values.avatar_file?.[0];
+
+      if (avatarFile) {
+        const fileExt = avatarFile.name.split('.').pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('koc_avatars')
+          .upload(filePath, avatarFile);
+
+        if (uploadError) throw new Error(`Lỗi tải ảnh lên: ${uploadError.message}`);
+
+        const { data: urlData } = supabase.storage.from('koc_avatars').getPublicUrl(filePath);
+        avatarUrl = urlData.publicUrl;
+      }
+
       const { data: newKoc, error: dbError } = await supabase
         .from("kocs")
-        .insert({ user_id: user.id, name: values.name, field: values.field, avatar_url: values.avatar_url })
+        .insert({ user_id: user.id, name: values.name, field: values.field, avatar_url: avatarUrl })
         .select("id")
         .single();
 
-      if (dbError) throw new Error(`Lỗi tạo KOC: ${dbError.message}`);
+      if (dbError) {
+        if (avatarUrl) {
+          const filePath = avatarUrl.split('/').slice(-2).join('/');
+          await supabase.storage.from('koc_avatars').remove([filePath]);
+        }
+        throw new Error(`Lỗi tạo KOC: ${dbError.message}`);
+      }
 
       const folderPath = `${slugify(values.name)}-${newKoc.id.substring(0, 8)}`;
       
@@ -59,6 +84,10 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
 
       if (functionError) {
         await supabase.from("kocs").delete().eq("id", newKoc.id);
+        if (avatarUrl) {
+          const filePath = avatarUrl.split('/').slice(-2).join('/');
+          await supabase.storage.from('koc_avatars').remove([filePath]);
+        }
         throw new Error(`Lỗi tạo thư mục R2: ${functionError.message}`);
       }
 
@@ -68,8 +97,12 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
         .eq("id", newKoc.id);
 
       if (updateError) {
-        // Attempt to clean up R2 folder
         await supabase.functions.invoke("delete-r2-folder", { body: { folderPath } });
+        await supabase.from("kocs").delete().eq("id", newKoc.id);
+        if (avatarUrl) {
+          const filePath = avatarUrl.split('/').slice(-2).join('/');
+          await supabase.storage.from('koc_avatars').remove([filePath]);
+        }
         throw new Error(`Lỗi cập nhật KOC: ${updateError.message}`);
       }
     },
@@ -105,9 +138,7 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
             <FormField control={form.control} name="field" render={({ field }) => (
               <FormItem><FormLabel>Lĩnh vực</FormLabel><FormControl><Input placeholder="Ví dụ: Beauty, Food,..." {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <FormField control={form.control} name="avatar_url" render={({ field }) => (
-              <FormItem><FormLabel>URL Ảnh đại diện</FormLabel><FormControl><Input placeholder="https://example.com/avatar.png" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
+            <ImageUploadInput form={form} name="avatar_file" label="Ảnh đại diện" />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
               <Button type="submit" disabled={createKocMutation.isPending}>
