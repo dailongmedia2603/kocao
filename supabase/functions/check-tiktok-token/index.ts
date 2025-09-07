@@ -41,8 +41,20 @@ serve(async (req) => {
           });
       }
     } else {
-      const errorData = await response.json();
-      const errorMessage = errorData?.error?.message || "Access Token không hợp lệ hoặc đã hết hạn.";
+      let errorMessage = `Proxy API đã trả về lỗi với mã trạng thái ${response.status}.`;
+      try {
+        const errorData = await response.json();
+        if (errorData?.error?.message) {
+          errorMessage = errorData.error.message;
+        } else if (errorData?.message) {
+          errorMessage = errorData.message;
+        } else {
+           errorMessage += ` Nội dung: ${JSON.stringify(errorData)}`;
+        }
+      } catch (e) {
+        errorMessage += " Không thể đọc phản hồi từ proxy.";
+      }
+      
       return new Response(JSON.stringify({ success: false, message: errorMessage }), {
         status: 200, // Always return 200 OK, let the JSON body indicate the error.
         headers: { ...corsHeaders, "Content-Type": "application/json" },
