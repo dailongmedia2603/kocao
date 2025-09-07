@@ -13,6 +13,7 @@ import ListKoc from "./pages/ListKoc";
 import KocDetail from "./pages/KocDetail";
 import KocLayout from "./components/koc/KocLayout";
 import Reports from "./pages/Reports";
+import CreateVoicePage from "./pages/CreateVoice";
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
               <Route path="/list-koc" element={<ListKoc />} />
               <Route path="/list-koc/:kocId" element={<KocDetail />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/create-voice" element={<CreateVoicePage />} />
             </Route>
           </Route>
         </Routes>
