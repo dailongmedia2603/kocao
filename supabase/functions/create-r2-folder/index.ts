@@ -33,17 +33,24 @@ serve(async (req) => {
       credentials: { accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_ACCESS_KEY },
     });
 
-    // Trong S3/R2, thư mục được tạo bằng cách tạo một object rỗng có key kết thúc bằng "/"
-    const command = new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
-      Key: `${folderPath}/`,
-      Body: "",
-      ContentLength: 0, // Thêm dòng này để chỉ định rõ độ dài nội dung là 0
-    });
+    const createFolder = async (path: string) => {
+      const command = new PutObjectCommand({
+        Bucket: R2_BUCKET_NAME,
+        Key: `${path}/`,
+        Body: "",
+        ContentLength: 0,
+      });
+      await s3.send(command);
+    };
 
-    await s3.send(command);
+    // Create main folder and subfolders in parallel
+    await Promise.all([
+      createFolder(folderPath),
+      createFolder(`${folderPath}/generated`), // For "Video đã tạo"
+      createFolder(`${folderPath}/sources`),   // For "Nguồn Video/Audio"
+    ]);
 
-    return new Response(JSON.stringify({ success: true, message: `Thư mục ${folderPath} đã được tạo.` }), {
+    return new Response(JSON.stringify({ success: true, message: `Thư mục ${folderPath} và các thư mục con đã được tạo.` }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
