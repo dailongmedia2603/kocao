@@ -273,18 +273,18 @@ const KocDetail = () => {
                     <h3 className="text-xl font-semibold">Quản lý tệp nguồn</h3>
                     {selectedFileIds.length > 0 && <Button variant="destructive" onClick={handleBulkDelete}><Trash2 className="mr-2 h-4 w-4" /> Xóa ({selectedFileIds.length})</Button>}
                 </div>
-                <Accordion type="multiple" defaultValue={['videos', 'audios']} className="w-full space-y-4">
+                <Accordion type="multiple" className="w-full space-y-4">
                   <AccordionItem value="videos" className="border-none">
                     <AccordionTrigger className="bg-white p-4 rounded-lg border hover:no-underline data-[state=open]:rounded-b-none">
                         <div className="flex items-center justify-between w-full">
                             <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-600 text-white"><Video className="h-5 w-5" /></div><h4 className="font-semibold text-lg">Nguồn Video</h4></div>
-                            <Badge className="bg-red-50 text-red-700">{sourceVideos.length} videos</Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-red-50 text-red-700">{sourceVideos.length} videos</Badge>
+                              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setSourceVideoUploadOpen(true); }} disabled={!koc?.folder_path}><Plus className="mr-2 h-4 w-4" /> Thêm video</Button>
+                            </div>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 p-4 border border-t-0 rounded-b-lg bg-white">
-                        <div className="flex justify-end mb-4">
-                            <Button variant="outline" size="sm" onClick={() => setSourceVideoUploadOpen(true)} disabled={!koc?.folder_path}><Plus className="mr-2 h-4 w-4" /> Thêm video</Button>
-                        </div>
                         {areFilesLoading ? <Skeleton className="h-20 w-full" /> : sourceVideos.length > 0 ? (
                             <div className="space-y-3">
                                 {sourceVideos.map(file => (
@@ -308,13 +308,13 @@ const KocDetail = () => {
                     <AccordionTrigger className="bg-white p-4 rounded-lg border hover:no-underline data-[state=open]:rounded-b-none">
                         <div className="flex items-center justify-between w-full">
                             <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-600 text-white"><Music className="h-5 w-5" /></div><h4 className="font-semibold text-lg">Nguồn Audio</h4></div>
-                            <Badge className="bg-red-50 text-red-700">{sourceAudios.length} audios</Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-red-50 text-red-700">{sourceAudios.length} audios</Badge>
+                              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setSourceAudioUploadOpen(true); }} disabled={!koc?.folder_path}><Plus className="mr-2 h-4 w-4" /> Thêm audio</Button>
+                            </div>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 p-4 border border-t-0 rounded-b-lg bg-white">
-                        <div className="flex justify-end mb-4">
-                            <Button variant="outline" size="sm" onClick={() => setSourceAudioUploadOpen(true)} disabled={!koc?.folder_path}><Plus className="mr-2 h-4 w-4" /> Thêm audio</Button>
-                        </div>
                         {areFilesLoading ? <Skeleton className="h-20 w-full" /> : sourceAudios.length > 0 ? (
                             <div className="space-y-3">
                                 {sourceAudios.map(file => (
