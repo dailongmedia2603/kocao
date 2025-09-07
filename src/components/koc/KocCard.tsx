@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Edit, Trash2, Tag } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Tag, Link as LinkIcon, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 
@@ -16,7 +16,8 @@ type Koc = {
   name: string;
   field: string | null;
   avatar_url: string | null;
-  folder_path: string | null;
+  channel_url: string | null;
+  video_count: number;
 };
 
 type KocCardProps = {
@@ -87,7 +88,29 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
           </DropdownMenu>
         </div>
       </CardHeader>
-      <CardContent className="p-4 pt-2">
+      <CardContent className="p-4 pt-0">
+        <div className="space-y-2 mb-4 text-sm text-muted-foreground">
+          {koc.channel_url && (
+            <a
+              href={koc.channel_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative z-10 flex items-center gap-2 hover:text-primary transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              <LinkIcon className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate" title={koc.channel_url}>
+                {koc.channel_url.replace(/^(https?:\/\/)?(www\.)?/, '')}
+              </span>
+            </a>
+          )}
+          <div className="relative z-10 flex items-center gap-2">
+            <Video className="h-4 w-4 flex-shrink-0" />
+            <span>{koc.video_count} video{koc.video_count !== 1 ? 's' : ''} đã tạo</span>
+          </div>
+        </div>
         <div className="grid grid-cols-3 gap-2 text-center border-t pt-4">
           <div>
             <p className="text-sm font-bold text-red-600">1.2M</p>

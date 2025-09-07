@@ -26,14 +26,12 @@ type Koc = {
   created_at: string;
   channel_url: string | null;
   folder_path: string | null;
+  video_count: number;
 };
 
 const fetchKocs = async (userId: string) => {
   const { data, error } = await supabase
-    .from("kocs")
-    .select("id, name, field, avatar_url, created_at, channel_url, folder_path")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+    .rpc('get_kocs_with_video_count', { p_user_id: userId });
 
   if (error) throw new Error(error.message);
   return data as Koc[];
