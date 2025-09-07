@@ -1,4 +1,4 @@
-import { Bell, Plus, Users, BarChart3 } from "lucide-react";
+import { Bell, Users, BarChart3, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -24,33 +24,52 @@ const KocHeader = () => {
 
   const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
     cn(
-      "px-4 py-2 rounded-md text-sm font-semibold transition-colors flex items-center",
+      "flex items-center p-2 rounded-lg font-semibold transition-colors text-sm",
       isActive
-        ? "bg-gray-100 text-gray-900"
-        : "text-gray-600 hover:bg-gray-100"
+        ? "bg-red-50 text-red-600"
+        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+    );
+
+  const iconContainerClasses = (isActive: boolean) =>
+    cn(
+      "flex items-center justify-center h-7 w-7 rounded-md transition-colors",
+      isActive ? "bg-red-600 text-white" : "bg-gray-200 text-gray-600"
     );
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-white px-6 flex-shrink-0">
-      <div className="flex items-center gap-2">
-        <NavLink
-          to="/create-video"
-          className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white h-10 px-4 py-2"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Tạo video
+      <nav className="flex items-center gap-4">
+        <NavLink to="/create-video" className={navLinkClasses}>
+          {({ isActive }) => (
+            <>
+              <div className={iconContainerClasses(isActive)}>
+                <Video className="h-4 w-4" />
+              </div>
+              <span className="ml-2">Tạo video</span>
+            </>
+          )}
         </NavLink>
-        <nav className="flex items-center gap-2 ml-4">
-          <NavLink to="/list-koc" end className={navLinkClasses}>
-            <Users className="mr-2 h-4 w-4" />
-            KOCs
-          </NavLink>
-          <NavLink to="/reports" className={navLinkClasses}>
-            <BarChart3 className="mr-2 h-4 w-4" />
-            Report
-          </NavLink>
-        </nav>
-      </div>
+        <NavLink to="/list-koc" end className={navLinkClasses}>
+          {({ isActive }) => (
+            <>
+              <div className={iconContainerClasses(isActive)}>
+                <Users className="h-4 w-4" />
+              </div>
+              <span className="ml-2">KOCs</span>
+            </>
+          )}
+        </NavLink>
+        <NavLink to="/reports" className={navLinkClasses}>
+          {({ isActive }) => (
+            <>
+              <div className={iconContainerClasses(isActive)}>
+                <BarChart3 className="h-4 w-4" />
+              </div>
+              <span className="ml-2">Report</span>
+            </>
+          )}
+        </NavLink>
+      </nav>
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
