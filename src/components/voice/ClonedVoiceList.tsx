@@ -28,6 +28,7 @@ const VoiceItem = ({ voice }: { voice: any }) => {
 
   // API trả về voice_status = 2 khi hoàn tất
   const isProcessing = voice.voice_status !== 2;
+  const hasValidSample = voice.sample_audio && voice.sample_audio.startsWith('http');
 
   return (
     <div className="flex items-center justify-between gap-4 p-4 border rounded-lg bg-background/50">
@@ -42,8 +43,15 @@ const VoiceItem = ({ voice }: { voice: any }) => {
                 Đang xử lý...
               </Badge>
             </div>
+          ) : hasValidSample ? (
+            <audio controls src={voice.sample_audio} className="h-8 w-full mt-1" />
           ) : (
-            voice.sample_audio && <audio controls src={voice.sample_audio} className="h-8 w-full mt-1" />
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="outline" className="text-yellow-800 border-yellow-200">
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                Đang tạo file mẫu...
+              </Badge>
+            </div>
           )}
         </div>
       </div>
@@ -72,8 +80,8 @@ export const ClonedVoiceList = () => {
     queryFn: fetchClonedVoices,
     refetchInterval: (query) => {
       const data = query.state.data as any[];
-      // Nếu có bất kỳ giọng nói nào đang xử lý, tự động làm mới sau 10 giây
-      return data?.some(voice => voice.voice_status !== 2) ? 10000 : false;
+      // Nếu có bất kỳ giọng nói nào đang xử lý HOẶC đã xong nhưng chưa có file mẫu, tiếp tục làm mới
+      return data?.some(voice => voice.voice_status !== 2 || !voice.sample_audio) ? 10000 : false;
     },
   });
 

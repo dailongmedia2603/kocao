@@ -7,6 +7,7 @@ import { showError, showSuccess } from "@/utils/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2, UploadCloud } from "lucide-react";
 
@@ -15,6 +16,7 @@ const ACCEPTED_AUDIO_TYPES = ["audio/mpeg"];
 
 const formSchema = z.object({
   voice_name: z.string().min(1, "Tên giọng nói không được để trống."),
+  preview_text: z.string().min(10, "Văn bản xem trước phải có ít nhất 10 ký tự.").max(200, "Văn bản không được quá 200 ký tự."),
   file: z
     .instanceof(FileList)
     .refine((files) => files?.length === 1, "Vui lòng chọn một file.")
@@ -29,13 +31,14 @@ export const VoiceCloneForm = () => {
   const queryClient = useQueryClient();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { voice_name: "" },
+    defaultValues: { voice_name: "", preview_text: "Xin chào, đây là giọng nói do GenAIPro tạo ra." },
   });
 
   const cloneVoiceMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       const formData = new FormData();
       formData.append("voice_name", values.voice_name);
+      formData.append("preview_text", values.preview_text);
       formData.append("file", values.file[0]);
 
       const { data, error } = await supabase.functions.invoke("voice-clone-proxy", { body: formData });
@@ -70,6 +73,13 @@ export const VoiceCloneForm = () => {
               <FormItem>
                 <FormLabel>Tên giọng nói</FormLabel>
                 <FormControl><Input placeholder="Ví dụ: Giọng đọc của tôi" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+             <FormField control={form.control} name="preview_text" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Văn bản xem trước</FormLabel>
+                <FormControl><Textarea placeholder="Văn bản dùng để tạo file âm thanh mẫu..." className="min-h-[80px]" {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
