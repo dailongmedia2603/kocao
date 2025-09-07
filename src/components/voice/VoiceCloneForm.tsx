@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2, UploadCloud } from "lucide-react";
 import { callVoiceApi } from "@/lib/voiceApi";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "../ui/skeleton";
 
@@ -61,9 +61,16 @@ export const VoiceCloneForm = () => {
     defaultValues: { 
       voice_name: "", 
       preview_text: "Xin chào, đây là giọng nói do GenAIPro tạo ra.",
-      language_tag: "Vietnamese",
+      language_tag: "", // Khởi tạo rỗng
     },
   });
+
+  // Chỉ đặt giá trị mặc định khi danh sách ngôn ngữ đã được tải
+  useEffect(() => {
+    if (languages.length > 0 && !form.getValues('language_tag')) {
+      form.setValue('language_tag', 'Vietnamese');
+    }
+  }, [languages, form]);
 
   const cloneVoiceMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
