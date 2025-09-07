@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -49,6 +49,7 @@ type CreateTaskDialogProps = {
   onOpenChange: (isOpen: boolean) => void;
   projectId: string;
   taskCount: number;
+  initialType?: string | null;
 };
 
 export const CreateTaskDialog = ({
@@ -56,6 +57,7 @@ export const CreateTaskDialog = ({
   onOpenChange,
   projectId,
   taskCount,
+  initialType,
 }: CreateTaskDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
@@ -66,6 +68,20 @@ export const CreateTaskDialog = ({
     resolver: zodResolver(formSchema),
     defaultValues: { name: "", type: "" },
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      form.reset({
+        name: "",
+        type: initialType || "",
+        url: "",
+        selector: "",
+        delayDuration: undefined,
+        pasteText: "",
+      });
+      setSelectedKocFile(null);
+    }
+  }, [isOpen, initialType, form]);
 
   const createTaskMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
@@ -128,8 +144,6 @@ export const CreateTaskDialog = ({
       showSuccess("Thêm bước thành công!");
       queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       onOpenChange(false);
-      form.reset();
-      setSelectedKocFile(null);
     },
     onError: (error) => {
       if (loadingToastId.current) {
@@ -160,23 +174,26 @@ export const CreateTaskDialog = ({
             <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem><FormLabel>Tên bước</FormLabel><FormControl><Input placeholder="Ví dụ: Đăng nhập vào tài khoản" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <FormField control={form.control} name="type" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Loại hành động</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Chọn một hành động" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="NAVIGATE_TO_URL">Điều hướng đến URL</SelectItem>
-                    <SelectItem value="CLICK_ELEMENT">Bấm vào phần tử</SelectItem>
-                    <SelectItem value="DOWNLOAD_FILE">Tải xuống tệp và lưu</SelectItem>
-                    <SelectItem value="UPLOAD_FILE">Tải lên tệp</SelectItem>
-                    <SelectItem value="DELAY">Chờ (Delay)</SelectItem>
-                    <SelectItem value="PASTE_TEXT">Dán văn bản</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
+            
+            {!initialType && (
+              <FormField control={form.control} name="type" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Loại hành động</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Chọn một hành động" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="NAVIGATE_TO_URL">Điều hướng đến URL</SelectItem>
+                      <SelectItem value="CLICK_ELEMENT">Bấm vào phần tử</SelectItem>
+                      <SelectItem value="DOWNLOAD_FILE">Tải xuống tệp và lưu</SelectItem>
+                      <SelectItem value="UPLOAD_FILE">Tải lên tệp</SelectItem>
+                      <SelectItem value="DELAY">Chờ (Delay)</SelectItem>
+                      <SelectItem value="PASTE_TEXT">Dán văn bản</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            )}
 
             {selectedType === "NAVIGATE_TO_URL" && (
               <FormField control={form.control} name="url" render={({ field }) => (

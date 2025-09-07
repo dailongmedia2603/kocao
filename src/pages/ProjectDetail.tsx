@@ -75,6 +75,7 @@ const ProjectDetail = () => {
   const [isEditTaskOpen, setEditTaskOpen] = useState(false);
   const [isDeleteTaskOpen, setDeleteTaskOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskTypeForCreation, setSelectedTaskTypeForCreation] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: project, isLoading: isProjectLoading } = useQuery<Project>({
@@ -210,11 +211,6 @@ const ProjectDetail = () => {
               {isProjectLoading ? <Skeleton className="h-8 w-64" /> : <h1 className="text-3xl font-bold">{project?.name}</h1>}
               <p className="text-muted-foreground mt-1">Xây dựng và quản lý các bước trong kịch bản của bạn.</p>
             </div>
-            {scenarioTasks.length > 0 && (
-              <Button onClick={() => setCreateTaskOpen(true)}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Thêm bước
-              </Button>
-            )}
           </div>
 
           <div className="w-full max-w-3xl mx-auto">
@@ -292,12 +288,8 @@ const ProjectDetail = () => {
                   </div>
                   <h2 className="text-xl font-semibold mb-2">Xây dựng kịch bản của bạn</h2>
                   <p className="text-muted-foreground mb-6 max-w-sm">
-                    Thêm các bước từ bảng điều khiển bên phải hoặc nhấp vào nút bên dưới. Mỗi bước là một hành động trong kịch bản của bạn.
+                    Bắt đầu bằng cách chọn một loại bước từ bảng điều khiển bên phải. Mỗi bước là một hành động trong kịch bản của bạn.
                   </p>
-                  <Button onClick={() => setCreateTaskOpen(true)}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Thêm bước đầu tiên
-                  </Button>
                 </CardContent>
               </Card>
             )}
@@ -310,7 +302,14 @@ const ProjectDetail = () => {
             {Object.entries(taskTypeDetails).filter(([key]) => key !== 'DEFAULT').map(([type, details]) => {
               const Icon = details.icon;
               return (
-                <Card key={type} className="p-3 hover:bg-gray-50 transition-colors">
+                <Card 
+                  key={type} 
+                  className="p-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedTaskTypeForCreation(type);
+                    setCreateTaskOpen(true);
+                  }}
+                >
                   <div className="flex items-center gap-3">
                     <div className={cn("p-2 rounded-lg", details.colorClasses)}>
                       <Icon className="h-5 w-5" />
@@ -351,7 +350,18 @@ const ProjectDetail = () => {
         </aside>
       </div>
 
-      {projectId && <CreateTaskDialog isOpen={isCreateTaskOpen} onOpenChange={setCreateTaskOpen} projectId={projectId} taskCount={tasks?.length || 0} />}
+      {projectId && <CreateTaskDialog 
+        isOpen={isCreateTaskOpen} 
+        onOpenChange={(isOpen) => {
+          setCreateTaskOpen(isOpen);
+          if (!isOpen) {
+            setSelectedTaskTypeForCreation(null);
+          }
+        }} 
+        projectId={projectId} 
+        taskCount={tasks?.length || 0}
+        initialType={selectedTaskTypeForCreation}
+      />}
       <EditTaskDialog isOpen={isEditTaskOpen} onOpenChange={setEditTaskOpen} task={selectedTask as any} projectId={projectId} />
       <AlertDialog open={isDeleteTaskOpen} onOpenChange={setDeleteTaskOpen}>
         <AlertDialogContent>
