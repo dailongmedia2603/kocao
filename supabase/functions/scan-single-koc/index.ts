@@ -61,9 +61,9 @@ serve(async (req) => {
     }
 
     const { followerCount, heartCount, videoCount } = statsData;
-    const { nickname, uniqueId, createTime } = userInfo;
+    const { nickname, uniqueId, createTime, avatarLarger } = userInfo;
 
-    if (followerCount === undefined || heartCount === undefined || videoCount === undefined || nickname === undefined || uniqueId === undefined || createTime === undefined) {
+    if (followerCount === undefined || heartCount === undefined || videoCount === undefined || nickname === undefined || uniqueId === undefined || createTime === undefined || avatarLarger === undefined) {
       throw new Error("Dữ liệu trả về từ API không đầy đủ.");
     }
 
@@ -77,6 +77,7 @@ serve(async (req) => {
         channel_unique_id: uniqueId,
         channel_created_at: new Date(createTime * 1000).toISOString(),
         stats_updated_at: new Date().toISOString(),
+        avatar_url: avatarLarger, // Tự động cập nhật avatar
       })
       .eq("id", koc.id);
 

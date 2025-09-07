@@ -1,10 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { User, Upload } from 'lucide-react';
+import { User } from 'lucide-react';
 
 interface ImageUploadInputProps {
   form: UseFormReturn<any>;
@@ -15,22 +13,10 @@ interface ImageUploadInputProps {
 
 export const ImageUploadInput = ({ form, name, label, initialImageUrl }: ImageUploadInputProps) => {
   const [preview, setPreview] = useState<string | null>(initialImageUrl || null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setPreview(initialImageUrl || null);
   }, [initialImageUrl]);
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setPreview(URL.createObjectURL(file));
-      form.setValue(name, event.target.files, { shouldValidate: true });
-    } else {
-      setPreview(initialImageUrl || null);
-      form.setValue(name, undefined, { shouldValidate: true });
-    }
-  };
 
   return (
     <FormField
@@ -47,21 +33,7 @@ export const ImageUploadInput = ({ form, name, label, initialImageUrl }: ImageUp
                   <User className="h-10 w-10 text-gray-400" />
                 </AvatarFallback>
               </Avatar>
-              <Input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                onChange={handleFileChange}
-                accept="image/png, image/jpeg, image/gif"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                Tải ảnh lên
-              </Button>
+              {/* Input and Upload Button have been removed */}
             </div>
           </FormControl>
           <FormMessage />
