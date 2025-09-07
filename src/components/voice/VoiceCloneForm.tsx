@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showError, showSuccess } from "@/utils/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2, UploadCloud } from "lucide-react";
-import { callVoiceApi } from "@/lib/voiceApi";
-import { useMemo, useEffect } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "../ui/skeleton";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 const ACCEPTED_AUDIO_TYPES = ["audio/mpeg"];
@@ -21,7 +17,6 @@ const ACCEPTED_AUDIO_TYPES = ["audio/mpeg"];
 const formSchema = z.object({
   voice_name: z.string().min(1, "Tên giọng nói không được để trống."),
   preview_text: z.string().min(10, "Văn bản xem trước phải có ít nhất 10 ký tự.").max(200, "Văn bản không được quá 200 ký tự."),
-  language_tag: z.string().min(1, "Vui lòng chọn ngôn ngữ."),
   file: z
     .instanceof(FileList)
     .refine((files) => files?.length === 1, "Vui lòng chọn một file.")
@@ -32,52 +27,18 @@ const formSchema = z.object({
     ),
 });
 
-const fetchVoiceConfig = async () => {
-  const data = await callVoiceApi({ path: "v1m/common/config", method: "GET" });
-  return data.data;
-};
-
 export const VoiceCloneForm = () => {
   const queryClient = useQueryClient();
-  const { data: voiceConfig, isLoading: isLoadingConfig } = useQuery({
-    queryKey: ["voiceConfig"],
-    queryFn: fetchVoiceConfig,
-    staleTime: Infinity,
-  });
-
-  const languages = useMemo(() => {
-    if (!voiceConfig?.language_list) return [];
-    const langList = [...voiceConfig.language_list];
-    const vietnameseIndex = langList.findIndex(lang => lang === 'Vietnamese');
-    if (vietnameseIndex > -1) {
-      const [vietnamese] = langList.splice(vietnameseIndex, 1);
-      langList.unshift(vietnamese);
-    }
-    return langList;
-  }, [voiceConfig]);
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { 
-      voice_name: "", 
-      preview_text: "Xin chào, đây là giọng nói do GenAIPro tạo ra.",
-      language_tag: "", // Khởi tạo rỗng
-    },
+    defaultValues: { voice_name: "", preview_text: "Xin chào, đây là giọng nói do GenAIPro tạo ra." },
   });
-
-  // Chỉ đặt giá trị mặc định khi danh sách ngôn ngữ đã được tải
-  useEffect(() => {
-    if (languages.length > 0 && !form.getValues('language_tag')) {
-      form.setValue('language_tag', 'Vietnamese');
-    }
-  }, [languages, form]);
 
   const cloneVoiceMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       const formData = new FormData();
       formData.append("voice_name", values.voice_name);
       formData.append("preview_text", values.preview_text);
-      formData.append("language_tag", values.language_tag);
       formData.append("file", values.file[0]);
 
       const { data, error } = await supabase.functions.invoke("voice-clone-proxy", { body: formData });
@@ -119,22 +80,6 @@ export const VoiceCloneForm = () => {
               <FormItem>
                 <FormLabel>Văn bản xem trước</FormLabel>
                 <FormControl><Textarea placeholder="Văn bản dùng để tạo file âm thanh mẫu..." className="min-h-[80px]" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="language_tag" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Ngôn ngữ</FormLabel>
-                {isLoadingConfig ? <Skeleton className="h-10 w-full" /> : (
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Chọn ngôn ngữ" /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {languages.map((lang) => (
-                        <SelectItem key={lang} value={lang}>{lang}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
                 <FormMessage />
               </FormItem>
             )} />
