@@ -1,4 +1,4 @@
-import { Bell, Clock, HelpCircle, LayoutGrid, Maximize, MessageSquare, Moon, Search } from "lucide-react";
+import { Bell, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,15 +23,6 @@ const Header = () => {
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon"><Maximize className="h-5 w-5" /></Button>
-        <Button variant="ghost" size="icon"><Moon className="h-5 w-5" /></Button>
-        <Button variant="ghost" size="icon"><LayoutGrid className="h-5 w-5" /></Button>
-        <Button variant="ghost" size="icon"><HelpCircle className="h-5 w-5" /></Button>
-        <Button variant="ghost" size="icon"><Clock className="h-5 w-5" /></Button>
-        <Button variant="ghost" size="icon" className="relative">
-          <MessageSquare className="h-5 w-5" />
-          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">14</span>
-        </Button>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">10</span>
