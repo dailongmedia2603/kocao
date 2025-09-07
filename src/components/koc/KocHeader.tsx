@@ -55,7 +55,7 @@ const KocHeader = () => {
               <div className={iconContainerClasses(isActive)}>
                 <Users className="h-4 w-4" />
               </div>
-              <span className="ml-2">KOCs</span>
+              <span className="ml-2">KOCs Manager</span>
             </>
           )}
         </NavLink>
