@@ -1,6 +1,5 @@
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -8,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Edit, Trash2, Folder, Tag } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 type Koc = {
@@ -36,14 +35,25 @@ const getInitials = (name: string) => {
 export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
   return (
     <Card className="flex flex-col hover:shadow-lg transition-shadow duration-300">
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-        <Avatar className="h-12 w-12 border-2 border-white shadow-md">
-          <AvatarImage src={koc.avatar_url || undefined} alt={koc.name} />
-          <AvatarFallback>{getInitials(koc.name)}</AvatarFallback>
-        </Avatar>
+      <CardHeader className="flex flex-row items-start justify-between p-4 space-x-4">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <Avatar className="h-12 w-12 border-2 border-white shadow-sm flex-shrink-0">
+            <AvatarImage src={koc.avatar_url || undefined} alt={koc.name} />
+            <AvatarFallback>{getInitials(koc.name)}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-bold truncate">{koc.name}</h3>
+            {koc.field && (
+              <Badge variant="secondary" className="mt-1 font-normal text-xs">
+                <Tag className="mr-1 h-3 w-3" />
+                {koc.field}
+              </Badge>
+            )}
+          </div>
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
+            <Button variant="ghost" className="h-8 w-8 p-0 flex-shrink-0">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -59,15 +69,8 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
-      <CardContent className="flex-grow">
-        <h3 className="text-lg font-bold truncate">{koc.name}</h3>
-        {koc.field && (
-          <Badge variant="secondary" className="mt-1 font-normal text-xs">
-            <Tag className="mr-1 h-3 w-3" />
-            {koc.field}
-          </Badge>
-        )}
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center border-t pt-4">
+      <CardContent className="p-4 pt-2">
+        <div className="grid grid-cols-3 gap-2 text-center border-t pt-4">
           <div>
             <p className="text-sm font-semibold text-gray-800">1.2M</p>
             <p className="text-xs text-gray-500">Followers</p>
@@ -82,14 +85,6 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
           </div>
         </div>
       </CardContent>
-      <CardFooter>
-        <Button asChild variant="secondary" className="w-full">
-          <Link to={`/list-koc/${koc.id}`}>
-            <Folder className="mr-2 h-4 w-4" />
-            Quản lý file
-          </Link>
-        </Button>
-      </CardFooter>
     </Card>
   );
 };
