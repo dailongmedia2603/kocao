@@ -26,7 +26,7 @@ type Profile = {
 type Project = {
   id: string;
   name: string;
-  created_at: string;
+  created_at: string | null;
   profiles: Profile | null;
   tasks: { count: number }[];
 };
@@ -42,7 +42,7 @@ export const ProjectCard = ({ project, onEdit, onDelete }: ProjectCardProps) => 
   const creatorName = project.profiles ? `${project.profiles.first_name || ''} ${project.profiles.last_name || ''}`.trim() : 'Không rõ';
   const creatorInitial = creatorName ? creatorName.charAt(0).toUpperCase() : '?';
   const creatorAvatar = project.profiles?.avatar_url;
-  const formattedDate = format(new Date(project.created_at), "d MMM, yyyy", { locale: vi });
+  const formattedDate = project.created_at ? format(new Date(project.created_at), "d MMM, yyyy", { locale: vi }) : null;
 
   return (
     <Card className="relative bg-white rounded-lg shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group border hover:border-red-500">
@@ -74,7 +74,7 @@ export const ProjectCard = ({ project, onEdit, onDelete }: ProjectCardProps) => 
           </div>
           <div className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4 text-red-500" />
-            <span>Tạo ngày: {formattedDate}</span>
+            {formattedDate && <span>Tạo ngày: {formattedDate}</span>}
           </div>
         </div>
         <div className="mt-4 pt-4 border-t flex items-center gap-3">

@@ -27,7 +27,7 @@ type KocFile = {
   id: string;
   display_name: string;
   url: string;
-  created_at: string;
+  created_at: string | null;
 };
 
 type Koc = {
@@ -148,7 +148,7 @@ const KocContent = () => {
                     </div>
                     <div className="p-3 space-y-1">
                       <EditableFileName fileId={file.id} initialName={file.display_name} queryKey={queryKey} />
-                      <p className="text-xs text-muted-foreground">{format(new Date(file.created_at), "dd/MM/yyyy")}</p>
+                      {file.created_at && <p className="text-xs text-muted-foreground">{format(new Date(file.created_at), "dd/MM/yyyy")}</p>}
                     </div>
                   </CardContent>
                 </Card>

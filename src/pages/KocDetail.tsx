@@ -58,7 +58,7 @@ type Koc = {
   name: string;
   field: string | null;
   avatar_url: string | null;
-  created_at: string;
+  created_at: string | null;
 };
 
 // Data fetching
@@ -238,13 +238,15 @@ const KocDetail = () => {
                     <p className="text-muted-foreground">
                       {koc.field || "Virtual KOC"}
                     </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Tham gia{" "}
-                      {formatDistanceToNow(new Date(koc.created_at), {
-                        addSuffix: true,
-                        locale: vi,
-                      })}
-                    </p>
+                    {koc.created_at && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Tham gia{" "}
+                        {formatDistanceToNow(new Date(koc.created_at), {
+                          addSuffix: true,
+                          locale: vi,
+                        })}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <Button
