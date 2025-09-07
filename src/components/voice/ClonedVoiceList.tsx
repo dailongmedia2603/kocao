@@ -1,13 +1,17 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { callVoiceApi } from "@/lib/voiceApi";
+import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/contexts/SessionContext";
 import { showError, showSuccess } from "@/utils/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Mic, Trash2, Loader2, RefreshCw } from "lucide-react";
+import { AlertCircle, Mic, Trash2, Loader2, RefreshCw, History } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { VoiceCloneLogDialog } from "./VoiceCloneLogDialog";
 
 const fetchClonedVoices = async () => {
   const data = await callVoiceApi({ path: "v1m/voice/clone", method: "GET" });
@@ -75,6 +79,9 @@ const VoiceItem = ({ voice }: { voice: any }) => {
 
 export const ClonedVoiceList = () => {
   const queryClient = useQueryClient();
+  const { user } = useSession();
+  const [isLogOpen, setIsLogOpen] = useState(false);
+
   const { data: voices, isLoading, isError, error, isFetching } = useQuery({
     queryKey: ["cloned_voices"],
     queryFn: fetchClonedVoices,
@@ -85,23 +92,47 @@ export const ClonedVoiceList = () => {
     },
   });
 
+  const { data: logs } = useQuery({
+    queryKey: ["voice_clone_logs", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("voice_clone_logs")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    enabled: !!user && isLogOpen,
+  });
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Danh sách Giọng nói đã Clone</CardTitle>
-          <CardDescription>Các giọng nói tùy chỉnh của bạn.</CardDescription>
-        </div>
-        <Button variant="outline" size="icon" onClick={() => queryClient.invalidateQueries({ queryKey: ["cloned_voices"] })} disabled={isFetching}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? <div className="space-y-4">{[...Array(2)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>
-        : isError ? <div className="text-center py-10 text-destructive"><AlertCircle className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-medium">Không thể tải danh sách</h3><p className="mt-1 text-sm">{(error as Error).message}</p></div>
-        : voices && voices.length > 0 ? <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">{voices.map((voice: any) => <VoiceItem key={voice.voice_id} voice={voice} />)}</div>
-        : <div className="text-center py-10 border-2 border-dashed rounded-lg"><Mic className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-4 text-lg font-medium">Chưa có giọng nói nào</h3><p className="mt-1 text-sm text-muted-foreground">Hãy bắt đầu clone giọng nói đầu tiên của bạn!</p></div>}
-      </CardContent>
-    </Card>
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Danh sách Giọng nói đã Clone</CardTitle>
+            <CardDescription>Các giọng nói tùy chỉnh của bạn.</CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => setIsLogOpen(true)}>
+              <History className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" onClick={() => queryClient.invalidateQueries({ queryKey: ["cloned_voices"] })} disabled={isFetching}>
+              <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? <div className="space-y-4">{[...Array(2)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>
+          : isError ? <div className="text-center py-10 text-destructive"><AlertCircle className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-medium">Không thể tải danh sách</h3><p className="mt-1 text-sm">{(error as Error).message}</p></div>
+          : voices && voices.length > 0 ? <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">{voices.map((voice: any) => <VoiceItem key={voice.voice_id} voice={voice} />)}</div>
+          : <div className="text-center py-10 border-2 border-dashed rounded-lg"><Mic className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-4 text-lg font-medium">Chưa có giọng nói nào</h3><p className="mt-1 text-sm text-muted-foreground">Hãy bắt đầu clone giọng nói đầu tiên của bạn!</p></div>}
+        </CardContent>
+      </Card>
+      <VoiceCloneLogDialog isOpen={isLogOpen} onOpenChange={setIsLogOpen} logs={logs} />
+    </>
   );
 };
