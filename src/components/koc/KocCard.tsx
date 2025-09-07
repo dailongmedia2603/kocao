@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Edit, Trash2, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
 
 type Koc = {
   id: string;
@@ -34,7 +35,12 @@ const getInitials = (name: string) => {
 
 export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
   return (
-    <Card className="flex flex-col hover:shadow-lg transition-shadow duration-300">
+    <Card className="relative flex flex-col hover:shadow-lg transition-shadow duration-300">
+      <Link
+        to={`/list-koc/${koc.id}`}
+        className="absolute inset-0 z-0"
+        aria-label={`View details for ${koc.name}`}
+      />
       <CardHeader className="flex flex-row items-start justify-between p-4 space-x-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <Avatar className="h-12 w-12 border-2 border-white shadow-sm flex-shrink-0">
@@ -51,23 +57,35 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
             )}
           </div>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0 flex-shrink-0">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEdit(koc)}>
-              <Edit className="mr-2 h-4 w-4" />
-              <span>Chỉnh sửa</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDelete(koc)} className="text-red-600">
-              <Trash2 className="mr-2 h-4 w-4" />
-              <span>Xóa</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="relative z-10">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className="h-8 w-8 p-0 flex-shrink-0"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEdit(koc)}>
+                <Edit className="mr-2 h-4 w-4" />
+                <span>Chỉnh sửa</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onDelete(koc)}
+                className="text-red-600"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                <span>Xóa</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </CardHeader>
       <CardContent className="p-4 pt-2">
         <div className="grid grid-cols-3 gap-2 text-center border-t pt-4">
