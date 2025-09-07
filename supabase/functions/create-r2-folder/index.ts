@@ -46,8 +46,10 @@ serve(async (req) => {
     // Create main folder and subfolders in parallel
     await Promise.all([
       createFolder(folderPath),
-      createFolder(`${folderPath}/generated`), // For "Video đã tạo"
-      createFolder(`${folderPath}/sources`),   // For "Nguồn Video/Audio"
+      createFolder(`${folderPath}/generated`),
+      createFolder(`${folderPath}/sources`),
+      createFolder(`${folderPath}/sources/videos`),
+      createFolder(`${folderPath}/sources/audios`),
     ]);
 
     return new Response(JSON.stringify({ success: true, message: `Thư mục ${folderPath} và các thư mục con đã được tạo.` }), {

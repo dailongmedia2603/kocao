@@ -15,9 +15,10 @@ type UploadVideoDialogProps = {
   kocId: string;
   userId: string;
   kocName: string;
+  accept?: string;
 };
 
-export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocId, userId, kocName }: UploadVideoDialogProps) => {
+export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocId, userId, kocName, accept }: UploadVideoDialogProps) => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const queryClient = useQueryClient();
 
@@ -71,7 +72,7 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocId, use
           <label htmlFor="file-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted transition-colors">
             <UploadCloud className="h-8 w-8 text-muted-foreground" />
             <p className="mt-2 text-sm text-muted-foreground">Bấm để chọn tệp</p>
-            <Input id="file-upload" type="file" className="hidden" onChange={handleFileChange} multiple />
+            <Input id="file-upload" type="file" className="hidden" onChange={handleFileChange} multiple accept={accept} />
           </label>
           {selectedFiles.length > 0 && (
             <div>

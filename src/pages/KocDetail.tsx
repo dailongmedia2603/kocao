@@ -19,7 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 // Icons
-import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, Megaphone, SlidersHorizontal, CreditCard, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film } from "lucide-react";
+import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, Megaphone, SlidersHorizontal, CreditCard, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus } from "lucide-react";
 
 // Custom Components
 import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
@@ -105,7 +105,8 @@ const KocDetail = () => {
   const [fileToDelete, setFileToDelete] = useState<KocFile | null>(null);
   const [isPlayerOpen, setPlayerOpen] = useState(false);
   const [isUploadOpen, setUploadOpen] = useState(false);
-  const [isSourceUploadOpen, setSourceUploadOpen] = useState(false);
+  const [isSourceVideoUploadOpen, setSourceVideoUploadOpen] = useState(false);
+  const [isSourceAudioUploadOpen, setSourceAudioUploadOpen] = useState(false);
 
   const { data: koc, isLoading: isKocLoading } = useQuery<Koc>({
     queryKey: ["koc", kocId],
@@ -121,9 +122,8 @@ const KocDetail = () => {
   });
 
   const generatedFiles = useMemo(() => files?.filter(file => file.r2_key.includes('/generated/')) || [], [files]);
-  const sourceFiles = useMemo(() => files?.filter(file => file.r2_key.includes('/sources/')) || [], [files]);
-  const sourceVideos = useMemo(() => sourceFiles.filter(file => getFileTypeDetails(file.display_name).type === 'video'), [sourceFiles]);
-  const sourceAudios = useMemo(() => sourceFiles.filter(file => getFileTypeDetails(file.display_name).type === 'audio'), [sourceFiles]);
+  const sourceVideos = useMemo(() => files?.filter(file => file.r2_key.includes('/sources/videos/')) || [], [files]);
+  const sourceAudios = useMemo(() => files?.filter(file => file.r2_key.includes('/sources/audios/')) || [], [files]);
 
   const deleteFileMutation = useMutation({
     mutationFn: async (fileId: string) => {
@@ -226,12 +226,7 @@ const KocDetail = () => {
                 {areFilesLoading ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}</div>) : isError ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{filesError.message}</AlertDescription></Alert>) : generatedFiles && generatedFiles.length > 0 ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{generatedFiles.map((file) => { const { Icon, bgColor, iconColor, type } = getFileTypeDetails(file.display_name); return (<Card key={file.id} className="overflow-hidden group"><CardContent className="p-0"><div className="aspect-video flex items-center justify-center relative cursor-pointer" onClick={() => handleFileClick(file)}><div className={`w-full h-full flex items-center justify-center ${bgColor}`}><Icon className={`h-12 w-12 ${iconColor}`} /></div>{type === 'video' && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><PlayCircle className="h-16 w-16 text-white" /></div>}<Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4" /></Button></div><div className="p-3 space-y-1"><EditableFileName fileId={file.id} initialName={file.display_name} queryKey={filesQueryKey} />{file.created_at && <p className="text-xs text-muted-foreground">{format(new Date(file.created_at), "dd/MM/yyyy")}</p>}</div></CardContent></Card>); })}</div>) : (<Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Film className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có tệp nào</h3><p className="mt-1 text-sm">Bấm "Tải lên tệp" để thêm tệp đầu tiên của bạn.</p></div></CardContent></Card>)}
               </TabsContent>
               <TabsContent value="sources" className="mt-6">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-semibold">Quản lý tệp nguồn</h3>
-                    <Button variant="outline" onClick={() => setSourceUploadOpen(true)} disabled={!koc?.folder_path}>
-                        <UploadCloud className="mr-2 h-4 w-4" /> Tải lên nguồn
-                    </Button>
-                </div>
+                <h3 className="text-xl font-semibold mb-4">Quản lý tệp nguồn</h3>
                 <Accordion type="multiple" defaultValue={['videos', 'audios']} className="w-full space-y-4">
                   <AccordionItem value="videos" className="border-none">
                     <AccordionTrigger className="bg-white p-4 rounded-lg border hover:no-underline data-[state=open]:rounded-b-none">
@@ -241,6 +236,9 @@ const KocDetail = () => {
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 p-4 border border-t-0 rounded-b-lg bg-white">
+                        <div className="flex justify-end mb-4">
+                            <Button variant="outline" size="sm" onClick={() => setSourceVideoUploadOpen(true)} disabled={!koc?.folder_path}><Plus className="mr-2 h-4 w-4" /> Thêm video</Button>
+                        </div>
                         {areFilesLoading ? <Skeleton className="h-20 w-full" /> : sourceVideos.length > 0 ? (
                             <div className="space-y-3">
                                 {sourceVideos.map(file => (
@@ -267,6 +265,9 @@ const KocDetail = () => {
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 p-4 border border-t-0 rounded-b-lg bg-white">
+                        <div className="flex justify-end mb-4">
+                            <Button variant="outline" size="sm" onClick={() => setSourceAudioUploadOpen(true)} disabled={!koc?.folder_path}><Plus className="mr-2 h-4 w-4" /> Thêm audio</Button>
+                        </div>
                         {areFilesLoading ? <Skeleton className="h-20 w-full" /> : sourceAudios.length > 0 ? (
                             <div className="space-y-3">
                                 {sourceAudios.map(file => (
@@ -295,7 +296,8 @@ const KocDetail = () => {
       <EditKocDialog isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} koc={koc} />
       <VideoPlayerDialog isOpen={isPlayerOpen} onOpenChange={setPlayerOpen} videoUrl={selectedFile?.url} videoName={selectedFile?.display_name} />
       {koc && koc.folder_path && (<UploadVideoDialog isOpen={isUploadOpen} onOpenChange={setUploadOpen} folderPath={`${koc.folder_path}/generated`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} />)}
-      {koc && koc.folder_path && (<UploadVideoDialog isOpen={isSourceUploadOpen} onOpenChange={setSourceUploadOpen} folderPath={`${koc.folder_path}/sources`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} />)}
+      {koc && koc.folder_path && (<UploadVideoDialog isOpen={isSourceVideoUploadOpen} onOpenChange={setSourceVideoUploadOpen} folderPath={`${koc.folder_path}/sources/videos`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} accept="video/*" />)}
+      {koc && koc.folder_path && (<UploadVideoDialog isOpen={isSourceAudioUploadOpen} onOpenChange={setSourceAudioUploadOpen} folderPath={`${koc.folder_path}/sources/audios`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} accept="audio/*" />)}
       <AlertDialog open={!!fileToDelete} onOpenChange={() => setFileToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa tệp?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Tệp "{fileToDelete?.display_name}" sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader>
