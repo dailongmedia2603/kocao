@@ -186,7 +186,7 @@ const KocDetail = () => {
     <>
       <div className="p-6 lg:p-8">
         <Link to="/list-koc" className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"><ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách KOC</Link>
-        <header className="mb-6"><h1 className="text-3xl font-bold">Chi tiết KOC ảo</h1><p className="text-muted-foreground mt-1">Quản lý và theo dõi hiệu suất và hoạt động của KOC ảo của bạn.</p></header>
+        <header className="mb-6"><h1 className="text-3xl font-bold">Chi tiết KOC của bạn</h1><p className="text-muted-foreground mt-1">Quản lý và theo dõi hiệu suất và hoạt động của KOC ảo của bạn.</p></header>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <div className="lg:col-span-2 space-y-8">
             <Card className="overflow-hidden">
