@@ -1,0 +1,94 @@
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { showError, showSuccess } from "@/utils/toast";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Loader2, UploadCloud } from "lucide-react";
+
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+const ACCEPTED_AUDIO_TYPES = ["audio/mpeg"];
+
+const formSchema = z.object({
+  voice_name: z.string().min(1, "Tên giọng nói không được để trống."),
+  file: z
+    .instanceof(FileList)
+    .refine((files) => files?.length === 1, "Vui lòng chọn một file.")
+    .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `Kích thước file tối đa là 20MB.`)
+    .refine(
+      (files) => ACCEPTED_AUDIO_TYPES.includes(files?.[0]?.type),
+      "Chỉ hỗ trợ file .mp3."
+    ),
+});
+
+export const VoiceCloneForm = () => {
+  const queryClient = useQueryClient();
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: { voice_name: "" },
+  });
+
+  const cloneVoiceMutation = useMutation({
+    mutationFn: async (values: z.infer<typeof formSchema>) => {
+      const formData = new FormData();
+      formData.append("voice_name", values.voice_name);
+      formData.append("file", values.file[0]);
+
+      const { data, error } = await supabase.functions.invoke("voice-clone-proxy", { body: formData });
+      if (error) throw new Error(error.message);
+      if (!data.success) throw new Error(data.message || "Clone voice thất bại.");
+      return data;
+    },
+    onSuccess: () => {
+      showSuccess("Gửi yêu cầu clone thành công! Giọng nói sẽ sớm xuất hiện trong danh sách.");
+      queryClient.invalidateQueries({ queryKey: ["cloned_voices"] });
+      form.reset();
+    },
+    onError: (error: Error) => {
+      showError(`Lỗi: ${error.message}`);
+    },
+  });
+
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    cloneVoiceMutation.mutate(values);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Tạo Giọng Nói Mới</CardTitle>
+        <CardDescription>Tải lên một file âm thanh (.mp3, tối đa 20MB) để tạo ra một giọng nói tùy chỉnh.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField control={form.control} name="voice_name" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tên giọng nói</FormLabel>
+                <FormControl><Input placeholder="Ví dụ: Giọng đọc của tôi" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="file" render={({ field }) => (
+              <FormItem>
+                <FormLabel>File âm thanh</FormLabel>
+                <FormControl>
+                  <Input type="file" accept="audio/mpeg" onChange={(e) => field.onChange(e.target.files)} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <Button type="submit" className="w-full" disabled={cloneVoiceMutation.isPending}>
+              {cloneVoiceMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
+              Bắt đầu Clone
+            </Button>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+};
