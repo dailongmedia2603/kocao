@@ -14,6 +14,7 @@ import { ImageUploadInput } from "./ImageUploadInput";
 const formSchema = z.object({
   name: z.string().min(1, "Tên KOC không được để trống"),
   field: z.string().min(1, "Lĩnh vực không được để trống"),
+  channel_url: z.string().url("Link kênh không hợp lệ").optional().or(z.literal('')),
   avatar_file: z.instanceof(FileList).optional(),
 });
 
@@ -37,7 +38,7 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", field: "" },
+    defaultValues: { name: "", field: "", channel_url: "" },
   });
 
   const createKocMutation = useMutation({
@@ -64,7 +65,13 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
 
       const { data: newKoc, error: dbError } = await supabase
         .from("kocs")
-        .insert({ user_id: user.id, name: values.name, field: values.field, avatar_url: avatarUrl })
+        .insert({ 
+          user_id: user.id, 
+          name: values.name, 
+          field: values.field, 
+          avatar_url: avatarUrl,
+          channel_url: values.channel_url || null 
+        })
         .select("id")
         .single();
 
@@ -137,6 +144,9 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
             )} />
             <FormField control={form.control} name="field" render={({ field }) => (
               <FormItem><FormLabel>Lĩnh vực</FormLabel><FormControl><Input placeholder="Ví dụ: Beauty, Food,..." {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="channel_url" render={({ field }) => (
+              <FormItem><FormLabel>Link Kênh</FormLabel><FormControl><Input placeholder="Ví dụ: https://www.tiktok.com/@channelname" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <ImageUploadInput form={form} name="avatar_file" label="Ảnh đại diện" />
             <DialogFooter>
