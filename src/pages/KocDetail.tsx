@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, intervalToDuration } from "date-fns";
 import { vi } from "date-fns/locale";
 
 // UI Components
@@ -19,7 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 // Icons
-import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, Megaphone, SlidersHorizontal, CreditCard, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus } from "lucide-react";
+import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, SlidersHorizontal, CreditCard, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, CalendarDays } from "lucide-react";
 
 // Custom Components
 import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
@@ -39,6 +39,12 @@ type Koc = {
   folder_path: string | null;
   user_id: string;
   channel_url: string | null;
+  follower_count: number | null;
+  like_count: number | null;
+  video_count: number | null;
+  channel_nickname: string | null;
+  channel_unique_id: string | null;
+  channel_created_at: string | null;
 };
 
 type KocFile = {
@@ -53,7 +59,7 @@ type KocFile = {
 const fetchKocDetails = async (kocId: string) => {
   const { data, error } = await supabase
     .from("kocs")
-    .select("id, name, field, avatar_url, created_at, folder_path, user_id, channel_url")
+    .select("*, follower_count, like_count, video_count, channel_nickname, channel_unique_id, channel_created_at")
     .eq("id", kocId)
     .single();
   if (error) throw error;
@@ -81,12 +87,6 @@ const assignedCampaigns = [
   { name: "Autumn Beauty Launch", status: "Completed", startDate: "2024-06-15", endDate: "2024-06-30", budget: "$3,200" },
   { name: "Winter Wellness", status: "Planned", startDate: "2024-08-01", endDate: "2024-08-15", budget: "$4,500" },
 ];
-const communicationHistory = [
-  { title: "Gửi brief chiến dịch", date: "2024-07-15", icon: Megaphone },
-  { title: "Yêu cầu duyệt nội dung", date: "2024-07-18", icon: SlidersHorizontal },
-  { title: "Xác nhận thanh toán", date: "2024-07-20", icon: CreditCard },
-  { title: "Báo cáo hiệu suất", date: "2024-07-25", icon: FileText },
-];
 
 // Helper functions
 const getInitials = (name: string) => name.split(" ").map((n) => n[0]).join("").toUpperCase();
@@ -96,6 +96,25 @@ const getFileTypeDetails = (fileName: string) => {
   if (['mp3', 'wav', 'm4a', 'ogg'].includes(extension)) return { Icon: Music, bgColor: 'bg-purple-100', iconColor: 'text-purple-600', type: 'audio' };
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(extension)) return { Icon: Image, bgColor: 'bg-green-100', iconColor: 'text-green-600', type: 'image' };
   return { Icon: FileText, bgColor: 'bg-slate-100', iconColor: 'text-slate-600', type: 'other' };
+};
+
+const formatDetailedDistanceToNow = (dateString: string | null): string => {
+  if (!dateString) return "Không rõ";
+  const date = new Date(dateString);
+  const duration = intervalToDuration({ start: date, end: new Date() });
+  const parts = [];
+  if (duration.years && duration.years > 0) parts.push(`${duration.years} năm`);
+  if (duration.months && duration.months > 0) parts.push(`${duration.months} tháng`);
+  if (duration.days && duration.days > 0) parts.push(`${duration.days} ngày`);
+  if (parts.length === 0) return "Hôm nay";
+  return parts.join(', ');
+};
+
+const formatStatNumber = (num: number | null | undefined): string => {
+  if (num === null || num === undefined) return "N/A";
+  if (num < 1000) return num.toString();
+  if (num < 1000000) return (num / 1000).toFixed(1).replace('.0', '') + "K";
+  return (num / 1000000).toFixed(1).replace('.0', '') + "M";
 };
 
 const KocDetail = () => {
@@ -291,7 +310,58 @@ const KocDetail = () => {
               </TabsContent>
             </Tabs>
           </div>
-          <div className="lg:col-span-1"><Card><CardHeader><CardTitle>Lịch sử trao đổi</CardTitle></CardHeader><CardContent><div className="space-y-6">{communicationHistory.map((item) => (<div key={item.title} className="flex items-start gap-4"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600"><item.icon className="h-5 w-5" /></div><div><p className="font-semibold">{item.title}</p><p className="text-sm text-muted-foreground">{item.date}</p></div></div>))}</div></CardContent></Card></div>
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-600">
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6"><path d="M20.93 7.03a2.53 2.53 0 0 0-2.5-2.5c-2.47 0-2.9 1.23-3.43 2.16-.53-.93-1-2.16-3.43-2.16a2.53 2.53 0 0 0-2.5 2.5c0 1.12.49 3.68 3.22 6.06C14.2 14.94 16.9 13.3 20.93 7.03Z" fill="#25F4EE"></path><path d="M1.07 14.45a2.53 2.53 0 0 0 2.5 2.5c2.47 0 2.9-1.23 3.43-2.16.53.93 1 2.16 3.43 2.16a2.53 2.53 0 0 0 2.5-2.5c0-1.12-.49-3.68-3.22-6.06C10.8 6.54 8.1 8.18 4.07 14.45Z" fill="#FF0050"></path><path d="M12.5 2.5h-1v19h1v-19Z" fill="#000000"></path></svg>
+                  Thông tin kênh TikTok
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {koc.channel_unique_id ? (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-12 w-12 border">
+                        <AvatarImage src={koc.avatar_url || undefined} alt={koc.channel_nickname || koc.name} />
+                        <AvatarFallback>{getInitials(koc.channel_nickname || koc.name)}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-bold text-lg">{koc.channel_nickname}</p>
+                        <p className="text-sm text-muted-foreground">@{koc.channel_unique_id}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center pt-4 border-t">
+                      <div className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50">
+                        <Users className="h-6 w-6 mb-1 text-blue-500" />
+                        <p className="font-bold text-base">{formatStatNumber(koc.follower_count)}</p>
+                        <p className="text-xs text-muted-foreground">Followers</p>
+                      </div>
+                      <div className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50">
+                        <Heart className="h-6 w-6 mb-1 text-red-500" />
+                        <p className="font-bold text-base">{formatStatNumber(koc.like_count)}</p>
+                        <p className="text-xs text-muted-foreground">Likes</p>
+                      </div>
+                      <div className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50">
+                        <Video className="h-6 w-6 mb-1 text-green-500" />
+                        <p className="font-bold text-base">{formatStatNumber(koc.video_count)}</p>
+                        <p className="text-xs text-muted-foreground">Videos</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center text-sm text-muted-foreground pt-4 border-t">
+                      <CalendarDays className="mr-2 h-4 w-4" />
+                      <span>Tuổi tài khoản: <span className="font-medium text-foreground">{formatDetailedDistanceToNow(koc.channel_created_at)}</span></span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    <p>Chưa có dữ liệu kênh.</p>
+                    <p className="text-xs mt-1">Hãy quét kênh để cập nhật thông tin.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
       <EditKocDialog isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} koc={koc} />
