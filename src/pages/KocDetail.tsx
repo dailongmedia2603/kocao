@@ -102,7 +102,7 @@ const sourceAudios = [
 const getInitials = (name: string) => name.split(" ").map((n) => n[0]).join("").toUpperCase();
 const getFileTypeDetails = (fileName: string) => {
   const extension = fileName.split('.').pop()?.toLowerCase() || '';
-  if (['mp4', 'mov', 'webm', 'mkv'].includes(extension)) return { Icon: Film, bgColor: 'bg-black', type: 'video' };
+  if (['mp4', 'mov', 'webm', 'mkv'].includes(extension)) return { Icon: PlayCircle, bgColor: 'bg-black', type: 'video' };
   if (['mp3', 'wav', 'm4a', 'ogg'].includes(extension)) return { Icon: Music, bgColor: 'bg-purple-600', type: 'audio' };
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(extension)) return { Icon: Image, bgColor: 'bg-blue-600', type: 'image' };
   return { Icon: FileText, bgColor: 'bg-slate-700', type: 'other' };
