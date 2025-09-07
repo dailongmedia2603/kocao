@@ -44,7 +44,7 @@ serve(async (req) => {
       const errorData = await response.json();
       const errorMessage = errorData?.error?.message || "Access Token không hợp lệ hoặc đã hết hạn.";
       return new Response(JSON.stringify({ success: false, message: errorMessage }), {
-        status: response.status,
+        status: 200, // Always return 200 OK, let the JSON body indicate the error.
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
