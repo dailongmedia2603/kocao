@@ -155,6 +155,12 @@ const KocDetail = () => {
   return (
     <>
       <div className="p-6 lg:p-8">
+        <Link
+          to="/list-koc"
+          className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách KOC
+        </Link>
         <header className="mb-6">
           <h1 className="text-3xl font-bold">Chi tiết KOC ảo</h1>
           <p className="text-muted-foreground mt-1">
