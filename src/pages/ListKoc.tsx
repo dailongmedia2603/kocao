@@ -114,8 +114,8 @@ const ListKoc = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {kocs.map((koc) => (
               <Card key={koc.id} className="flex flex-col">
-                <CardHeader className="flex-row gap-4 items-start">
-                  <Link to={`/list-koc/${koc.id}`} className="flex-grow flex items-center gap-4">
+                <CardHeader className="flex flex-row items-start gap-4">
+                  <Link to={`/list-koc/${koc.id}`} className="flex flex-grow items-center gap-4">
                     <Avatar className="h-12 w-12">
                       <AvatarImage src={koc.avatar_url || undefined} alt={koc.name} />
                       <AvatarFallback>{getInitials(koc.name)}</AvatarFallback>
