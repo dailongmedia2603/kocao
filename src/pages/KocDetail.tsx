@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, MouseEvent } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -172,8 +172,11 @@ const KocDetail = () => {
     setFileToDelete(file);
   };
 
-  const confirmDelete = () => {
-    if (fileToDelete) deleteFileMutation.mutate(fileToDelete.id);
+  const confirmDelete = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    if (fileToDelete) {
+      deleteFileMutation.mutate(fileToDelete.id);
+    }
   };
 
   if (isKocLoading) {
