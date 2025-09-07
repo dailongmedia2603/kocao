@@ -1,8 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ApiSettings from "@/components/settings/ApiSettings";
 import TiktokApiSettings from "@/components/settings/TiktokApiSettings";
-import MinimaxApiSettings from "@/components/settings/MinimaxApiSettings";
-import { MinimaxApiDocumentation } from "@/components/settings/MinimaxApiDocumentation";
+import VoiceApiSettings from "@/components/settings/VoiceApiSettings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, Bot, AtSign, Mic } from "lucide-react";
 
@@ -31,7 +30,7 @@ const Settings = () => {
         <TabsContent value="account" className="mt-6"><Card><CardHeader><CardTitle>Quản lý tài khoản</CardTitle><CardDescription>Cập nhật thông tin cá nhân và cài đặt tài khoản của bạn.</CardDescription></CardHeader><CardContent><p className="text-muted-foreground">Chức năng quản lý tài khoản sẽ được phát triển trong tương lai.</p></CardContent></Card></TabsContent>
         <TabsContent value="api-ai" className="mt-6"><ApiSettings /></TabsContent>
         <TabsContent value="api-tiktok" className="mt-6"><TiktokApiSettings /></TabsContent>
-        <TabsContent value="api-voice" className="mt-6"><MinimaxApiSettings /><MinimaxApiDocumentation /></TabsContent>
+        <TabsContent value="api-voice" className="mt-6"><VoiceApiSettings /></TabsContent>
       </Tabs>
     </div>
   );

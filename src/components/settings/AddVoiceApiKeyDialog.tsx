@@ -12,35 +12,34 @@ import { Button } from "@/components/ui/button";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên không được để trống"),
-  group_id: z.string().min(1, "Group ID không được để trống"),
-  api_key: z.string().min(1, "API Key không được để trống"),
+  api_key: z.string().min(10, "API Key không hợp lệ"),
 });
 
-type AddMinimaxCredentialsDialogProps = {
+type AddVoiceApiKeyDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 };
 
-export const AddMinimaxCredentialsDialog = ({ isOpen, onOpenChange }: AddMinimaxCredentialsDialogProps) => {
+export const AddVoiceApiKeyDialog = ({ isOpen, onOpenChange }: AddVoiceApiKeyDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", group_id: "", api_key: "" },
+    defaultValues: { name: "", api_key: "" },
   });
 
   const addKeyMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
       const { error } = await supabase
-        .from("user_minimax_credentials")
-        .insert({ user_id: user.id, name: values.name, group_id: values.group_id, api_key: values.api_key });
+        .from("user_voice_api_keys")
+        .insert({ user_id: user.id, name: values.name, api_key: values.api_key });
       if (error) throw error;
     },
     onSuccess: () => {
-      showSuccess("Thêm thông tin thành công!");
-      queryClient.invalidateQueries({ queryKey: ["minimax_credentials", user?.id] });
+      showSuccess("Thêm API Key thành công!");
+      queryClient.invalidateQueries({ queryKey: ["voice_api_keys", user?.id] });
       onOpenChange(false);
       form.reset();
     },
@@ -53,16 +52,13 @@ export const AddMinimaxCredentialsDialog = ({ isOpen, onOpenChange }: AddMinimax
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Thêm thông tin API Minimax</DialogTitle>
-          <DialogDescription>Nhập Group ID và API Key của bạn từ Minimax.</DialogDescription>
+          <DialogTitle>Thêm API Key GenAIPro Voice</DialogTitle>
+          <DialogDescription>Nhập API Key bạn nhận được từ Vivoo.work.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
             <FormField control={form.control} name="name" render={({ field }) => (
-              <FormItem><FormLabel>Tên gợi nhớ</FormLabel><FormControl><Input placeholder="Ví dụ: Key dự án A" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="group_id" render={({ field }) => (
-              <FormItem><FormLabel>Group ID</FormLabel><FormControl><Input placeholder="Dán Group ID của bạn" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormItem><FormLabel>Tên gợi nhớ</FormLabel><FormControl><Input placeholder="Ví dụ: Key dự án B" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="api_key" render={({ field }) => (
               <FormItem><FormLabel>API Key</FormLabel><FormControl><Input placeholder="Dán API Key của bạn" {...field} /></FormControl><FormMessage /></FormItem>
