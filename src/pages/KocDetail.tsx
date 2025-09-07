@@ -39,6 +39,10 @@ import {
   CreditCard,
   FileText,
   ArrowLeft,
+  LayoutDashboard,
+  Target,
+  Clapperboard,
+  History,
 } from "lucide-react";
 
 // Types
@@ -209,15 +213,38 @@ const KocDetail = () => {
 
             {/* Tabs */}
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList>
-                <TabsTrigger value="overview">Tổng quan</TabsTrigger>
-                <TabsTrigger value="campaigns" disabled>
+              <TabsList className="bg-transparent w-full justify-start rounded-none border-b p-0 gap-x-8">
+                <TabsTrigger
+                  value="overview"
+                  className="bg-transparent p-0 pb-3 rounded-none shadow-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:text-red-600 data-[state=active]:shadow-none hover:text-foreground text-muted-foreground"
+                >
+                  <LayoutDashboard className="mr-2 h-4 w-4" />
+                  Tổng quan
+                </TabsTrigger>
+                <TabsTrigger
+                  value="campaigns"
+                  disabled
+                  className="bg-transparent p-0 pb-3 rounded-none shadow-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:text-red-600 data-[state=active]:shadow-none hover:text-foreground text-muted-foreground"
+                >
+                  <Target className="mr-2 h-4 w-4" />
                   Chiến dịch
                 </TabsTrigger>
-                <TabsTrigger value="content">
-                  <Link to={`/list-koc/${koc.id}/content`}>Nội dung</Link>
+                <TabsTrigger
+                  value="content"
+                  asChild
+                  className="bg-transparent p-0 pb-3 rounded-none shadow-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:text-red-600 data-[state=active]:shadow-none hover:text-foreground text-muted-foreground"
+                >
+                  <Link to={`/list-koc/${koc.id}/content`}>
+                    <Clapperboard className="mr-2 h-4 w-4" />
+                    Nội dung
+                  </Link>
                 </TabsTrigger>
-                <TabsTrigger value="communication" disabled>
+                <TabsTrigger
+                  value="communication"
+                  disabled
+                  className="bg-transparent p-0 pb-3 rounded-none shadow-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:text-red-600 data-[state=active]:shadow-none hover:text-foreground text-muted-foreground"
+                >
+                  <History className="mr-2 h-4 w-4" />
                   Lịch sử
                 </TabsTrigger>
               </TabsList>
