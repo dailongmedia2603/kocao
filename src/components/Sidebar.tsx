@@ -13,7 +13,7 @@ const menuItems = [
   },
   { label: "Danh sách dự án", icon: FolderKanban, to: "/projects" },
   { label: "Extensions", icon: Plug, to: "/extensions" },
-  { label: "List KOC", icon: Video, to: "/list-koc" },
+  { label: "KOCs Manager", icon: Video, to: "/list-koc" },
   { label: "Settings", icon: Settings, to: "/settings" },
 ];
 
