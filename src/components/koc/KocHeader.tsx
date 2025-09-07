@@ -1,4 +1,4 @@
-import { Bell, Users, BarChart3, FolderKanban } from "lucide-react";
+import { Bell, Users, BarChart3, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -53,9 +53,9 @@ const KocHeader = () => {
           {({ isActive }) => (
             <>
               <div className={iconContainerClasses(isActive)}>
-                <FolderKanban className="h-4 w-4" />
+                <Video className="h-4 w-4" />
               </div>
-              <span className="ml-2">Dự án</span>
+              <span className="ml-2">Tạo Video</span>
             </>
           )}
         </NavLink>

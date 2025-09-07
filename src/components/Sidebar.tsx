@@ -4,6 +4,12 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, LayoutDashboard, Settings, Plug, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const menuItems = [
   {
@@ -17,7 +23,7 @@ const menuItems = [
 ];
 
 const Sidebar = () => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   return (
     <aside className={cn("bg-white border-r flex flex-col transition-all duration-300 relative", isCollapsed ? "w-20" : "w-64")}>
@@ -42,33 +48,43 @@ const Sidebar = () => {
       </Button>
 
       <nav className="flex-grow px-4 py-4 overflow-y-auto">
-        <div className="space-y-1">
-          {menuItems.map((item) => (
-            <NavLink
-              key={item.label}
-              to={item.to}
-              end={item.to === "/"}
-              className={({ isActive }) =>
-                cn(
-                  "group flex items-center p-2 rounded-md text-sm font-semibold transition-colors text-gray-700 hover:bg-red-50 hover:text-red-600",
-                  isActive && "bg-red-50 text-red-600"
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <div className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors group-hover:bg-red-600 group-hover:text-white",
-                    isActive ? "bg-red-600 text-white" : "bg-transparent"
-                  )}>
-                    <item.icon className="h-5 w-5" />
-                  </div>
-                  {!isCollapsed && <span className="ml-3">{item.label}</span>}
-                </>
-              )}
-            </NavLink>
-          ))}
-        </div>
+        <TooltipProvider delayDuration={100}>
+          <div className="space-y-1">
+            {menuItems.map((item) => (
+              <Tooltip key={item.label}>
+                <TooltipTrigger asChild>
+                  <NavLink
+                    to={item.to}
+                    end={item.to === "/"}
+                    className={({ isActive }) =>
+                      cn(
+                        "group flex items-center p-2 rounded-md text-sm font-semibold transition-colors text-gray-700 hover:bg-red-50 hover:text-red-600",
+                        isActive && "bg-red-50 text-red-600"
+                      )
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <div className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-md transition-colors group-hover:bg-red-600 group-hover:text-white",
+                          isActive ? "bg-red-600 text-white" : "bg-transparent"
+                        )}>
+                          <item.icon className="h-5 w-5" />
+                        </div>
+                        {!isCollapsed && <span className="ml-3">{item.label}</span>}
+                      </>
+                    )}
+                  </NavLink>
+                </TooltipTrigger>
+                {isCollapsed && (
+                  <TooltipContent side="right" className="bg-red-50 text-red-600 font-bold border-red-200">
+                    <p>{item.label}</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            ))}
+          </div>
+        </TooltipProvider>
       </nav>
     </aside>
   );
