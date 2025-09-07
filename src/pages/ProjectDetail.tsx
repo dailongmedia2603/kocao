@@ -233,7 +233,7 @@ const ProjectDetail = () => {
                       <div key={task.id} className="w-full flex justify-center">
                         <Card className="w-96 bg-white z-10 relative group shadow-sm hover:shadow-lg transition-shadow">
                           <CardContent className="p-4 flex items-center gap-4">
-                            <div className={cn("flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center border", getStatusClasses(task.status))}>
+                            <div className={cn("flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center", details.colorClasses)}>
                               <Icon className="h-6 w-6" />
                             </div>
                             <div className="flex-grow">
