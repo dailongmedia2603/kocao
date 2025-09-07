@@ -296,7 +296,7 @@ const ProjectDetail = () => {
           </div>
         </main>
 
-        <aside className="w-full lg:w-80 bg-white border-t lg:border-t-0 lg:border-l p-6 flex flex-col shrink-0">
+        <aside className="w-full lg:w-80 bg-white border-t lg:border-t-0 lg:border-l p-6 flex flex-col shrink-0 lg:sticky lg:top-16 lg:h-[calc(100vh-theme(spacing.16))]">
           <h3 className="text-lg font-semibold mb-4">Các loại bước</h3>
           <div className="space-y-3 flex-grow overflow-y-auto">
             {Object.entries(taskTypeDetails).filter(([key]) => key !== 'DEFAULT').map(([type, details]) => {
@@ -326,7 +326,7 @@ const ProjectDetail = () => {
           <div className="mt-6">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="w-full bg-gray-900 hover:bg-gray-800 text-white" disabled={runScenarioMutation.isPending || !scenarioTasks.some(t => t.status === 'pending')}>
+                <Button className="w-full bg-red-600 hover:bg-red-700 text-white" disabled={runScenarioMutation.isPending || !scenarioTasks.some(t => t.status === 'pending')}>
                   <Play className="mr-2 h-4 w-4" /> Thực hiện Kịch bản
                 </Button>
               </DropdownMenuTrigger>
