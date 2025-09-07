@@ -4,7 +4,7 @@ import TiktokApiSettings from "@/components/settings/TiktokApiSettings";
 import VoiceApiSettings from "@/components/settings/VoiceApiSettings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, Bot, AtSign, Mic } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { VoiceApiDocumentation } from "@/components/settings/VoiceApiDocumentation";
 
 const Settings = () => {
   return (
@@ -75,6 +75,7 @@ const Settings = () => {
         </TabsContent>
         <TabsContent value="api-voice" className="mt-6">
           <VoiceApiSettings />
+          <VoiceApiDocumentation />
         </TabsContent>
       </Tabs>
     </div>
