@@ -12,7 +12,6 @@ import Extensions from "./pages/Extensions";
 import ListKoc from "./pages/ListKoc";
 import KocDetail from "./pages/KocDetail";
 import KocLayout from "./components/koc/KocLayout";
-import CreateVideo from "./pages/CreateVideo";
 import Reports from "./pages/Reports";
 
 function App() {
@@ -33,7 +32,6 @@ function App() {
               <Route path="/projects/:id" element={<ProjectDetail />} />
               <Route path="/list-koc" element={<ListKoc />} />
               <Route path="/list-koc/:kocId" element={<KocDetail />} />
-              <Route path="/create-video" element={<CreateVideo />} />
               <Route path="/reports" element={<Reports />} />
             </Route>
           </Route>
