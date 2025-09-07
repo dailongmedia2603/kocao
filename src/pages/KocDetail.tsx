@@ -40,9 +40,8 @@ import {
   FileText,
   ArrowLeft,
   LayoutDashboard,
-  Target,
   Clapperboard,
-  History,
+  FileArchive,
 } from "lucide-react";
 
 // Types
@@ -250,18 +249,6 @@ const KocDetail = () => {
                   </div>
                 </TabsTrigger>
                 <TabsTrigger
-                  value="campaigns"
-                  disabled
-                  className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors">
-                      <Target className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" />
-                    </div>
-                    <span>Chiến dịch</span>
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger
                   value="content"
                   asChild
                   className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50"
@@ -271,20 +258,32 @@ const KocDetail = () => {
                       <div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors">
                         <Clapperboard className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" />
                       </div>
-                      <span>Nội dung</span>
+                      <span>Video đã tạo</span>
                     </div>
                   </Link>
                 </TabsTrigger>
                 <TabsTrigger
-                  value="communication"
+                  value="sources"
                   disabled
                   className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50"
                 >
                   <div className="flex items-center gap-2">
                     <div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors">
-                      <History className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" />
+                      <FileArchive className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" />
                     </div>
-                    <span>Lịch sử</span>
+                    <span>Nguồn Video/Audio</span>
+                  </div>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="reports"
+                  disabled
+                  className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors">
+                      <FileText className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" />
+                    </div>
+                    <span>Báo cáo</span>
                   </div>
                 </TabsTrigger>
               </TabsList>
