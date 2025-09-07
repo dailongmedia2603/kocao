@@ -1,10 +1,10 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ApiSettings from "@/components/settings/ApiSettings";
 import TiktokApiSettings from "@/components/settings/TiktokApiSettings";
-import VoiceApiSettings from "@/components/settings/VoiceApiSettings";
+import MinimaxApiSettings from "@/components/settings/MinimaxApiSettings";
+import { MinimaxApiDocumentation } from "@/components/settings/MinimaxApiDocumentation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, Bot, AtSign, Mic } from "lucide-react";
-import { VoiceApiDocumentation } from "@/components/settings/VoiceApiDocumentation";
 
 const Settings = () => {
   return (
@@ -15,68 +15,23 @@ const Settings = () => {
       </header>
       <Tabs defaultValue="api-ai" className="w-full">
         <TabsList className="flex justify-start bg-transparent p-0 gap-2">
-          <TabsTrigger
-            value="account"
-            className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white">
-              <User className="h-5 w-5" />
-            </div>
-            <span>Tài khoản</span>
+          <TabsTrigger value="account" className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white"><User className="h-5 w-5" /></div><span>Tài khoản</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="api-ai"
-            className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white">
-              <Bot className="h-5 w-5" />
-            </div>
-            <span>API AI</span>
+          <TabsTrigger value="api-ai" className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white"><Bot className="h-5 w-5" /></div><span>API AI</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="api-tiktok"
-            className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white">
-              <AtSign className="h-5 w-5" />
-            </div>
-            <span>API TikTok</span>
+          <TabsTrigger value="api-tiktok" className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white"><AtSign className="h-5 w-5" /></div><span>API TikTok</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="api-voice"
-            className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white">
-              <Mic className="h-5 w-5" />
-            </div>
-            <span>API Voice</span>
+          <TabsTrigger value="api-voice" className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white"><Mic className="h-5 w-5" /></div><span>API Voice</span>
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="account" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quản lý tài khoản</CardTitle>
-              <CardDescription>
-                Cập nhật thông tin cá nhân và cài đặt tài khoản của bạn.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Chức năng quản lý tài khoản sẽ được phát triển trong tương lai.
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="api-ai" className="mt-6">
-          <ApiSettings />
-        </TabsContent>
-        <TabsContent value="api-tiktok" className="mt-6">
-          <TiktokApiSettings />
-        </TabsContent>
-        <TabsContent value="api-voice" className="mt-6">
-          <VoiceApiSettings />
-          <VoiceApiDocumentation />
-        </TabsContent>
+        <TabsContent value="account" className="mt-6"><Card><CardHeader><CardTitle>Quản lý tài khoản</CardTitle><CardDescription>Cập nhật thông tin cá nhân và cài đặt tài khoản của bạn.</CardDescription></CardHeader><CardContent><p className="text-muted-foreground">Chức năng quản lý tài khoản sẽ được phát triển trong tương lai.</p></CardContent></Card></TabsContent>
+        <TabsContent value="api-ai" className="mt-6"><ApiSettings /></TabsContent>
+        <TabsContent value="api-tiktok" className="mt-6"><TiktokApiSettings /></TabsContent>
+        <TabsContent value="api-voice" className="mt-6"><MinimaxApiSettings /><MinimaxApiDocumentation /></TabsContent>
       </Tabs>
     </div>
   );
