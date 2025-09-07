@@ -2,18 +2,23 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
-import { Link } from "react-router-dom";
-import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { AlertCircle, Plus, UserSquare2, Tag, Copy, MoreVertical, Edit, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  AlertCircle,
+  Plus,
+  UserSquare2,
+  Search,
+  ChevronDown,
+} from "lucide-react";
 import { CreateKocDialog } from "@/components/koc/CreateKocDialog";
 import { EditKocDialog } from "@/components/koc/EditKocDialog";
 import { DeleteKocDialog } from "@/components/koc/DeleteKocDialog";
 import { showSuccess, showError } from "@/utils/toast";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { KocCard } from "@/components/koc/KocCard";
 
 type Koc = {
   id: string;
@@ -33,59 +38,6 @@ const fetchKocs = async (userId: string): Promise<Koc[]> => {
   return data;
 };
 
-const KocCard = ({ koc, onEdit, onDelete }: { koc: Koc; onEdit: (koc: Koc) => void; onDelete: (koc: Koc) => void; }) => {
-  const handleCopy = (text: string, type: string) => {
-    navigator.clipboard.writeText(text);
-    showSuccess(`Đã sao chép ${type} của KOC!`);
-  };
-
-  return (
-    <Card className="hover:shadow-lg transition-shadow relative group text-center">
-      <div className="absolute top-2 right-2 z-10">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEdit(koc)}>
-              <Edit className="mr-2 h-4 w-4" /> Sửa
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={() => onDelete(koc)}>
-              <Trash2 className="mr-2 h-4 w-4" /> Xóa
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleCopy(koc.folder_path || koc.id, "thư mục")}>
-              <Copy className="mr-2 h-4 w-4" /> Sao chép tên thư mục
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      <Link to={`/list-koc/${koc.id}`}>
-        <CardContent className="p-6 pt-12">
-          <div className="flex flex-col items-center gap-3">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src={koc.avatar_url || undefined} alt={koc.name} />
-              <AvatarFallback className="text-3xl bg-red-100 text-red-600">
-                {koc.name.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle className="text-lg">{koc.name}</CardTitle>
-              {koc.field && (
-                <CardDescription className="flex items-center justify-center gap-1.5 mt-1">
-                  <Tag className="h-3 w-3" />
-                  {koc.field}
-                </CardDescription>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Link>
-    </Card>
-  );
-};
-
 const ListKoc = () => {
   const { user } = useSession();
   const queryClient = useQueryClient();
@@ -94,7 +46,12 @@ const ListKoc = () => {
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [selectedKoc, setSelectedKoc] = useState<Koc | null>(null);
 
-  const { data: kocs, isLoading, isError, error } = useQuery<Koc[]>({
+  const {
+    data: kocs,
+    isLoading,
+    isError,
+    error,
+  } = useQuery<Koc[]>({
     queryKey: ["kocs", user?.id],
     queryFn: () => fetchKocs(user!.id),
     enabled: !!user,
@@ -104,14 +61,21 @@ const ListKoc = () => {
     mutationFn: async (kocToDelete: Koc) => {
       // Nếu có đường dẫn thư mục, hãy xóa nó trước
       if (kocToDelete.folder_path) {
-        const { error: functionError } = await supabase.functions.invoke("delete-r2-folder", {
-          body: { folderPath: kocToDelete.folder_path },
-        });
-        if (functionError) throw new Error(`Lỗi xóa thư mục R2: ${functionError.message}`);
+        const { error: functionError } = await supabase.functions.invoke(
+          "delete-r2-folder",
+          {
+            body: { folderPath: kocToDelete.folder_path },
+          }
+        );
+        if (functionError)
+          throw new Error(`Lỗi xóa thư mục R2: ${functionError.message}`);
       }
 
       // Luôn xóa KOC khỏi cơ sở dữ liệu
-      const { error: dbError } = await supabase.from("kocs").delete().eq("id", kocToDelete.id);
+      const { error: dbError } = await supabase
+        .from("kocs")
+        .delete()
+        .eq("id", kocToDelete.id);
       if (dbError) throw new Error(`Lỗi xóa KOC: ${dbError.message}`);
     },
     onSuccess: () => {
@@ -143,39 +107,83 @@ const ListKoc = () => {
   return (
     <>
       <div className="p-6 lg:p-8">
-        <header className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">Quản lý KOC</h1>
-            <p className="text-muted-foreground mt-1">Tạo và quản lý danh sách KOC của bạn.</p>
-          </div>
-          <Button onClick={() => setCreateOpen(true)} className="bg-red-600 hover:bg-red-700 text-white">
-            <Plus className="mr-2 h-4 w-4" /> Thêm KOC
+        <header className="flex flex-wrap justify-between items-center gap-4 mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">KOCs</h1>
+          <Button
+            onClick={() => setCreateOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Plus className="mr-2 h-4 w-4" /> Create KOC
           </Button>
         </header>
 
+        <Card className="p-4 mb-6">
+          <div className="flex flex-wrap justify-between items-center gap-4">
+            <div className="relative flex-grow sm:flex-grow-0 sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input placeholder="Search KOCs" className="pl-9 bg-white" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="bg-white">
+                Status <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+              <Button variant="outline" className="bg-white">
+                Platform <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+              <Button variant="outline" className="bg-white">
+                Category <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </Card>
+
         {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-48 w-full" />)}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-56 w-full rounded-lg" />
+            ))}
           </div>
         ) : isError ? (
-          <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Lỗi</AlertTitle>
+            <AlertDescription>{error.message}</AlertDescription>
+          </Alert>
         ) : kocs && kocs.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {kocs.map((koc) => <KocCard key={koc.id} koc={koc} onEdit={handleEdit} onDelete={handleDelete} />)}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {kocs.map((koc) => (
+              <KocCard
+                key={koc.id}
+                koc={koc}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            ))}
           </div>
         ) : (
           <div className="text-center py-16 border-2 border-dashed rounded-lg">
             <UserSquare2 className="mx-auto h-12 w-12 text-muted-foreground" />
-            <h3 className="mt-4 text-xl font-semibold text-gray-700">Chưa có KOC nào</h3>
-            <p className="text-gray-500 mt-2 mb-4">Bắt đầu bằng cách thêm KOC đầu tiên của bạn.</p>
-            <Button onClick={() => setCreateOpen(true)} className="bg-red-600 hover:bg-red-700 text-white">
+            <h3 className="mt-4 text-xl font-semibold text-gray-700">
+              Chưa có KOC nào
+            </h3>
+            <p className="text-gray-500 mt-2 mb-4">
+              Bắt đầu bằng cách thêm KOC đầu tiên của bạn.
+            </p>
+            <Button
+              onClick={() => setCreateOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
               <Plus className="h-4 w-4 mr-2" /> Thêm KOC
             </Button>
           </div>
         )}
       </div>
       <CreateKocDialog isOpen={isCreateOpen} onOpenChange={setCreateOpen} />
-      <EditKocDialog isOpen={isEditOpen} onOpenChange={setEditOpen} koc={selectedKoc} />
+      <EditKocDialog
+        isOpen={isEditOpen}
+        onOpenChange={setEditOpen}
+        koc={selectedKoc}
+      />
       <DeleteKocDialog
         isOpen={isDeleteOpen}
         onOpenChange={setDeleteOpen}
