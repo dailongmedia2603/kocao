@@ -92,6 +92,8 @@ export const VoiceGenerationForm = () => {
                   <SelectContent>
                     <SelectItem value="eleven_multilingual_v2">Eleven Multilingual v2</SelectItem>
                     <SelectItem value="eleven_turbo_v2_5">Eleven Turbo v2.5</SelectItem>
+                    <SelectItem value="eleven_flash_v2_5">Eleven Flash v2.5</SelectItem>
+                    <SelectItem value="eleven_v3">Eleven v3</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
