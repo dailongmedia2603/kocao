@@ -18,6 +18,8 @@ type Koc = {
   avatar_url: string | null;
   channel_url: string | null;
   video_count: number;
+  follower_count?: number | null;
+  like_count?: number | null;
 };
 
 type KocCardProps = {
@@ -32,6 +34,14 @@ const getInitials = (name: string) => {
     .map((n) => n[0])
     .join("")
     .toUpperCase();
+};
+
+const formatNumber = (num: number | null | undefined): string => {
+  if (num === null || num === undefined) return "N/A";
+  if (num < 1000) return num.toString();
+  if (num < 1000000) return (num / 1000).toFixed(1) + "K";
+  if (num < 1000000000) return (num / 1000000).toFixed(1) + "M";
+  return (num / 1000000000).toFixed(1) + "B";
 };
 
 export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
@@ -113,11 +123,11 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
         </div>
         <div className="grid grid-cols-3 gap-2 text-center border-t pt-4">
           <div>
-            <p className="text-sm font-bold text-red-600">1.2M</p>
+            <p className="text-sm font-bold text-red-600">{formatNumber(koc.follower_count)}</p>
             <p className="text-xs text-red-600">Followers</p>
           </div>
           <div>
-            <p className="text-sm font-bold text-red-600">5.8%</p>
+            <p className="text-sm font-bold text-red-600">{formatNumber(koc.like_count)}</p>
             <p className="text-xs text-red-600">Likes</p>
           </div>
           <div>
