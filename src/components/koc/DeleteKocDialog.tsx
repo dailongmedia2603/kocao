@@ -12,6 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import React from "react";
 
 type Koc = {
   id: string;
@@ -46,14 +47,16 @@ export const DeleteKocDialog = ({ isOpen, onOpenChange, koc }: DeleteKocDialogPr
     onSuccess: () => {
       showSuccess("Xóa KOC và thư mục trên R2 thành công!");
       queryClient.invalidateQueries({ queryKey: ["kocs", user?.id] });
-      onOpenChange(false);
+      onOpenChange(false); // Chỉ đóng popup khi thành công
     },
     onError: (error: Error) => {
       showError(error.message);
     },
   });
 
-  const handleDelete = () => {
+  const handleDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
+    // Ngăn hành vi mặc định của AlertDialogAction (là tự động đóng popup)
+    event.preventDefault();
     if (koc) {
       deleteKocMutation.mutate(koc);
     }
