@@ -152,13 +152,28 @@ const KocDetail = () => {
       const { error } = await supabase.functions.invoke("delete-koc-files-batch", { body: { fileIds } });
       if (error) throw new Error(error.message);
     },
+    onMutate: async (fileIdsToDelete) => {
+      await queryClient.cancelQueries({ queryKey: filesQueryKey });
+      const previousFiles = queryClient.getQueryData<KocFile[]>(filesQueryKey);
+      queryClient.setQueryData<KocFile[]>(filesQueryKey, (old) =>
+        old ? old.filter(file => !fileIdsToDelete.includes(file.id)) : []
+      );
+      return { previousFiles };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousFiles) {
+        queryClient.setQueryData(filesQueryKey, context.previousFiles);
+      }
+      showError(`Lỗi xóa tệp: ${err.message}`);
+    },
     onSuccess: () => {
       showSuccess("Xóa các tệp đã chọn thành công!");
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: filesQueryKey });
       setFilesToDelete([]);
       setSelectedFileIds([]);
     },
-    onError: (error: Error) => showError(`Lỗi xóa tệp: ${error.message}`),
   });
 
   const handleFileSelect = (fileId: string) => {
