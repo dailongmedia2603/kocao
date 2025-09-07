@@ -119,7 +119,7 @@ export const VoiceCloneForm = () => {
               <FormItem>
                 <FormLabel>Ngôn ngữ</FormLabel>
                 {isLoadingConfig ? <Skeleton className="h-10 w-full" /> : (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Chọn ngôn ngữ" /></SelectTrigger></FormControl>
                     <SelectContent>
                       {languages.map((lang) => (
