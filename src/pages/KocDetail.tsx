@@ -32,7 +32,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { KocContentTab } from "@/components/koc/KocContentTab";
 
 // Icons
 import {
@@ -275,14 +274,17 @@ const KocDetail = () => {
                 </TabsTrigger>
                 <TabsTrigger
                   value="content"
+                  asChild
                   className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50"
                 >
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors">
-                      <Clapperboard className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" />
+                  <Link to={`/list-koc/${koc.id}/content`}>
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors">
+                        <Clapperboard className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" />
+                      </div>
+                      <span>Video đã tạo</span>
                     </div>
-                    <span>Video đã tạo</span>
-                  </div>
+                  </Link>
                 </TabsTrigger>
                 <TabsTrigger
                   value="sources"
@@ -388,9 +390,6 @@ const KocDetail = () => {
                     </Card>
                   </div>
                 </div>
-              </TabsContent>
-              <TabsContent value="content" className="mt-6">
-                <KocContentTab kocId={koc.id} />
               </TabsContent>
               <TabsContent value="sources" className="mt-6">
                 <Accordion type="multiple" className="w-full space-y-4">
