@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { PlusCircle, ArrowLeft, MoreHorizontal, Play, RefreshCw, Terminal, Bot, MousePointerClick, UploadCloud, DownloadCloud, Clock, Type, ChevronDown, Plug } from "lucide-react";
+import { PlusCircle, ArrowLeft, MoreHorizontal, Play, RefreshCw, Terminal, Bot, MousePointerClick, UploadCloud, DownloadCloud, Clock, Type, Plug } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
 import { Button } from "@/components/ui/button";
@@ -55,14 +55,14 @@ type Task = {
   extension_instances: { name: string } | null;
 };
 
-const taskTypeDetails: { [key: string]: { name: string; icon: React.ElementType } } = {
-  NAVIGATE_TO_URL: { name: "Điều hướng đến URL", icon: Bot },
-  CLICK_ELEMENT: { name: "Bấm vào phần tử", icon: MousePointerClick },
-  DOWNLOAD_FILE: { name: "Tải xuống tệp và lưu", icon: DownloadCloud },
-  UPLOAD_FILE: { name: "Tải lên tệp", icon: UploadCloud },
-  DELAY: { name: "Chờ (Delay)", icon: Clock },
-  PASTE_TEXT: { name: "Dán văn bản", icon: Type },
-  DEFAULT: { name: "Hành động không xác định", icon: Bot },
+const taskTypeDetails: { [key: string]: { name: string; icon: React.ElementType, description: string } } = {
+  NAVIGATE_TO_URL: { name: "Điều hướng đến URL", icon: Bot, description: "Mở một trang web mới." },
+  CLICK_ELEMENT: { name: "Bấm vào phần tử", icon: MousePointerClick, description: "Tương tác với một nút hoặc link." },
+  DOWNLOAD_FILE: { name: "Tải xuống tệp", icon: DownloadCloud, description: "Lưu một tệp từ trang web." },
+  UPLOAD_FILE: { name: "Tải lên tệp", icon: UploadCloud, description: "Tải một tệp lên trang web." },
+  DELAY: { name: "Chờ (Delay)", icon: Clock, description: "Tạm dừng kịch bản một lúc." },
+  PASTE_TEXT: { name: "Dán văn bản", icon: Type, description: "Nhập văn bản vào một ô." },
+  DEFAULT: { name: "Hành động không xác định", icon: Bot, description: "Một hành động không rõ." },
 };
 
 const getTaskTypeDetails = (type: string) => {
@@ -200,23 +200,138 @@ const ProjectDetail = () => {
 
   return (
     <>
-      <div className="p-6 lg:p-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <Link to="/projects" className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách dự án
-            </Link>
-            {isProjectLoading ? <Skeleton className="h-8 w-64" /> : <h1 className="text-3xl font-bold">{project?.name}</h1>}
-            <p className="text-muted-foreground mt-1">Xây dựng và quản lý kịch bản tự động hóa của bạn.</p>
+      <div className="flex flex-col lg:flex-row bg-gray-50/50 min-h-[calc(100vh-theme(spacing.16))]">
+        <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <Link to="/projects" className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-2">
+                <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách dự án
+              </Link>
+              {isProjectLoading ? <Skeleton className="h-8 w-64" /> : <h1 className="text-3xl font-bold">{project?.name}</h1>}
+              <p className="text-muted-foreground mt-1">Xây dựng và quản lý các bước trong kịch bản của bạn.</p>
+            </div>
+            {scenarioTasks.length > 0 && (
+              <Button onClick={() => setCreateTaskOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Thêm bước
+              </Button>
+            )}
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="w-full max-w-3xl mx-auto">
+            {areTasksLoading ? (
+              <div className="space-y-8">
+                <Skeleton className="h-24 w-full rounded-lg" />
+                <Skeleton className="h-24 w-full rounded-lg" />
+              </div>
+            ) : scenarioTasks.length > 0 ? (
+              <div className="relative flex flex-col items-center pb-4">
+                <Badge variant="outline" className="bg-white mb-6 z-10">Bắt đầu</Badge>
+                <div className="absolute top-5 left-1/2 -translate-x-1/2 h-full w-0.5 bg-transparent">
+                  <div className="h-full w-full border-l-2 border-dashed border-border"></div>
+                </div>
+                <div className="space-y-8 w-full z-10">
+                  {scenarioTasks.map((task) => {
+                    const details = getTaskTypeDetails(task.type);
+                    const Icon = details.icon;
+                    return (
+                      <div key={task.id} className="w-full flex justify-center">
+                        <Card className="w-96 bg-white z-10 relative group shadow-sm hover:shadow-lg transition-shadow">
+                          <CardContent className="p-4 flex items-center gap-4">
+                            <div className={cn("flex-shrink-0 h-12 w-12 rounded-lg flex items-center justify-center border", getStatusClasses(task.status))}>
+                              <Icon className="h-6 w-6" />
+                            </div>
+                            <div className="flex-grow">
+                              <h3 className="font-semibold">{task.name}</h3>
+                              <p className="text-sm text-muted-foreground">{details.name}</p>
+                            </div>
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => { setSelectedTask(task); setEditTaskOpen(true); }}>Sửa</DropdownMenuItem>
+                                  {task.status !== 'pending' && task.status !== 'queued' && (
+                                    <DropdownMenuItem onClick={() => updateTaskStatusMutation.mutate({ taskId: task.id, status: 'queued' })}>
+                                      <RefreshCw className="mr-2 h-4 w-4" />
+                                      Chạy lại
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setSelectedTask(task); setDeleteTaskOpen(true); }}>Xóa</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </CardContent>
+                          {task.status === 'failed' && (
+                             <div className="border-t p-3">
+                               <Alert variant="destructive" className="p-2">
+                                 <Terminal className="h-4 w-4" />
+                                 <AlertTitle className="text-xs font-semibold">Chi tiết lỗi</AlertTitle>
+                                 <AlertDescription className="font-mono text-xs whitespace-pre-wrap mt-1">
+                                   {task.error_log || "Extension đã báo lỗi nhưng không cung cấp thông tin chi tiết."}
+                                 </AlertDescription>
+                               </Alert>
+                             </div>
+                           )}
+                           <Badge variant={task.status === 'completed' ? 'default' : 'outline'} className={cn("capitalize absolute -bottom-2.5 left-1/2 -translate-x-1/2 text-xs px-1.5 py-0.5", getStatusClasses(task.status))}>{task.status}</Badge>
+                        </Card>
+                      </div>
+                    )
+                  })}
+                </div>
+                <Badge variant="destructive" className="mt-6 z-10">Kết thúc</Badge>
+              </div>
+            ) : (
+              <Card className="mt-8">
+                <CardContent className="border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-center p-16">
+                  <div className="bg-gray-100 rounded-full p-4 mb-4">
+                    <PlusCircle className="h-8 w-8 text-gray-500" />
+                  </div>
+                  <h2 className="text-xl font-semibold mb-2">Xây dựng kịch bản của bạn</h2>
+                  <p className="text-muted-foreground mb-6 max-w-sm">
+                    Thêm các bước từ bảng điều khiển bên phải hoặc nhấp vào nút bên dưới. Mỗi bước là một hành động trong kịch bản của bạn.
+                  </p>
+                  <Button onClick={() => setCreateTaskOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Thêm bước đầu tiên
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </main>
+
+        <aside className="w-full lg:w-80 bg-white border-t lg:border-t-0 lg:border-l p-6 flex flex-col shrink-0">
+          <h3 className="text-lg font-semibold mb-4">Các loại bước</h3>
+          <div className="space-y-3 flex-grow overflow-y-auto">
+            {Object.entries(taskTypeDetails).filter(([key]) => key !== 'DEFAULT').map(([type, details]) => {
+              const Icon = details.icon;
+              return (
+                <Card key={type} className="p-3 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary/10 text-primary p-2 rounded-lg">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{details.name}</p>
+                      <p className="text-xs text-muted-foreground">{details.description}</p>
+                    </div>
+                  </div>
+                </Card>
+              )
+            })}
+          </div>
+          <div className="mt-6">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button className="bg-red-600 hover:bg-red-700 text-white" disabled={runScenarioMutation.isPending || !scenarioTasks.some(t => t.status === 'pending')}>
-                  <Play className="mr-2 h-4 w-4" /> Thực hiện Kịch bản <ChevronDown className="ml-2 h-4 w-4" />
+                <Button className="w-full bg-gray-900 hover:bg-gray-800 text-white" disabled={runScenarioMutation.isPending || !scenarioTasks.some(t => t.status === 'pending')}>
+                  <Play className="mr-2 h-4 w-4" /> Thực hiện Kịch bản
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent>
+              <DropdownMenuContent className="w-72">
                 {areExtensionsLoading ? (
                   <DropdownMenuItem disabled>Đang tải Extensions...</DropdownMenuItem>
                 ) : extensions && extensions.length > 0 ? (
@@ -232,109 +347,8 @@ const ProjectDetail = () => {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button onClick={() => setCreateTaskOpen(true)} variant="outline">
-              <PlusCircle className="mr-2 h-4 w-4" /> Thêm bước
-            </Button>
           </div>
-        </div>
-        
-        <div className="w-full max-w-4xl mx-auto">
-          {areTasksLoading ? (
-            <div className="space-y-8">
-              <Skeleton className="h-24 w-full rounded-lg" />
-              <Skeleton className="h-24 w-full rounded-lg" />
-            </div>
-          ) : scenarioTasks.length > 0 ? (
-            <div className="relative flex flex-col items-center pb-4">
-              <div className="absolute top-6 left-10 h-full w-0.5 bg-transparent">
-                <div className="h-full w-full border-l-2 border-dashed border-border"></div>
-              </div>
-
-              {scenarioTasks.map((task) => {
-                const details = getTaskTypeDetails(task.type);
-                const Icon = details.icon;
-                return (
-                  <div key={task.id} className="w-full my-4 z-10 flex items-start gap-6">
-                    <div className="flex-shrink-0 h-20 flex flex-col items-center">
-                      <div className="h-12 w-12 rounded-full bg-background flex items-center justify-center border-2 font-bold text-primary">
-                        {task.execution_order}
-                      </div>
-                    </div>
-                    <div className="w-full mt-1">
-                      <Card className={cn("transition-all hover:shadow-md", getStatusClasses(task.status))}>
-                        <div className="p-4 flex items-center gap-4">
-                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-white flex items-center justify-center border">
-                            <Icon className="h-5 w-5 text-primary" />
-                          </div>
-                          <div className="flex-grow">
-                            <h3 className="font-semibold">{task.name}</h3>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span>{details.name}</span>
-                              {task.extension_instances && (
-                                <>
-                                  <span className="text-gray-300">|</span>
-                                  <div className="flex items-center gap-1.5">
-                                    <Plug className="h-3 w-3" />
-                                    <span>{task.extension_instances.name}</span>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <Badge variant={task.status === 'completed' ? 'default' : 'outline'} className={cn("capitalize", getStatusClasses(task.status))}>{task.status}</Badge>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => { setSelectedTask(task); setEditTaskOpen(true); }}>Sửa</DropdownMenuItem>
-                                {task.status !== 'pending' && task.status !== 'queued' && (
-                                  <DropdownMenuItem onClick={() => updateTaskStatusMutation.mutate({ taskId: task.id, status: 'queued' })}>
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    Chạy lại
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { setSelectedTask(task); setDeleteTaskOpen(true); }}>Xóa</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                        {task.status === 'failed' && (
-                           <div className="border-t p-4">
-                             <Alert variant="destructive">
-                               <Terminal className="h-4 w-4" />
-                               <AlertTitle>Chi tiết lỗi</AlertTitle>
-                               <AlertDescription className="font-mono text-xs whitespace-pre-wrap mt-2">
-                                 {task.error_log || "Extension đã báo lỗi nhưng không cung cấp thông tin chi tiết."}
-                               </AlertDescription>
-                             </Alert>
-                           </div>
-                         )}
-                      </Card>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <Card className="text-center py-16">
-              <CardHeader>
-                <CardTitle className="text-2xl">Bắt đầu kịch bản của bạn</CardTitle>
-                <CardDescription>Chưa có bước nào trong dự án này.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => setCreateTaskOpen(true)} className="mt-4">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Thêm bước đầu tiên
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+        </aside>
       </div>
 
       {projectId && <CreateTaskDialog isOpen={isCreateTaskOpen} onOpenChange={setCreateTaskOpen} projectId={projectId} taskCount={tasks?.length || 0} />}
