@@ -25,7 +25,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // 1. Lấy R2 keys từ DB
+    // 1. Lấy R2 keys từ DB trước
     const { data: filesData, error: fetchError } = await supabaseAdmin
       .from("koc_files")
       .select("r2_key")
@@ -33,7 +33,15 @@ serve(async (req) => {
 
     if (fetchError) throw new Error(`Lỗi lấy thông tin tệp: ${fetchError.message}`);
 
-    // 2. Xóa các tệp trên R2
+    // 2. Xóa các bản ghi trong DB ngay lập tức (thao tác nhanh)
+    const { error: deleteDbError } = await supabaseAdmin
+      .from("koc_files")
+      .delete()
+      .in("id", fileIds);
+
+    if (deleteDbError) throw new Error(`Lỗi xóa DB: ${deleteDbError.message}`);
+
+    // 3. Bắt đầu xóa các tệp trên R2 trong nền (không cần await)
     if (filesData && filesData.length > 0) {
       const s3 = new S3Client({
         region: "auto",
@@ -48,18 +56,14 @@ serve(async (req) => {
         Bucket: bucket,
         Delete: { Objects: filesData.map(({ r2_key }) => ({ Key: r2_key })) },
       };
-      await s3.send(new DeleteObjectsCommand(deleteParams));
+      // Không `await` ở đây để trả về phản hồi ngay lập tức
+      s3.send(new DeleteObjectsCommand(deleteParams)).catch(err => {
+        console.error("Lỗi xóa R2 trong nền:", err);
+      });
     }
 
-    // 3. Xóa các bản ghi trong DB
-    const { error: deleteDbError } = await supabaseAdmin
-      .from("koc_files")
-      .delete()
-      .in("id", fileIds);
-
-    if (deleteDbError) throw new Error(`Lỗi xóa DB: ${deleteDbError.message}`);
-
-    return new Response(JSON.stringify({ success: true, message: `Đã xóa ${fileIds.length} tệp.` }), {
+    // 4. Trả về thành công ngay lập tức
+    return new Response(JSON.stringify({ success: true, message: `Đã bắt đầu xóa ${fileIds.length} tệp.` }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
