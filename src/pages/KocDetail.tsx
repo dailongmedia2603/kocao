@@ -26,6 +26,12 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EditKocDialog } from "@/components/koc/EditKocDialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 // Icons
 import {
@@ -42,6 +48,8 @@ import {
   LayoutDashboard,
   Clapperboard,
   FileArchive,
+  Video,
+  Music,
 } from "lucide-react";
 
 // Types
@@ -64,7 +72,7 @@ const fetchKocDetails = async (kocId: string) => {
   return data;
 };
 
-// Mock data from the image
+// Mock data
 const performanceMetrics = [
   {
     title: "Tỷ lệ tương tác",
@@ -125,6 +133,20 @@ const communicationHistory = [
   },
   { title: "Xác nhận thanh toán", date: "2024-07-20", icon: CreditCard },
   { title: "Báo cáo hiệu suất", date: "2024-07-25", icon: FileText },
+];
+
+const sourceVideos = [
+  { id: 1, title: "Video Review 1", duration: "02:35", thumbnailUrl: "https://images.pexels.com/photos/579470/pexels-photo-579470.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" },
+  { id: 2, title: "Unboxing Clip", duration: "05:12", thumbnailUrl: "https://images.pexels.com/photos/713149/pexels-photo-713149.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" },
+  { id: 3, title: "Tutorial Makeup", duration: "10:02", thumbnailUrl: "https://images.pexels.com/photos/3762875/pexels-photo-3762875.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" },
+  { id: 4, title: "Daily Vlog", duration: "12:45", thumbnailUrl: "https://images.pexels.com/photos/1648771/pexels-photo-1648771.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" },
+  { id: 5, title: "Product Demo", duration: "01:58", thumbnailUrl: "https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" },
+];
+
+const sourceAudios = [
+  { id: 1, title: "Podcast Episode 5", duration: "15:45" },
+  { id: 2, title: "Voiceover for Ad", duration: "00:30" },
+  { id: 3, title: "Background Music", duration: "03:15" },
 ];
 
 const getInitials = (name: string) => {
@@ -264,7 +286,6 @@ const KocDetail = () => {
                 </TabsTrigger>
                 <TabsTrigger
                   value="sources"
-                  disabled
                   className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50"
                 >
                   <div className="flex items-center gap-2">
@@ -367,6 +388,64 @@ const KocDetail = () => {
                     </Card>
                   </div>
                 </div>
+              </TabsContent>
+              <TabsContent value="sources" className="mt-6">
+                <Accordion type="multiple" className="w-full space-y-4">
+                  <AccordionItem value="videos" className="border-none">
+                    <AccordionTrigger className="bg-white p-4 rounded-lg border hover:no-underline data-[state=open]:rounded-b-none">
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-100 text-red-600">
+                            <Video className="h-5 w-5" />
+                          </div>
+                          <h4 className="font-semibold text-lg">Nguồn Video</h4>
+                        </div>
+                        <Badge className="bg-red-50 text-red-700">{sourceVideos.length} videos</Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 p-4 border border-t-0 rounded-b-lg bg-white">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        {sourceVideos.map(video => (
+                          <Card key={video.id} className="overflow-hidden group">
+                            <div className="aspect-video bg-gray-200 relative">
+                              <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover" />
+                              <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
+                                {video.duration}
+                              </div>
+                            </div>
+                            <CardContent className="p-3">
+                              <p className="font-semibold truncate">{video.title}</p>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="audios" className="border-none">
+                    <AccordionTrigger className="bg-white p-4 rounded-lg border hover:no-underline data-[state=open]:rounded-b-none">
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-100 text-red-600">
+                            <Music className="h-5 w-5" />
+                          </div>
+                          <h4 className="font-semibold text-lg">Nguồn Audio</h4>
+                        </div>
+                        <Badge className="bg-red-50 text-red-700">{sourceAudios.length} audios</Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 p-4 border border-t-0 rounded-b-lg bg-white">
+                       <div className="space-y-2">
+                        {sourceAudios.map(audio => (
+                          <div key={audio.id} className="flex items-center justify-between p-2 rounded-md border bg-gray-50/50">
+                            <p className="font-medium text-sm">{audio.title}</p>
+                            <p className="text-sm text-muted-foreground">{audio.duration}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </TabsContent>
             </Tabs>
           </div>
