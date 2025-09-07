@@ -266,7 +266,7 @@ const KocDetail = () => {
                     <Button variant="outline" onClick={() => setUploadOpen(true)} disabled={!koc?.folder_path}><UploadCloud className="mr-2 h-4 w-4" /> Tải lên tệp</Button>
                   </div>
                 </div>
-                {areFilesLoading ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}</div>) : isError ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{filesError.message}</AlertDescription></Alert>) : generatedFiles && generatedFiles.length > 0 ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{generatedFiles.map((file) => { const { Icon, bgColor, iconColor, type } = getFileTypeDetails(file.display_name); return (<Card key={file.id} className="overflow-hidden group relative"><Checkbox checked={selectedFileIds.includes(file.id)} onCheckedChange={() => handleFileSelect(file.id)} className="absolute top-2 left-2 z-10 h-5 w-5 bg-white" /><CardContent className="p-0"><div className="aspect-video flex items-center justify-center relative cursor-pointer" onClick={() => handleFileClick(file)}><div className={`w-full h-full flex items-center justify-center ${bgColor}`}><Icon className={`h-12 w-12 ${iconColor}`} /></div>{type === 'video' && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><PlayCircle className="h-16 w-16 text-white" /></div>}<Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4" /></Button></div><div className="p-3 space-y-1"><EditableFileName fileId={file.id} initialName={file.display_name} queryKey={filesQueryKey} />{file.created_at && <p className="text-xs text-muted-foreground">{format(new Date(file.created_at), "dd/MM/yyyy")}</p>}</div></CardContent></Card>); })}</div>) : (<Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Film className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có tệp nào</h3><p className="mt-1 text-sm">Bấm "Tải lên tệp" để thêm tệp đầu tiên của bạn.</p></div></CardContent></Card>)}
+                {areFilesLoading ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}</div>) : isError ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{filesError.message}</AlertDescription></Alert>) : generatedFiles && generatedFiles.length > 0 ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{generatedFiles.map((file) => { const { Icon, bgColor, iconColor, type } = getFileTypeDetails(file.display_name); const isSelected = selectedFileIds.includes(file.id); return (<Card key={file.id} className="overflow-hidden group relative"><Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`absolute top-2 left-2 z-10 h-5 w-5 bg-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} /><CardContent className="p-0"><div className="aspect-video flex items-center justify-center relative cursor-pointer" onClick={() => handleFileClick(file)}><div className={`w-full h-full flex items-center justify-center ${bgColor}`}><Icon className={`h-12 w-12 ${iconColor}`} /></div>{type === 'video' && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><PlayCircle className="h-16 w-16 text-white" /></div>}<Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4" /></Button></div><div className="p-3 space-y-1"><EditableFileName fileId={file.id} initialName={file.display_name} queryKey={filesQueryKey} />{file.created_at && <p className="text-xs text-muted-foreground">{format(new Date(file.created_at), "dd/MM/yyyy")}</p>}</div></CardContent></Card>); })}</div>) : (<Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Film className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có tệp nào</h3><p className="mt-1 text-sm">Bấm "Tải lên tệp" để thêm tệp đầu tiên của bạn.</p></div></CardContent></Card>)}
               </TabsContent>
               <TabsContent value="sources" className="mt-6">
                 <div className="flex justify-between items-center mb-4">
@@ -287,9 +287,9 @@ const KocDetail = () => {
                     <AccordionContent className="pt-4 p-4 border border-t-0 rounded-b-lg bg-white">
                         {areFilesLoading ? <Skeleton className="h-20 w-full" /> : sourceVideos.length > 0 ? (
                             <div className="space-y-3">
-                                {sourceVideos.map(file => (
-                                    <div key={file.id} className="flex items-center justify-between p-3 rounded-md border bg-gray-50/50 hover:bg-gray-100 transition-colors relative">
-                                        <Checkbox checked={selectedFileIds.includes(file.id)} onCheckedChange={() => handleFileSelect(file.id)} className="absolute top-3 left-3 z-10 h-5 w-5 bg-white" />
+                                {sourceVideos.map(file => { const isSelected = selectedFileIds.includes(file.id); return (
+                                    <div key={file.id} className="group flex items-center justify-between p-3 rounded-md border bg-gray-50/50 hover:bg-gray-100 transition-colors relative">
+                                        <Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`absolute top-3 left-3 z-10 h-5 w-5 bg-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
                                         <div className="flex items-center gap-4 w-full pl-10" onClick={() => handleFileClick(file)}>
                                             <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-100 text-blue-600 flex-shrink-0"><Clapperboard className="h-5 w-5" /></div>
                                             <div>
@@ -299,7 +299,7 @@ const KocDetail = () => {
                                         </div>
                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                     </div>
-                                ))}
+                                )})}
                             </div>
                         ) : (<p className="text-sm text-muted-foreground text-center py-4">Chưa có video nguồn nào.</p>)}
                     </AccordionContent>
@@ -317,9 +317,9 @@ const KocDetail = () => {
                     <AccordionContent className="pt-4 p-4 border border-t-0 rounded-b-lg bg-white">
                         {areFilesLoading ? <Skeleton className="h-20 w-full" /> : sourceAudios.length > 0 ? (
                             <div className="space-y-3">
-                                {sourceAudios.map(file => (
-                                    <div key={file.id} className="flex items-center justify-between p-3 rounded-md border bg-gray-50/50 hover:bg-gray-100 transition-colors relative">
-                                        <Checkbox checked={selectedFileIds.includes(file.id)} onCheckedChange={() => handleFileSelect(file.id)} className="absolute top-3 left-3 z-10 h-5 w-5 bg-white" />
+                                {sourceAudios.map(file => { const isSelected = selectedFileIds.includes(file.id); return (
+                                    <div key={file.id} className="group flex items-center justify-between p-3 rounded-md border bg-gray-50/50 hover:bg-gray-100 transition-colors relative">
+                                        <Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`absolute top-3 left-3 z-10 h-5 w-5 bg-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
                                         <div className="flex items-center gap-4 w-full pl-10" onClick={() => handleFileClick(file)}>
                                             <div className="flex h-10 w-10 items-center justify-center rounded-md bg-purple-100 text-purple-600 flex-shrink-0"><Music className="h-5 w-5" /></div>
                                             <div>
@@ -329,7 +329,7 @@ const KocDetail = () => {
                                         </div>
                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                     </div>
-                                ))}
+                                )})}
                             </div>
                         ) : (<p className="text-sm text-muted-foreground text-center py-4">Chưa có audio nguồn nào.</p>)}
                     </AccordionContent>
