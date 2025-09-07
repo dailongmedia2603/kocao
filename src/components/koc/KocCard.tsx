@@ -14,7 +14,8 @@ import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
-import { showSuccess, showError } from "@/utils/toast";
+import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
+import { useRef } from "react";
 
 type Koc = {
   id: string;
@@ -53,6 +54,7 @@ const formatNumber = (num: number | null | undefined): string => {
 export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
   const { user } = useSession();
   const queryClient = useQueryClient();
+  const loadingToastId = useRef<string | number | null>(null);
 
   const scanKocMutation = useMutation({
     mutationFn: async (kocId: string) => {
@@ -66,11 +68,20 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
       if (data.error) throw new Error(data.error);
       return data;
     },
+    onMutate: () => {
+      loadingToastId.current = showLoading("Đang quét kênh, vui lòng chờ...");
+    },
     onSuccess: () => {
+      if (loadingToastId.current) {
+        dismissToast(loadingToastId.current);
+      }
       showSuccess("Quét kênh thành công! Dữ liệu đã được cập nhật.");
       queryClient.invalidateQueries({ queryKey: ["kocs", user?.id] });
     },
     onError: (error: Error) => {
+      if (loadingToastId.current) {
+        dismissToast(loadingToastId.current);
+      }
       showError(`Lỗi khi quét kênh: ${error.message}`);
     },
   });
