@@ -25,12 +25,12 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/projects" element={<ProjectsList />} />
-              <Route path="/projects/:id" element={<ProjectDetail />} />
               <Route path="/extensions" element={<Extensions />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
             <Route element={<KocLayout />}>
+              <Route path="/projects" element={<ProjectsList />} />
+              <Route path="/projects/:id" element={<ProjectDetail />} />
               <Route path="/list-koc" element={<ListKoc />} />
               <Route path="/list-koc/:kocId" element={<KocDetail />} />
               <Route path="/create-video" element={<CreateVideo />} />
