@@ -9,6 +9,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 type DeleteKocDialogProps = {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export const DeleteKocDialog = ({ isOpen, onOpenChange, onConfirm, isPending }: 
           <AlertDialogCancel>Hủy</AlertDialogCancel>
           <AlertDialogAction asChild>
             <Button onClick={onConfirm} disabled={isPending} variant="destructive">
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isPending ? "Đang xóa..." : "Xóa"}
             </Button>
           </AlertDialogAction>
