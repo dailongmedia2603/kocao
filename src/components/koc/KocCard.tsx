@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Edit, Trash2, Tag, Link as LinkIcon, Video, ScanLine, Loader2 } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Tag, Link as LinkIcon, Video, ScanLine, Loader2, Users, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -44,9 +44,9 @@ const getInitials = (name: string) => {
 const formatNumber = (num: number | null | undefined): string => {
   if (num === null || num === undefined) return "N/A";
   if (num < 1000) return num.toString();
-  if (num < 1000000) return (num / 1000).toFixed(1) + "K";
-  if (num < 1000000000) return (num / 1000000).toFixed(1) + "M";
-  return (num / 1000000000).toFixed(1) + "B";
+  if (num < 1000000) return (num / 1000).toFixed(1).replace('.0', '') + "K";
+  if (num < 1000000000) return (num / 1000000).toFixed(1).replace('.0', '') + "M";
+  return (num / 1000000000).toFixed(1).replace('.0', '') + "B";
 };
 
 export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
@@ -142,7 +142,7 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
           </DropdownMenu>
         </div>
       </CardHeader>
-      <CardContent className="p-4 pt-0">
+      <CardContent className="p-4 pt-0 flex-grow flex flex-col justify-between">
         <div className="space-y-2 mb-4 text-sm text-muted-foreground">
           {koc.channel_url && (
             <a
@@ -160,23 +160,22 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
               </span>
             </a>
           )}
-          <div className="relative z-10 flex items-center gap-2">
-            <Video className="h-4 w-4 flex-shrink-0" />
-            <span>{koc.video_count} video{koc.video_count !== 1 ? 's' : ''} đã tạo</span>
-          </div>
         </div>
         <div className="grid grid-cols-3 gap-2 text-center border-t pt-4">
-          <div>
-            <p className="text-sm font-bold text-red-600">{formatNumber(koc.follower_count)}</p>
-            <p className="text-xs text-red-600">Followers</p>
+          <div className="flex flex-col items-center space-y-1">
+            <Users className="h-5 w-5 text-blue-500" />
+            <p className="text-sm font-bold text-foreground">{formatNumber(koc.follower_count)}</p>
+            <p className="text-xs text-muted-foreground">Followers</p>
           </div>
-          <div>
-            <p className="text-sm font-bold text-red-600">{formatNumber(koc.like_count)}</p>
-            <p className="text-xs text-red-600">Likes</p>
+          <div className="flex flex-col items-center space-y-1">
+            <Heart className="h-5 w-5 text-red-500" />
+            <p className="text-sm font-bold text-foreground">{formatNumber(koc.like_count)}</p>
+            <p className="text-xs text-muted-foreground">Likes</p>
           </div>
-          <div>
-            <p className="text-sm font-bold text-red-600">{koc.video_count}</p>
-            <p className="text-xs text-red-600">Tổng Video</p>
+          <div className="flex flex-col items-center space-y-1">
+            <Video className="h-5 w-5 text-green-500" />
+            <p className="text-sm font-bold text-foreground">{formatNumber(koc.video_count)}</p>
+            <p className="text-xs text-muted-foreground">Videos</p>
           </div>
         </div>
       </CardContent>
