@@ -39,16 +39,6 @@ const KocHeader = () => {
   return (
     <header className="flex h-16 items-center justify-between border-b bg-white px-6 flex-shrink-0">
       <nav className="flex items-center gap-4">
-        <NavLink to="/projects" className={navLinkClasses}>
-          {({ isActive }) => (
-            <>
-              <div className={iconContainerClasses(isActive)}>
-                <FolderKanban className="h-4 w-4" />
-              </div>
-              <span className="ml-2">Dự án</span>
-            </>
-          )}
-        </NavLink>
         <NavLink to="/list-koc" end className={navLinkClasses}>
           {({ isActive }) => (
             <>
@@ -56,6 +46,16 @@ const KocHeader = () => {
                 <Users className="h-4 w-4" />
               </div>
               <span className="ml-2">KOCs Manager</span>
+            </>
+          )}
+        </NavLink>
+        <NavLink to="/projects" className={navLinkClasses}>
+          {({ isActive }) => (
+            <>
+              <div className={iconContainerClasses(isActive)}>
+                <FolderKanban className="h-4 w-4" />
+              </div>
+              <span className="ml-2">Dự án</span>
             </>
           )}
         </NavLink>
