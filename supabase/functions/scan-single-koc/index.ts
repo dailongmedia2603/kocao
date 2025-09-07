@@ -23,7 +23,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // 1. Lấy KOC và user_id của người sở hữu
     const { data: koc, error: fetchError } = await supabaseAdmin
       .from("kocs")
       .select("id, channel_url, user_id")
@@ -31,14 +30,8 @@ serve(async (req) => {
       .single();
 
     if (fetchError) throw fetchError;
-    if (!koc) {
-      throw new Error(`Không tìm thấy KOC với ID: ${kocId}`);
-    }
-    if (!koc.channel_url) {
-      throw new Error("KOC này không có link kênh để quét.");
-    }
+    if (!koc.channel_url) throw new Error("KOC này không có link kênh để quét.");
 
-    // 2. Lấy Access Token từ cài đặt của người dùng
     const { data: tokenData, error: tokenError } = await supabaseAdmin
       .from("user_tiktok_tokens")
       .select("access_token")
@@ -46,12 +39,9 @@ serve(async (req) => {
       .limit(1)
       .single();
 
-    if (tokenError || !tokenData) {
-      throw new Error("Không tìm thấy Access Token TikTok nào được cấu hình. Vui lòng thêm token trong phần Cài đặt.");
-    }
+    if (tokenError || !tokenData) throw new Error("Không tìm thấy Access Token TikTok nào được cấu hình.");
+    
     const accessToken = tokenData.access_token;
-
-    // 3. Gọi API TikTok với đúng token
     const apiUrl = `https://api.akng.io.vn/tiktok/user?input=${encodeURIComponent(koc.channel_url)}&access_token=${accessToken}`;
     const response = await fetch(apiUrl);
 
@@ -60,32 +50,30 @@ serve(async (req) => {
       throw new Error(`Lỗi API Proxy: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    const stats = await response.json();
-    
-    // SỬA LỖI: Đọc đúng đường dẫn dữ liệu từ statsV2
-    const statsData = stats?.data?.userInfo?.statsV2;
-    const followerCount = statsData?.followerCount;
-    const likeCount = statsData?.heartCount;
-    const videoCount = statsData?.videoCount;
+    const apiData = await response.json();
+    const userInfo = apiData?.data?.userInfo;
+    const statsData = userInfo?.statsV2;
+    const userData = userInfo?.user;
 
-    if (followerCount === undefined || likeCount === undefined || videoCount === undefined) {
-      throw new Error("Dữ liệu trả về từ API không đầy đủ hoặc không hợp lệ.");
-    }
+    if (!statsData || !userData) throw new Error("Dữ liệu trả về từ API không đầy đủ hoặc không hợp lệ.");
 
-    // 4. Cập nhật DB (chuyển đổi chuỗi thành số)
+    const { followerCount, heartCount, videoCount } = statsData;
+    const { nickname, uniqueId, createTime } = userData;
+
     const { error: updateError } = await supabaseAdmin
       .from("kocs")
       .update({
         follower_count: parseInt(followerCount, 10),
-        like_count: parseInt(likeCount, 10),
+        like_count: parseInt(heartCount, 10),
         video_count: parseInt(videoCount, 10),
+        channel_nickname: nickname,
+        channel_unique_id: uniqueId,
+        channel_created_at: new Date(createTime * 1000).toISOString(),
         stats_updated_at: new Date().toISOString(),
       })
       .eq("id", koc.id);
 
-    if (updateError) {
-      throw updateError;
-    }
+    if (updateError) throw updateError;
 
     return new Response(JSON.stringify({ message: `Quét và cập nhật thành công cho KOC.` }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -95,7 +83,7 @@ serve(async (req) => {
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200, // Trả về 200 để client có thể đọc thông báo lỗi
+      status: 200,
     });
   }
 });

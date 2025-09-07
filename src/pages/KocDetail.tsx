@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, intervalToDuration } from "date-fns";
 import { vi } from "date-fns/locale";
 
 // UI Components
@@ -19,7 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 // Icons
-import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, Megaphone, SlidersHorizontal, CreditCard, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus } from "lucide-react";
+import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, Megaphone, SlidersHorizontal, CreditCard, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, VideoIcon, Calendar, User, AtSign } from "lucide-react";
 
 // Custom Components
 import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
@@ -39,6 +39,12 @@ type Koc = {
   folder_path: string | null;
   user_id: string;
   channel_url: string | null;
+  follower_count: number | null;
+  like_count: number | null;
+  video_count: number | null;
+  channel_nickname: string | null;
+  channel_unique_id: string | null;
+  channel_created_at: string | null;
 };
 
 type KocFile = {
@@ -53,7 +59,7 @@ type KocFile = {
 const fetchKocDetails = async (kocId: string) => {
   const { data, error } = await supabase
     .from("kocs")
-    .select("id, name, field, avatar_url, created_at, folder_path, user_id, channel_url")
+    .select("*")
     .eq("id", kocId)
     .single();
   if (error) throw error;
@@ -69,25 +75,6 @@ const fetchKocFiles = async (kocId: string): Promise<KocFile[]> => {
   return data.files as KocFile[];
 };
 
-// Mock data
-const performanceMetrics = [
-  { title: "Tỷ lệ tương tác", value: "4.5%", icon: ThumbsUp, color: "bg-blue-100 text-blue-600" },
-  { title: "Lượt tiếp cận", value: "15K", icon: Eye, color: "bg-green-100 text-green-600" },
-  { title: "Lượt chuyển đổi", value: "500", icon: ShoppingCart, color: "bg-orange-100 text-orange-600" },
-  { title: "ROI", value: "120%", icon: TrendingUp, color: "bg-purple-100 text-purple-600" },
-];
-const assignedCampaigns = [
-  { name: "Summer Style Showcase", status: "Active", startDate: "2024-07-01", endDate: "2024-07-31", budget: "$5,000" },
-  { name: "Autumn Beauty Launch", status: "Completed", startDate: "2024-06-15", endDate: "2024-06-30", budget: "$3,200" },
-  { name: "Winter Wellness", status: "Planned", startDate: "2024-08-01", endDate: "2024-08-15", budget: "$4,500" },
-];
-const communicationHistory = [
-  { title: "Gửi brief chiến dịch", date: "2024-07-15", icon: Megaphone },
-  { title: "Yêu cầu duyệt nội dung", date: "2024-07-18", icon: SlidersHorizontal },
-  { title: "Xác nhận thanh toán", date: "2024-07-20", icon: CreditCard },
-  { title: "Báo cáo hiệu suất", date: "2024-07-25", icon: FileText },
-];
-
 // Helper functions
 const getInitials = (name: string) => name.split(" ").map((n) => n[0]).join("").toUpperCase();
 const getFileTypeDetails = (fileName: string) => {
@@ -96,6 +83,22 @@ const getFileTypeDetails = (fileName: string) => {
   if (['mp3', 'wav', 'm4a', 'ogg'].includes(extension)) return { Icon: Music, bgColor: 'bg-purple-100', iconColor: 'text-purple-600', type: 'audio' };
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(extension)) return { Icon: Image, bgColor: 'bg-green-100', iconColor: 'text-green-600', type: 'image' };
   return { Icon: FileText, bgColor: 'bg-slate-100', iconColor: 'text-slate-600', type: 'other' };
+};
+const formatNumber = (num: number | null | undefined): string => {
+  if (num === null || num === undefined) return "N/A";
+  if (num < 1000) return num.toString();
+  if (num < 1000000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + "K";
+  if (num < 1000000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + "M";
+  return (num / 1000000000).toFixed(1).replace(/\.0$/, '') + "B";
+};
+const formatAccountAge = (createdAt: string | null): string => {
+  if (!createdAt) return "N/A";
+  const duration = intervalToDuration({ start: new Date(createdAt), end: new Date() });
+  const parts = [];
+  if (duration.years && duration.years > 0) parts.push(`${duration.years} năm`);
+  if (duration.months && duration.months > 0) parts.push(`${duration.months} tháng`);
+  if (duration.days && duration.days > 0) parts.push(`${duration.days} ngày`);
+  return parts.length > 0 ? parts.join(', ') : "Hôm nay";
 };
 
 const KocDetail = () => {
@@ -157,6 +160,18 @@ const KocDetail = () => {
     if (fileToDelete) deleteFileMutation.mutate(fileToDelete.id);
   };
 
+  const StatItem = ({ icon: Icon, label, value, colorClass }) => (
+    <div className="flex items-start gap-4 p-4 bg-gray-50/50 rounded-lg">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${colorClass}`}>
+        <Icon className="h-5 w-5 text-white" />
+      </div>
+      <div>
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="text-lg font-bold text-gray-800">{value}</p>
+      </div>
+    </div>
+  );
+
   if (isKocLoading) {
     return (
       <div className="p-8 space-y-6">
@@ -209,14 +224,22 @@ const KocDetail = () => {
                 <TabsTrigger value="sources" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
                   <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><FileArchive className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Nguồn Video/Audio</span></div>
                 </TabsTrigger>
-                <TabsTrigger value="reports" disabled className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
-                  <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><FileText className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Báo cáo</span></div>
-                </TabsTrigger>
               </TabsList>
               <TabsContent value="overview" className="mt-6">
                 <div className="space-y-8">
-                  <div><h3 className="text-xl font-semibold mb-4">Chỉ số hiệu suất</h3><div className="grid grid-cols-2 md:grid-cols-4 gap-4">{performanceMetrics.map((metric) => (<Card key={metric.title}><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4"><CardTitle className="text-sm font-medium text-muted-foreground">{metric.title}</CardTitle><div className={`flex h-8 w-8 items-center justify-center rounded-full ${metric.color}`}><metric.icon className="h-4 w-4" /></div></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{metric.value}</p></CardContent></Card>))}</div></div>
-                  <div><h3 className="text-xl font-semibold mb-4">Chiến dịch đã tham gia</h3><Card><Table><TableHeader><TableRow><TableHead>Tên chiến dịch</TableHead><TableHead>Trạng thái</TableHead><TableHead>Ngày bắt đầu</TableHead><TableHead>Ngày kết thúc</TableHead><TableHead>Ngân sách</TableHead></TableRow></TableHeader><TableBody>{assignedCampaigns.map((campaign) => (<TableRow key={campaign.name}><TableCell className="font-medium">{campaign.name}</TableCell><TableCell><Badge variant={campaign.status === "Active" ? "default" : "outline"} className={campaign.status === "Active" ? "bg-green-100 text-green-800" : campaign.status === "Completed" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}>{campaign.status}</Badge></TableCell><TableCell>{campaign.startDate}</TableCell><TableCell>{campaign.endDate}</TableCell><TableCell>{campaign.budget}</TableCell></TableRow>))}</TableBody></Table></Card></div>
+                  {koc.channel_nickname && (
+                    <Card>
+                      <CardHeader><CardTitle>Thông tin kênh TikTok</CardTitle></CardHeader>
+                      <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <StatItem icon={User} label="Tên kênh" value={koc.channel_nickname} colorClass="bg-sky-500" />
+                        <StatItem icon={AtSign} label="Username" value={`@${koc.channel_unique_id}`} colorClass="bg-slate-500" />
+                        <StatItem icon={Calendar} label="Tuổi tài khoản" value={formatAccountAge(koc.channel_created_at)} colorClass="bg-amber-500" />
+                        <StatItem icon={Users} label="Followers" value={formatNumber(koc.follower_count)} colorClass="bg-blue-500" />
+                        <StatItem icon={Heart} label="Likes" value={formatNumber(koc.like_count)} colorClass="bg-pink-500" />
+                        <StatItem icon={VideoIcon} label="Tổng video" value={formatNumber(koc.video_count)} colorClass="bg-red-500" />
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </TabsContent>
               <TabsContent value="content" className="mt-6">
@@ -291,7 +314,6 @@ const KocDetail = () => {
               </TabsContent>
             </Tabs>
           </div>
-          <div className="lg:col-span-1"><Card><CardHeader><CardTitle>Lịch sử trao đổi</CardTitle></CardHeader><CardContent><div className="space-y-6">{communicationHistory.map((item) => (<div key={item.title} className="flex items-start gap-4"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600"><item.icon className="h-5 w-5" /></div><div><p className="font-semibold">{item.title}</p><p className="text-sm text-muted-foreground">{item.date}</p></div></div>))}</div></CardContent></Card></div>
         </div>
       </div>
       <EditKocDialog isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} koc={koc} />
