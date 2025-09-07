@@ -13,7 +13,6 @@ import ListKoc from "./pages/ListKoc";
 import KocDetail from "./pages/KocDetail";
 import KocLayout from "./components/koc/KocLayout";
 import Reports from "./pages/Reports";
-import KocContent from "./pages/KocContent";
 
 function App() {
   return (
@@ -33,7 +32,6 @@ function App() {
               <Route path="/projects/:id" element={<ProjectDetail />} />
               <Route path="/list-koc" element={<ListKoc />} />
               <Route path="/list-koc/:kocId" element={<KocDetail />} />
-              <Route path="/list-koc/:kocId/content" element={<KocContent />} />
               <Route path="/reports" element={<Reports />} />
             </Route>
           </Route>
