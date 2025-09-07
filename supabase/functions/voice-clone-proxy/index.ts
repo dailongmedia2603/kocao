@@ -25,6 +25,9 @@ serve(async (req) => {
     if (apiKeyError || !apiKeyData) throw new Error("Không tìm thấy API Key.");
     
     const formData = await req.formData();
+    // Set default language to Vietnamese
+    formData.append("language_tag", "Vietnamese");
+    
     const apiUrl = "https://gateway.vivoo.work/v1m/voice/clone";
 
     const response = await fetch(apiUrl, {
