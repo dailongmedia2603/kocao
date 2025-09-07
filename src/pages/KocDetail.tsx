@@ -158,6 +158,7 @@ const KocDetail = () => {
       queryClient.setQueryData<KocFile[]>(filesQueryKey, (old) =>
         old ? old.filter(file => !fileIdsToDelete.includes(file.id)) : []
       );
+      setSelectedFileIds(prev => prev.filter(id => !fileIdsToDelete.includes(id)));
       return { previousFiles };
     },
     onError: (err, variables, context) => {
@@ -167,12 +168,10 @@ const KocDetail = () => {
       showError(`Lỗi xóa tệp: ${err.message}`);
     },
     onSuccess: () => {
-      showSuccess("Xóa các tệp đã chọn thành công!");
+      showSuccess("Đã bắt đầu xóa tệp trong nền.");
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: filesQueryKey });
-      setFilesToDelete([]);
-      setSelectedFileIds([]);
     },
   });
 
@@ -205,6 +204,7 @@ const KocDetail = () => {
     e.preventDefault();
     if (filesToDelete.length > 0) {
       deleteFilesMutation.mutate(filesToDelete.map(f => f.id));
+      setFilesToDelete([]);
     }
   };
 
