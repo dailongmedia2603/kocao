@@ -55,14 +55,14 @@ type Task = {
   extension_instances: { name: string } | null;
 };
 
-const taskTypeDetails: { [key: string]: { name: string; icon: React.ElementType, description: string } } = {
-  NAVIGATE_TO_URL: { name: "Điều hướng đến URL", icon: Bot, description: "Mở một trang web mới." },
-  CLICK_ELEMENT: { name: "Bấm vào phần tử", icon: MousePointerClick, description: "Tương tác với một nút hoặc link." },
-  DOWNLOAD_FILE: { name: "Tải xuống tệp", icon: DownloadCloud, description: "Lưu một tệp từ trang web." },
-  UPLOAD_FILE: { name: "Tải lên tệp", icon: UploadCloud, description: "Tải một tệp lên trang web." },
-  DELAY: { name: "Chờ (Delay)", icon: Clock, description: "Tạm dừng kịch bản một lúc." },
-  PASTE_TEXT: { name: "Dán văn bản", icon: Type, description: "Nhập văn bản vào một ô." },
-  DEFAULT: { name: "Hành động không xác định", icon: Bot, description: "Một hành động không rõ." },
+const taskTypeDetails: { [key: string]: { name: string; icon: React.ElementType, description: string, colorClasses: string } } = {
+  NAVIGATE_TO_URL: { name: "Điều hướng đến URL", icon: Bot, description: "Mở một trang web mới.", colorClasses: "bg-red-100 text-red-600" },
+  CLICK_ELEMENT: { name: "Bấm vào phần tử", icon: MousePointerClick, description: "Tương tác với một nút hoặc link.", colorClasses: "bg-blue-100 text-blue-600" },
+  DOWNLOAD_FILE: { name: "Tải xuống tệp", icon: DownloadCloud, description: "Lưu một tệp từ trang web.", colorClasses: "bg-green-100 text-green-600" },
+  UPLOAD_FILE: { name: "Tải lên tệp", icon: UploadCloud, description: "Tải một tệp lên trang web.", colorClasses: "bg-yellow-100 text-yellow-600" },
+  DELAY: { name: "Chờ (Delay)", icon: Clock, description: "Tạm dừng kịch bản một lúc.", colorClasses: "bg-purple-100 text-purple-600" },
+  PASTE_TEXT: { name: "Dán văn bản", icon: Type, description: "Nhập văn bản vào một ô.", colorClasses: "bg-indigo-100 text-indigo-600" },
+  DEFAULT: { name: "Hành động không xác định", icon: Bot, description: "Một hành động không rõ.", colorClasses: "bg-gray-100 text-gray-600" },
 };
 
 const getTaskTypeDetails = (type: string) => {
@@ -184,11 +184,11 @@ const ProjectDetail = () => {
 
   const getStatusClasses = (status: string) => {
     switch (status) {
-      case "completed": return "bg-green-100 text-green-800 border-green-200";
-      case "running": return "bg-blue-100 text-blue-800 border-blue-200 animate-pulse";
-      case "queued": return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "failed": return "bg-red-100 text-red-800 border-red-200";
-      case "pending": default: return "bg-gray-100 text-gray-800 border-gray-200";
+      case "completed": return "bg-green-100 text-green-800 border-green-200 hover:bg-green-100";
+      case "running": return "bg-blue-100 text-blue-800 border-blue-200 animate-pulse hover:bg-blue-100";
+      case "queued": return "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100";
+      case "failed": return "bg-red-100 text-red-800 border-red-200 hover:bg-red-100";
+      case "pending": default: return "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-100";
     }
   };
 
@@ -312,7 +312,7 @@ const ProjectDetail = () => {
               return (
                 <Card key={type} className="p-3 hover:bg-gray-50 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className="bg-primary/10 text-primary p-2 rounded-lg">
+                    <div className={cn("p-2 rounded-lg", details.colorClasses)}>
                       <Icon className="h-5 w-5" />
                     </div>
                     <div>
