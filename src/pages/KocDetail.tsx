@@ -213,39 +213,55 @@ const KocDetail = () => {
 
             {/* Tabs */}
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="bg-transparent w-full justify-start rounded-none border-b p-0 gap-x-8">
+              <TabsList className="bg-transparent w-full justify-start rounded-none border-b p-0 gap-x-2">
                 <TabsTrigger
                   value="overview"
-                  className="bg-transparent p-0 pb-3 rounded-none shadow-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:text-red-600 data-[state=active]:shadow-none hover:text-foreground text-muted-foreground"
+                  className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50"
                 >
-                  <LayoutDashboard className="mr-2 h-4 w-4" />
-                  Tổng quan
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors">
+                      <LayoutDashboard className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" />
+                    </div>
+                    <span>Tổng quan</span>
+                  </div>
                 </TabsTrigger>
                 <TabsTrigger
                   value="campaigns"
                   disabled
-                  className="bg-transparent p-0 pb-3 rounded-none shadow-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:text-red-600 data-[state=active]:shadow-none hover:text-foreground text-muted-foreground"
+                  className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50"
                 >
-                  <Target className="mr-2 h-4 w-4" />
-                  Chiến dịch
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors">
+                      <Target className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" />
+                    </div>
+                    <span>Chiến dịch</span>
+                  </div>
                 </TabsTrigger>
                 <TabsTrigger
                   value="content"
                   asChild
-                  className="bg-transparent p-0 pb-3 rounded-none shadow-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:text-red-600 data-[state=active]:shadow-none hover:text-foreground text-muted-foreground"
+                  className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50"
                 >
                   <Link to={`/list-koc/${koc.id}/content`}>
-                    <Clapperboard className="mr-2 h-4 w-4" />
-                    Nội dung
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors">
+                        <Clapperboard className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" />
+                      </div>
+                      <span>Nội dung</span>
+                    </div>
                   </Link>
                 </TabsTrigger>
                 <TabsTrigger
                   value="communication"
                   disabled
-                  className="bg-transparent p-0 pb-3 rounded-none shadow-none border-b-2 border-transparent data-[state=active]:border-red-600 data-[state=active]:text-red-600 data-[state=active]:shadow-none hover:text-foreground text-muted-foreground"
+                  className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50"
                 >
-                  <History className="mr-2 h-4 w-4" />
-                  Lịch sử
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors">
+                      <History className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" />
+                    </div>
+                    <span>Lịch sử</span>
+                  </div>
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="overview" className="mt-6">
