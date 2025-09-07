@@ -1,60 +1,93 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
-import { formatDistanceToNow } from "date-fns";
-import { vi } from "date-fns/locale";
-
-// UI Components
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Skeleton } from "@/components/ui/skeleton";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
-// Icons
-import { Plus, MoreHorizontal, Edit, Trash2, AlertCircle } from "lucide-react";
-
-// Custom Components
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Plus, FileText, Search, Filter } from "lucide-react";
 import { CreateKocDialog } from "@/components/koc/CreateKocDialog";
 import { EditKocDialog } from "@/components/koc/EditKocDialog";
 import { DeleteKocDialog } from "@/components/koc/DeleteKocDialog";
+import { showSuccess, showError } from "@/utils/toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { KocCard } from "@/components/koc/KocCard";
 
 type Koc = {
   id: string;
   name: string;
   field: string | null;
   avatar_url: string | null;
-  created_at: string;
-  channel_url: string | null;
+  folder_path: string | null;
 };
-
-const fetchKocs = async (userId: string) => {
-  const { data, error } = await supabase
-    .from("kocs")
-    .select("id, name, field, avatar_url, created_at, channel_url")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
-
-  if (error) throw new Error(error.message);
-  return data;
-};
-
-const getInitials = (name: string) => name.split(" ").map((n) => n[0]).join("").toUpperCase();
 
 const ListKoc = () => {
   const { user } = useSession();
+  const queryClient = useQueryClient();
+
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedKoc, setSelectedKoc] = useState<Koc | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedField, setSelectedField] = useState<string | null>(null);
 
-  const { data: kocs, isLoading, isError, error } = useQuery<Koc[]>({
+  const { data: kocs, isLoading } = useQuery({
     queryKey: ["kocs", user?.id],
-    queryFn: () => fetchKocs(user!.id),
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("kocs")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return data;
+    },
     enabled: !!user,
+  });
+
+  const uniqueFields = useMemo(() => {
+    if (!kocs) return [];
+    return [...new Set(kocs.map((koc) => koc.field).filter(Boolean) as string[])];
+  }, [kocs]);
+
+  const filteredKocs = useMemo(() => {
+    if (!kocs) return [];
+    return kocs.filter((koc) => {
+      const nameMatch = koc.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const fieldMatch = selectedField ? koc.field === selectedField : true;
+      return nameMatch && fieldMatch;
+    });
+  }, [kocs, searchTerm, selectedField]);
+
+  const deleteKocMutation = useMutation({
+    mutationFn: async (koc: Koc) => {
+      if (!koc.folder_path) {
+        throw new Error("Không tìm thấy đường dẫn thư mục.");
+      }
+      const { error: functionError } = await supabase.functions.invoke("delete-r2-folder", {
+        body: { folderPath: koc.folder_path },
+      });
+      if (functionError) throw new Error(`Lỗi xóa thư mục R2: ${functionError.message}`);
+      const { error: dbError } = await supabase.from("kocs").delete().eq("id", koc.id);
+      if (dbError) throw new Error(`Lỗi xóa KOC khỏi database: ${dbError.message}`);
+    },
+    onSuccess: () => {
+      showSuccess("Xóa KOC thành công!");
+      queryClient.invalidateQueries({ queryKey: ["kocs", user?.id] });
+      setIsDeleteDialogOpen(false);
+      setSelectedKoc(null);
+    },
+    onError: (error: Error) => {
+      showError(error.message);
+    },
   });
 
   const handleEdit = (koc: Koc) => {
@@ -67,102 +100,76 @@ const ListKoc = () => {
     setIsDeleteDialogOpen(true);
   };
 
+  const confirmDelete = () => {
+    if (selectedKoc) {
+      deleteKocMutation.mutate(selectedKoc);
+    }
+  };
+
   return (
     <>
-      <div className="p-6 lg:p-8">
-        <header className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-3xl font-bold">Danh sách KOC</h1>
-            <p className="text-muted-foreground mt-1">Quản lý tất cả KOC ảo của bạn ở một nơi.</p>
+      <div className="p-8">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-3xl font-bold">KOCs Manager</h1>
+        </div>
+        <div className="flex items-center justify-between mb-8 p-4 bg-white rounded-lg shadow-sm border">
+           <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Input
+                placeholder="Tìm theo tên KOC..."
+                className="pl-10 w-64"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Filter className="mr-2 h-4 w-4" />
+                  {selectedField || "Lĩnh vực"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onSelect={() => setSelectedField(null)}>Tất cả lĩnh vực</DropdownMenuItem>
+                {uniqueFields.length > 0 && <DropdownMenuSeparator />}
+                {uniqueFields.map((field) => (
+                  <DropdownMenuItem key={field} onSelect={() => setSelectedField(field)}>
+                    {field}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
           <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-red-600 hover:bg-red-700 text-white">
-            <Plus className="mr-2 h-4 w-4" /> Tạo KOC mới
+            <Plus className="mr-2 h-4 w-4" />
+            Tạo KOC mới
           </Button>
-        </header>
+        </div>
 
-        {isLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {Array.from({ length: 8 }).map((_, i) => (
-              <Card key={i}>
-                <CardHeader className="flex-row gap-4 items-center">
-                  <Skeleton className="w-12 h-12 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-1/2" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-3 w-full" />
-                </CardContent>
-                <CardFooter>
-                  <Skeleton className="h-8 w-24" />
-                </CardFooter>
-              </Card>
+              <Skeleton key={i} className="h-64 w-full" />
             ))}
           </div>
-        )}
-
-        {isError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Lỗi</AlertTitle>
-            <AlertDescription>{error.message}</AlertDescription>
-          </Alert>
-        )}
-
-        {!isLoading && !isError && kocs && kocs.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {kocs.map((koc) => (
-              <Card key={koc.id} className="flex flex-col">
-                <CardHeader className="flex flex-row items-start gap-4">
-                  <Link to={`/list-koc/${koc.id}`} className="flex flex-grow items-center gap-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={koc.avatar_url || undefined} alt={koc.name} />
-                      <AvatarFallback>{getInitials(koc.name)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <CardTitle className="text-lg hover:text-red-600 transition-colors">{koc.name}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{koc.field}</p>
-                    </div>
-                  </Link>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(koc)}>
-                        <Edit className="mr-2 h-4 w-4" /> Chỉnh sửa
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(koc)} className="text-destructive">
-                        <Trash2 className="mr-2 h-4 w-4" /> Xóa
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  <p className="text-sm text-muted-foreground">
-                    Tạo {formatDistanceToNow(new Date(koc.created_at), { addSuffix: true, locale: vi })}
-                  </p>
-                </CardContent>
-                <CardFooter>
-                  <Button asChild variant="outline" className="w-full">
-                    <Link to={`/list-koc/${koc.id}`}>Xem chi tiết</Link>
-                  </Button>
-                </CardFooter>
-              </Card>
+        ) : filteredKocs && filteredKocs.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {filteredKocs.map((koc) => (
+              <KocCard key={koc.id} koc={koc} onEdit={handleEdit} onDelete={handleDelete} />
             ))}
           </div>
-        )}
-
-        {!isLoading && !isError && kocs && kocs.length === 0 && (
+        ) : (
           <div className="text-center py-16 border-2 border-dashed rounded-lg">
-            <h3 className="text-xl font-semibold">Chưa có KOC nào</h3>
-            <p className="text-muted-foreground mt-2 mb-4">Hãy tạo KOC đầu tiên của bạn để bắt đầu.</p>
-            <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-red-600 hover:bg-red-700 text-white">
-              <Plus className="mr-2 h-4 w-4" /> Tạo KOC mới
-            </Button>
+            <FileText className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-semibold text-gray-900">Không tìm thấy KOC nào</h3>
+            <p className="mt-1 text-sm text-gray-500">Hãy thử tìm kiếm hoặc lọc với từ khóa khác, hoặc tạo một KOC mới.</p>
+            <div className="mt-6">
+              <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-red-600 hover:bg-red-700 text-white">
+                <Plus className="mr-2 h-4 w-4" />
+                Tạo KOC mới
+              </Button>
+            </div>
           </div>
         )}
       </div>
@@ -172,7 +179,8 @@ const ListKoc = () => {
       <DeleteKocDialog
         isOpen={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        koc={selectedKoc}
+        onConfirm={confirmDelete}
+        isPending={deleteKocMutation.isPending}
       />
     </>
   );

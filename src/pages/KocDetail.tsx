@@ -38,7 +38,6 @@ type Koc = {
   created_at: string | null;
   folder_path: string | null;
   user_id: string;
-  channel_url: string | null;
 };
 
 type KocFile = {
@@ -53,7 +52,7 @@ type KocFile = {
 const fetchKocDetails = async (kocId: string) => {
   const { data, error } = await supabase
     .from("kocs")
-    .select("id, name, field, avatar_url, created_at, folder_path, user_id, channel_url")
+    .select("id, name, field, avatar_url, created_at, folder_path, user_id")
     .eq("id", kocId)
     .single();
   if (error) throw error;

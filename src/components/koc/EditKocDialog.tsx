@@ -17,13 +17,11 @@ type Koc = {
   name: string;
   field: string | null;
   avatar_url: string | null;
-  channel_url: string | null;
 };
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên KOC không được để trống"),
   field: z.string().min(1, "Lĩnh vực không được để trống"),
-  channel_url: z.string().url("Link kênh không hợp lệ").optional().or(z.literal('')),
   avatar_file: z.instanceof(FileList).optional(),
 });
 
@@ -39,7 +37,7 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", field: "", channel_url: "" },
+    defaultValues: { name: "", field: "" },
   });
 
   useEffect(() => {
@@ -47,7 +45,6 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
       form.reset({
         name: koc.name,
         field: koc.field || "",
-        channel_url: koc.channel_url || "",
       });
     }
   }, [koc, form]);
@@ -86,7 +83,6 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
         .update({
           name: values.name,
           field: values.field,
-          channel_url: values.channel_url || null,
           avatar_url: newAvatarUrl,
         })
         .eq("id", koc.id);
@@ -123,9 +119,6 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
             )} />
             <FormField control={form.control} name="field" render={({ field }) => (
               <FormItem><FormLabel>Lĩnh vực</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="channel_url" render={({ field }) => (
-              <FormItem><FormLabel>Link Kênh</FormLabel><FormControl><Input placeholder="Ví dụ: https://www.tiktok.com/@channelname" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <ImageUploadInput form={form} name="avatar_file" label="Ảnh đại diện" initialImageUrl={koc.avatar_url} />
             <DialogFooter>
