@@ -61,17 +61,20 @@ serve(async (_req) => {
         }
 
         const stats = await response.json();
-        const followerCount = stats?.data?.stats?.followerCount;
-        const likeCount = stats?.data?.stats?.heartCount;
-        const videoCount = stats?.data?.stats?.videoCount;
+        
+        // SỬA LỖI: Đọc đúng đường dẫn dữ liệu từ statsV2
+        const statsData = stats?.data?.userInfo?.statsV2;
+        const followerCount = statsData?.followerCount;
+        const likeCount = statsData?.heartCount;
+        const videoCount = statsData?.videoCount;
 
         if (followerCount !== undefined && likeCount !== undefined && videoCount !== undefined) {
           const { error: updateError } = await supabaseAdmin
             .from("kocs")
             .update({
-              follower_count: followerCount,
-              like_count: likeCount,
-              video_count: videoCount,
+              follower_count: parseInt(followerCount, 10),
+              like_count: parseInt(likeCount, 10),
+              video_count: parseInt(videoCount, 10),
               stats_updated_at: new Date().toISOString(),
             })
             .eq("id", koc.id);
