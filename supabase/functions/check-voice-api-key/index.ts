@@ -34,14 +34,16 @@ serve(async (req) => {
     } else {
       const errorData = await response.json();
       const errorMessage = errorData?.message || "API Key không hợp lệ hoặc đã hết hạn.";
+      // Always return 200 OK, but with success: false in the body
       return new Response(JSON.stringify({ success: false, message: errorMessage }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
   } catch (err) {
+    // Always return 200 OK, but with success: false in the body
     return new Response(JSON.stringify({ success: false, message: err.message }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
