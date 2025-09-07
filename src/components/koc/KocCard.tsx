@@ -6,10 +6,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Edit, Trash2, Tag, Link as LinkIcon, Video } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Tag, Link as LinkIcon, Video, ScanLine, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/contexts/SessionContext";
+import { showSuccess, showError } from "@/utils/toast";
 
 type Koc = {
   id: string;
@@ -45,6 +50,30 @@ const formatNumber = (num: number | null | undefined): string => {
 };
 
 export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
+  const { user } = useSession();
+  const queryClient = useQueryClient();
+
+  const scanKocMutation = useMutation({
+    mutationFn: async (kocId: string) => {
+      if (!koc.channel_url) {
+        throw new Error("KOC không có link kênh để quét.");
+      }
+      const { data, error } = await supabase.functions.invoke("scan-single-koc", {
+        body: { kocId },
+      });
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      showSuccess("Quét kênh thành công! Dữ liệu đã được cập nhật.");
+      queryClient.invalidateQueries({ queryKey: ["kocs", user?.id] });
+    },
+    onError: (error: Error) => {
+      showError(`Lỗi khi quét kênh: ${error.message}`);
+    },
+  });
+
   return (
     <Card className="relative flex flex-col hover:shadow-lg transition-shadow duration-300">
       <Link
@@ -83,12 +112,27 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(koc)}>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  scanKocMutation.mutate(koc.id);
+                }}
+                disabled={!koc.channel_url || scanKocMutation.isPending}
+              >
+                {scanKocMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <ScanLine className="mr-2 h-4 w-4" />
+                )}
+                <span>{scanKocMutation.isPending ? "Đang quét..." : "Quét kênh"}</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(koc); }}>
                 <Edit className="mr-2 h-4 w-4" />
                 <span>Chỉnh sửa</span>
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => onDelete(koc)}
+                onClick={(e) => { e.stopPropagation(); onDelete(koc); }}
                 className="text-red-600"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
