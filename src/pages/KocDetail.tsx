@@ -410,8 +410,8 @@ const KocDetail = () => {
                         {sourceVideos.map(video => (
                           <div key={video.id} className="flex items-center justify-between p-3 rounded-md border bg-gray-50/50 hover:bg-gray-100 transition-colors cursor-pointer">
                             <div className="flex items-center gap-4">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-100 text-red-600 flex-shrink-0">
-                                <Video className="h-5 w-5" />
+                              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-100 text-blue-600 flex-shrink-0">
+                                <Clapperboard className="h-5 w-5" />
                               </div>
                               <div>
                                 <p className="font-semibold text-sm">{video.title}</p>
