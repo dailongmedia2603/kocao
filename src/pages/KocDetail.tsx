@@ -288,16 +288,18 @@ const KocDetail = () => {
                         {areFilesLoading ? <Skeleton className="h-20 w-full" /> : sourceVideos.length > 0 ? (
                             <div className="space-y-3">
                                 {sourceVideos.map(file => { const isSelected = selectedFileIds.includes(file.id); return (
-                                    <div key={file.id} className="group flex items-center justify-between p-3 rounded-md border bg-gray-50/50 hover:bg-gray-100 transition-colors relative">
-                                        <Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`absolute top-3 left-3 z-10 h-5 w-5 bg-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
-                                        <div className="flex items-center gap-4 w-full pl-10" onClick={() => handleFileClick(file)}>
+                                    <div key={file.id} className="group flex items-center justify-between p-3 rounded-md border bg-gray-50/50 hover:bg-gray-100 transition-colors">
+                                        <div className="flex items-center gap-4 flex-grow min-w-0 cursor-pointer" onClick={() => handleFileClick(file)}>
                                             <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-100 text-blue-600 flex-shrink-0"><Clapperboard className="h-5 w-5" /></div>
-                                            <div>
-                                                <p className="font-semibold text-sm">{file.display_name}</p>
+                                            <div className="min-w-0">
+                                                <p className="font-semibold text-sm truncate" title={file.display_name}>{file.display_name}</p>
                                                 {file.created_at && <p className="text-xs text-muted-foreground">Tải lên: {format(new Date(file.created_at), "dd/MM/yyyy")}</p>}
                                             </div>
                                         </div>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                        <div className="flex items-center gap-2 pl-2">
+                                            <Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                        </div>
                                     </div>
                                 )})}
                             </div>
@@ -318,16 +320,18 @@ const KocDetail = () => {
                         {areFilesLoading ? <Skeleton className="h-20 w-full" /> : sourceAudios.length > 0 ? (
                             <div className="space-y-3">
                                 {sourceAudios.map(file => { const isSelected = selectedFileIds.includes(file.id); return (
-                                    <div key={file.id} className="group flex items-center justify-between p-3 rounded-md border bg-gray-50/50 hover:bg-gray-100 transition-colors relative">
-                                        <Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`absolute top-3 left-3 z-10 h-5 w-5 bg-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
-                                        <div className="flex items-center gap-4 w-full pl-10" onClick={() => handleFileClick(file)}>
+                                    <div key={file.id} className="group flex items-center justify-between p-3 rounded-md border bg-gray-50/50 hover:bg-gray-100 transition-colors">
+                                        <div className="flex items-center gap-4 flex-grow min-w-0 cursor-pointer" onClick={() => handleFileClick(file)}>
                                             <div className="flex h-10 w-10 items-center justify-center rounded-md bg-purple-100 text-purple-600 flex-shrink-0"><Music className="h-5 w-5" /></div>
-                                            <div>
-                                                <p className="font-semibold text-sm">{file.display_name}</p>
+                                            <div className="min-w-0">
+                                                <p className="font-semibold text-sm truncate" title={file.display_name}>{file.display_name}</p>
                                                 {file.created_at && <p className="text-xs text-muted-foreground">Tải lên: {format(new Date(file.created_at), "dd/MM/yyyy")}</p>}
                                             </div>
                                         </div>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                        <div className="flex items-center gap-2 pl-2">
+                                            <Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                        </div>
                                     </div>
                                 )})}
                             </div>
