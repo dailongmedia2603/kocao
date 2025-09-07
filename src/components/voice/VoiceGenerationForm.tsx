@@ -18,17 +18,17 @@ const formSchema = z.object({
   model: z.string().min(1, "Vui lòng chọn một model."),
 });
 
-const fetchVoices = async () => {
-  const data = await callVoiceApi({ path: "v1m/voice/list", method: "POST", body: { page: 1, page_size: 100 } });
-  return data.data.voice_list;
+const fetchClonedVoices = async () => {
+  const data = await callVoiceApi({ path: "v1m/voice/clone", method: "GET" });
+  // Chỉ lấy những giọng nói đã clone thành công (status = 2)
+  return data.data.filter((voice: any) => voice.voice_status === 2);
 };
 
 export const VoiceGenerationForm = () => {
   const queryClient = useQueryClient();
   const { data: voices, isLoading: isLoadingVoices } = useQuery({
-    queryKey: ["voices"],
-    queryFn: fetchVoices,
-    staleTime: Infinity,
+    queryKey: ["cloned_voices"],
+    queryFn: fetchClonedVoices,
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -63,7 +63,7 @@ export const VoiceGenerationForm = () => {
     <Card>
       <CardHeader>
         <CardTitle>Tạo Giọng Nói Mới</CardTitle>
-        <CardDescription>Nhập văn bản và chọn giọng nói để bắt đầu.</CardDescription>
+        <CardDescription>Nhập văn bản và chọn giọng nói đã clone để bắt đầu.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -77,14 +77,20 @@ export const VoiceGenerationForm = () => {
             )} />
             <FormField control={form.control} name="voice_id" render={({ field }) => (
               <FormItem>
-                <FormLabel>Giọng nói</FormLabel>
+                <FormLabel>Giọng nói đã Clone</FormLabel>
                 {isLoadingVoices ? <Skeleton className="h-10 w-full" /> : (
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Chọn một giọng nói" /></SelectTrigger></FormControl>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Chọn một giọng nói đã clone" /></SelectTrigger></FormControl>
                     <SelectContent>
-                      {voices?.map((voice: any) => (
-                        <SelectItem key={voice.voice_id} value={voice.voice_id}>{voice.voice_name}</SelectItem>
-                      ))}
+                      {voices && voices.length > 0 ? (
+                        voices.map((voice: any) => (
+                          <SelectItem key={voice.voice_id} value={voice.voice_id}>{voice.voice_name}</SelectItem>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-sm text-muted-foreground">
+                          Bạn chưa có giọng nói nào được clone thành công.
+                        </div>
+                      )}
                     </SelectContent>
                   </Select>
                 )}
@@ -103,7 +109,7 @@ export const VoiceGenerationForm = () => {
                 <FormMessage />
               </FormItem>
             )} />
-            <Button type="submit" className="w-full" disabled={createVoiceMutation.isPending}>
+            <Button type="submit" className="w-full" disabled={createVoiceMutation.isPending || !voices || voices.length === 0}>
               {createVoiceMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
               Tạo Voice
             </Button>
