@@ -67,10 +67,30 @@ const fetchKocDetails = async (kocId: string) => {
 
 // Mock data from the image
 const performanceMetrics = [
-  { title: "Tỷ lệ tương tác", value: "4.5%", icon: ThumbsUp },
-  { title: "Lượt tiếp cận", value: "15K", icon: Eye },
-  { title: "Lượt chuyển đổi", value: "500", icon: ShoppingCart },
-  { title: "ROI", value: "120%", icon: TrendingUp },
+  {
+    title: "Tỷ lệ tương tác",
+    value: "4.5%",
+    icon: ThumbsUp,
+    color: "bg-blue-100 text-blue-600",
+  },
+  {
+    title: "Lượt tiếp cận",
+    value: "15K",
+    icon: Eye,
+    color: "bg-green-100 text-green-600",
+  },
+  {
+    title: "Lượt chuyển đổi",
+    value: "500",
+    icon: ShoppingCart,
+    color: "bg-orange-100 text-orange-600",
+  },
+  {
+    title: "ROI",
+    value: "120%",
+    icon: TrendingUp,
+    color: "bg-purple-100 text-purple-600",
+  },
 ];
 
 const assignedCampaigns = [
@@ -99,7 +119,11 @@ const assignedCampaigns = [
 
 const communicationHistory = [
   { title: "Gửi brief chiến dịch", date: "2024-07-15", icon: Megaphone },
-  { title: "Yêu cầu duyệt nội dung", date: "2024-07-18", icon: SlidersHorizontal },
+  {
+    title: "Yêu cầu duyệt nội dung",
+    date: "2024-07-18",
+    icon: SlidersHorizontal,
+  },
   { title: "Xác nhận thanh toán", date: "2024-07-20", icon: CreditCard },
   { title: "Báo cáo hiệu suất", date: "2024-07-25", icon: FileText },
 ];
@@ -274,12 +298,18 @@ const KocDetail = () => {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       {performanceMetrics.map((metric) => (
                         <Card key={metric.title}>
-                          <CardContent className="p-4">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">
+                              {metric.title}
+                            </CardTitle>
+                            <div
+                              className={`flex h-8 w-8 items-center justify-center rounded-full ${metric.color}`}
+                            >
                               <metric.icon className="h-4 w-4" />
-                              <span>{metric.title}</span>
                             </div>
-                            <p className="text-3xl font-bold mt-2">
+                          </CardHeader>
+                          <CardContent className="p-4 pt-0">
+                            <p className="text-2xl font-bold">
                               {metric.value}
                             </p>
                           </CardContent>
