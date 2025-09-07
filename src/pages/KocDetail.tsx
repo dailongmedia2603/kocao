@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 
 // UI Components
@@ -136,11 +136,11 @@ const communicationHistory = [
 ];
 
 const sourceVideos = [
-  { id: 1, title: "Video Review 1", duration: "02:35" },
-  { id: 2, title: "Unboxing Clip", duration: "05:12" },
-  { id: 3, title: "Tutorial Makeup", duration: "10:02" },
-  { id: 4, title: "Daily Vlog", duration: "12:45" },
-  { id: 5, title: "Product Demo", duration: "01:58" },
+  { id: 1, title: "Video Review 1", duration: "02:35", createdAt: "2024-07-20" },
+  { id: 2, title: "Unboxing Clip", duration: "05:12", createdAt: "2024-07-18" },
+  { id: 3, title: "Tutorial Makeup", duration: "10:02", createdAt: "2024-07-15" },
+  { id: 4, title: "Daily Vlog", duration: "12:45", createdAt: "2024-07-12" },
+  { id: 5, title: "Product Demo", duration: "01:58", createdAt: "2024-07-10" },
 ];
 
 const sourceAudios = [
@@ -404,19 +404,22 @@ const KocDetail = () => {
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 p-4 border border-t-0 rounded-b-lg bg-white">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="space-y-3">
                         {sourceVideos.map(video => (
-                          <Card key={video.id} className="overflow-hidden group">
-                            <div className="aspect-video bg-red-50 relative flex items-center justify-center">
-                              <Video className="h-12 w-12 text-red-200" />
-                              <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
-                                {video.duration}
+                          <div key={video.id} className="flex items-center justify-between p-3 rounded-md border bg-gray-50/50 hover:bg-gray-100 transition-colors cursor-pointer">
+                            <div className="flex items-center gap-4">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-100 text-red-600 flex-shrink-0">
+                                <Video className="h-5 w-5" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-sm">{video.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Tạo ngày: {format(new Date(video.createdAt), "dd/MM/yyyy")}
+                                </p>
                               </div>
                             </div>
-                            <CardContent className="p-3">
-                              <p className="font-semibold truncate">{video.title}</p>
-                            </CardContent>
-                          </Card>
+                            <p className="text-sm font-medium text-muted-foreground">{video.duration}</p>
+                          </div>
                         ))}
                       </div>
                     </AccordionContent>
