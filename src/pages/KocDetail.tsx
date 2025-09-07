@@ -168,7 +168,7 @@ const KocDetail = () => {
       showError(`Lỗi xóa tệp: ${err.message}`);
     },
     onSuccess: () => {
-      showSuccess("Đã bắt đầu xóa tệp trong nền.");
+      showSuccess("Xóa các tệp đã chọn thành công!");
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: filesQueryKey });
