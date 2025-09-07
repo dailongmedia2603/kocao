@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, Clock, HelpCircle, LayoutGrid, Maximize, MessageSquare, Moon, Search } from "lucide-react";
+import { Bell, Clock, HelpCircle, LayoutGrid, Maximize, MessageSquare, Moon, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -38,16 +38,11 @@ const Header = () => {
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <div className="flex items-center gap-3 cursor-pointer ml-4">
+            <div className="cursor-pointer ml-4">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={profile?.avatar_url || undefined} />
                 <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
               </Avatar>
-              <div className="hidden md:block">
-                <p className="text-sm font-semibold">{profile?.first_name} {profile?.last_name}</p>
-                <p className="text-xs text-gray-500">{user?.email}</p>
-              </div>
-              <ChevronDown className="h-4 w-4 text-gray-500" />
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
