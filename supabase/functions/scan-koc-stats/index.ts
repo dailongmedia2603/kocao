@@ -13,22 +13,26 @@ serve(async (_req) => {
   }
 
   try {
-    // Sử dụng SERVICE_ROLE_KEY để có quyền ghi vào tất cả các dòng
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Lấy access token từ secrets
-    const accessToken = Deno.env.get("TIKTOK_PROXY_ACCESS_TOKEN");
-    if (!accessToken) {
-      throw new Error("TIKTOK_PROXY_ACCESS_TOKEN secret not found.");
+    // 1. Lấy tất cả token và map theo user_id
+    const { data: allTokens, error: tokensError } = await supabaseAdmin
+      .from("user_tiktok_tokens")
+      .select("user_id, access_token");
+    if (tokensError) throw tokensError;
+
+    const tokenMap = new Map();
+    for (const token of allTokens) {
+      tokenMap.set(token.user_id, token.access_token);
     }
 
-    // 1. Lấy tất cả KOCs có channel_url
+    // 2. Lấy tất cả KOCs có channel_url
     const { data: kocs, error: fetchError } = await supabaseAdmin
       .from("kocs")
-      .select("id, channel_url")
+      .select("id, channel_url, user_id")
       .not("channel_url", "is", null);
 
     if (fetchError) throw fetchError;
@@ -39,21 +43,24 @@ serve(async (_req) => {
       });
     }
 
+    // 3. Quét từng KOC với token tương ứng
     const scanPromises = kocs.map(async (koc) => {
+      const accessToken = tokenMap.get(koc.user_id);
+      if (!accessToken) {
+        console.warn(`Không tìm thấy token cho user ${koc.user_id} (KOC ID: ${koc.id}), bỏ qua.`);
+        return { id: koc.id, status: 'skipped', reason: 'No token for user' };
+      }
+      
       try {
         const apiUrl = `https://api.akng.io.vn/tiktok/user?input=${encodeURIComponent(koc.channel_url)}&access_token=${accessToken}`;
         const response = await fetch(apiUrl);
         
         if (!response.ok) {
-          console.error(`Lỗi khi gọi API cho KOC ${koc.id}: ${response.statusText}`);
+          console.error(`Lỗi API cho KOC ${koc.id}: ${response.statusText}`);
           return { id: koc.id, status: 'failed', reason: response.statusText };
         }
 
         const stats = await response.json();
-
-        // Giả định cấu trúc JSON trả về từ API
-        // Ví dụ: { "data": { "stats": { "followerCount": 1200000, "heartCount": 5800000, "videoCount": 150 } } }
-        // Bạn cần điều chỉnh các key này cho đúng với API thực tế
         const followerCount = stats?.data?.stats?.followerCount;
         const likeCount = stats?.data?.stats?.heartCount;
         const videoCount = stats?.data?.stats?.videoCount;
@@ -64,7 +71,7 @@ serve(async (_req) => {
             .update({
               follower_count: followerCount,
               like_count: likeCount,
-              video_count: videoCount, // Cập nhật cả số video
+              video_count: videoCount,
               stats_updated_at: new Date().toISOString(),
             })
             .eq("id", koc.id);

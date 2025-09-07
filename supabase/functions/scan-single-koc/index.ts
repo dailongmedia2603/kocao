@@ -23,15 +23,10 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const accessToken = Deno.env.get("TIKTOK_PROXY_ACCESS_TOKEN");
-    if (!accessToken) {
-      throw new Error("TIKTOK_PROXY_ACCESS_TOKEN secret not found.");
-    }
-
-    // 1. Lấy KOC từ DB
+    // 1. Lấy KOC và user_id của người sở hữu
     const { data: koc, error: fetchError } = await supabaseAdmin
       .from("kocs")
-      .select("id, channel_url")
+      .select("id, channel_url, user_id")
       .eq("id", kocId)
       .single();
 
@@ -43,7 +38,20 @@ serve(async (req) => {
       throw new Error("KOC này không có link kênh để quét.");
     }
 
-    // 2. Gọi API TikTok
+    // 2. Lấy Access Token từ cài đặt của người dùng
+    const { data: tokenData, error: tokenError } = await supabaseAdmin
+      .from("user_tiktok_tokens")
+      .select("access_token")
+      .eq("user_id", koc.user_id)
+      .limit(1)
+      .single();
+
+    if (tokenError || !tokenData) {
+      throw new Error("Không tìm thấy Access Token TikTok nào được cấu hình. Vui lòng thêm token trong phần Cài đặt.");
+    }
+    const accessToken = tokenData.access_token;
+
+    // 3. Gọi API TikTok với đúng token
     const apiUrl = `https://api.akng.io.vn/tiktok/user?input=${encodeURIComponent(koc.channel_url)}&access_token=${accessToken}`;
     const response = await fetch(apiUrl);
 
@@ -62,7 +70,7 @@ serve(async (req) => {
       throw new Error("Dữ liệu trả về từ API không đầy đủ hoặc không hợp lệ.");
     }
 
-    // 3. Cập nhật DB
+    // 4. Cập nhật DB
     const { error: updateError } = await supabaseAdmin
       .from("kocs")
       .update({
@@ -85,7 +93,7 @@ serve(async (req) => {
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200, // Return 200 so client can parse the error message
+      status: 200, // Trả về 200 để client có thể đọc thông báo lỗi
     });
   }
 });
