@@ -18,9 +18,11 @@ serve(async (req) => {
       throw new Error("Thiếu API Key.");
     }
 
-    const validationUrl = `https://api.genaipro.vn/api/v1/voice/list`;
+    // Correct URL based on the provided documentation to list voices
+    const validationUrl = `https://genaipro.vn/api/elevenlabs/voices`;
     
     const response = await fetch(validationUrl, {
+      method: 'GET', // Explicitly set method to GET
       headers: {
         'Authorization': `Bearer ${apiKey}`
       }
