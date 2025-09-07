@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EditKocDialog } from "@/components/koc/EditKocDialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -19,7 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 // Icons
-import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, Megaphone, SlidersHorizontal, CreditCard, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, VideoIcon, Calendar, User, AtSign } from "lucide-react";
+import { Edit, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, VideoIcon, Calendar, User, AtSign } from "lucide-react";
 
 // Custom Components
 import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
@@ -172,6 +171,18 @@ const KocDetail = () => {
     </div>
   );
 
+  const SummaryCard = ({ icon: Icon, value, description, colorClass }) => (
+    <div className="flex items-center gap-4">
+      <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${colorClass}`}>
+        <Icon className="h-6 w-6 text-white" />
+      </div>
+      <div>
+        <p className="text-2xl font-bold">{value}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  );
+
   if (isKocLoading) {
     return (
       <div className="p-8 space-y-6">
@@ -227,7 +238,7 @@ const KocDetail = () => {
               </TabsList>
               <TabsContent value="overview" className="mt-6">
                 <div className="space-y-8">
-                  {koc.channel_nickname && (
+                  {koc.channel_nickname ? (
                     <Card>
                       <CardHeader><CardTitle>Thông tin kênh TikTok</CardTitle></CardHeader>
                       <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -237,6 +248,16 @@ const KocDetail = () => {
                         <StatItem icon={Users} label="Followers" value={formatNumber(koc.follower_count)} colorClass="bg-blue-500" />
                         <StatItem icon={Heart} label="Likes" value={formatNumber(koc.like_count)} colorClass="bg-pink-500" />
                         <StatItem icon={VideoIcon} label="Tổng video" value={formatNumber(koc.video_count)} colorClass="bg-red-500" />
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card className="text-center py-12">
+                      <CardContent>
+                        <div className="text-center text-muted-foreground">
+                          <AlertCircle className="mx-auto h-12 w-12" />
+                          <h3 className="mt-4 text-lg font-semibold">Chưa có thông tin kênh</h3>
+                          <p className="mt-1 text-sm">Hãy quét kênh để cập nhật dữ liệu mới nhất từ TikTok.</p>
+                        </div>
                       </CardContent>
                     </Card>
                   )}
@@ -313,6 +334,33 @@ const KocDetail = () => {
                 </Accordion>
               </TabsContent>
             </Tabs>
+          </div>
+          <div className="lg:col-span-1 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Thống kê nội dung</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <SummaryCard 
+                  icon={Clapperboard} 
+                  value={generatedFiles.length} 
+                  description="Video đã tạo" 
+                  colorClass="bg-blue-500" 
+                />
+                <SummaryCard 
+                  icon={Video} 
+                  value={sourceVideos.length} 
+                  description="Nguồn video" 
+                  colorClass="bg-green-500" 
+                />
+                <SummaryCard 
+                  icon={Music} 
+                  value={sourceAudios.length} 
+                  description="Nguồn audio" 
+                  colorClass="bg-purple-500" 
+                />
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
