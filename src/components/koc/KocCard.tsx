@@ -118,11 +118,11 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
           </div>
           <div>
             <p className="text-sm font-bold text-red-600">5.8%</p>
-            <p className="text-xs text-red-600">Engagement</p>
+            <p className="text-xs text-red-600">Likes</p>
           </div>
           <div>
-            <p className="text-sm font-bold text-red-600">120K</p>
-            <p className="text-xs text-red-600">Avg. Likes</p>
+            <p className="text-sm font-bold text-red-600">{koc.video_count}</p>
+            <p className="text-xs text-red-600">Tổng Video</p>
           </div>
         </div>
       </CardContent>
