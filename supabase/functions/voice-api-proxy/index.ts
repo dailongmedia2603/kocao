@@ -13,18 +13,21 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  try {
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+  
+  let user;
 
+  try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing Authorization header");
     
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
+    const { data, error: userError } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
     if (userError) throw new Error(userError.message);
-    if (!user) throw new Error("User not found");
+    if (!data.user) throw new Error("User not found");
+    user = data.user;
 
     const { data: apiKeys, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
@@ -54,6 +57,27 @@ serve(async (req) => {
 
     const apiResponse = await fetch(apiUrl, fetchOptions);
     const responseData = await apiResponse.json();
+
+    // --- LOGGING LOGIC ---
+    if (path === "v1m/task/text-to-speech" && method === "POST") {
+      const logPayload = {
+        user_id: user.id,
+        task_id: responseData?.data?.id || null,
+        request_payload: body,
+        response_body: responseData,
+        status_code: apiResponse.status,
+      };
+      
+      const { error: logError } = await supabaseAdmin
+        .from("tts_logs")
+        .insert(logPayload);
+        
+      if (logError) {
+        // Log the error to the console but don't fail the main request
+        console.error("Failed to write to tts_logs:", logError);
+      }
+    }
+    // --- END LOGGING LOGIC ---
 
     if (!apiResponse.ok) {
       const errorMessage = responseData.message || JSON.stringify(responseData);
