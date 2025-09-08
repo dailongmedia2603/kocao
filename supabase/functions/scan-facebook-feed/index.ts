@@ -20,17 +20,24 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const specificUserId = body.userId;
+    const sourceIdsToScan = body.sourceIds; // Get the list of selected source IDs
 
     let sourcesQuery = supabaseAdmin.from('news_sources').select('user_id, source_id, name');
+    
     if (specificUserId) {
       sourcesQuery = sourcesQuery.eq('user_id', specificUserId);
+    }
+
+    // If a list of specific source IDs is provided, filter by them
+    if (sourceIdsToScan && Array.isArray(sourceIdsToScan) && sourceIdsToScan.length > 0) {
+      sourcesQuery = sourcesQuery.in('source_id', sourceIdsToScan);
     }
 
     const { data: allSources, error: sourcesError } = await sourcesQuery;
     if (sourcesError) throw sourcesError;
 
     if (!allSources || allSources.length === 0) {
-      return new Response(JSON.stringify({ success: true, message: "Không có nguồn tin tức nào để quét." }), {
+      return new Response(JSON.stringify({ success: true, message: "Không có nguồn tin tức nào được chọn để quét." }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -66,7 +73,6 @@ serve(async (req) => {
         const since = Math.floor(startOfDay.getTime() / 1000);
         const until = Math.floor(endOfDay.getTime() / 1000);
 
-        // Add 'fields' parameter to specify required data and exclude comments
         const fields = "id,message,created_time,permalink_url";
         const apiUrl = `https://api.akng.io.vn/graph/${source.source_id}/posts?access_token=${accessToken}&limit=25&since=${since}&until=${until}&fields=${fields}`;
         
@@ -102,7 +108,6 @@ serve(async (req) => {
               source_name: source.name,
               post_id: post.id,
               content: post.message,
-              // Use permalink_url for a more reliable post link
               post_url: post.permalink_url || `https://facebook.com/${post.id}`,
               created_time: post.created_time,
             }));

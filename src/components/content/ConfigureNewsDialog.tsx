@@ -145,10 +145,13 @@ export const ConfigureNewsDialog = ({ isOpen, onOpenChange }: ConfigureNewsDialo
   });
 
   const scanMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (selectedSourceIds: string[]) => {
       if (!user) throw new Error("User not authenticated");
       const { error } = await supabase.functions.invoke("scan-facebook-feed", {
-        body: { userId: user.id }
+        body: { 
+          userId: user.id,
+          sourceIds: selectedSourceIds 
+        }
       });
       if (error) throw error;
     },
@@ -216,7 +219,7 @@ export const ConfigureNewsDialog = ({ isOpen, onOpenChange }: ConfigureNewsDialo
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     console.log("Configuration saved:", values);
     loadingToastId.current = showLoading("Đang quét tin tức từ các nguồn đã chọn...");
-    scanMutation.mutate();
+    scanMutation.mutate(values.fanpageIds);
     onOpenChange(false);
   };
 
