@@ -60,15 +60,15 @@ serve(async (req) => {
       }
 
       for (const source of userSources) {
-        // Calculate timestamps for the current day (00:01 to 23:59)
         const now = new Date();
         const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 1, 0);
         const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
         const since = Math.floor(startOfDay.getTime() / 1000);
         const until = Math.floor(endOfDay.getTime() / 1000);
 
-        // Update URL to use /posts and add the correct time range
-        const apiUrl = `https://api.akng.io.vn/graph/${source.source_id}/posts?access_token=${accessToken}&limit=25&since=${since}&until=${until}`;
+        // Add 'fields' parameter to specify required data and exclude comments
+        const fields = "id,message,created_time,permalink_url";
+        const apiUrl = `https://api.akng.io.vn/graph/${source.source_id}/posts?access_token=${accessToken}&limit=25&since=${since}&until=${until}&fields=${fields}`;
         
         try {
           const response = await fetch(apiUrl);
@@ -102,7 +102,8 @@ serve(async (req) => {
               source_name: source.name,
               post_id: post.id,
               content: post.message,
-              post_url: post.actions?.find((a:any) => a.name === "Comment")?.link || `https://facebook.com/${post.id}`,
+              // Use permalink_url for a more reliable post link
+              post_url: post.permalink_url || `https://facebook.com/${post.id}`,
               created_time: post.created_time,
             }));
 
