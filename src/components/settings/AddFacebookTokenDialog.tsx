@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 const formSchema = z.object({
   name: z.string().min(1, "Tên không được để trống"),
   access_token: z.string().min(10, "Access Token không hợp lệ"),
+  check_url: z.string().url("URL không hợp lệ").min(1, "URL không được để trống"),
 });
 
 type AddFacebookTokenDialogProps = {
@@ -26,7 +27,7 @@ export const AddFacebookTokenDialog = ({ isOpen, onOpenChange }: AddFacebookToke
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", access_token: "" },
+    defaultValues: { name: "", access_token: "", check_url: "https://api.akng.io.vn/graph/me" },
   });
 
   const addTokenMutation = useMutation({
@@ -34,7 +35,7 @@ export const AddFacebookTokenDialog = ({ isOpen, onOpenChange }: AddFacebookToke
       if (!user) throw new Error("User not authenticated");
       const { error } = await supabase
         .from("user_facebook_tokens")
-        .insert({ user_id: user.id, name: values.name, access_token: values.access_token });
+        .insert({ user_id: user.id, name: values.name, access_token: values.access_token, check_url: values.check_url });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -84,6 +85,19 @@ export const AddFacebookTokenDialog = ({ isOpen, onOpenChange }: AddFacebookToke
                   <FormLabel>Facebook Access Token</FormLabel>
                   <FormControl>
                     <Input placeholder="Dán Access Token của bạn ở đây" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="check_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>URL Kiểm tra</FormLabel>
+                  <FormControl>
+                    <Input placeholder="https://api.akng.io.vn/graph/me" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

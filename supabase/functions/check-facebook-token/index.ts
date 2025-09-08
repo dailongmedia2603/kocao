@@ -13,16 +13,21 @@ serve(async (req) => {
   }
 
   try {
-    const { accessToken } = await req.json();
+    const { accessToken, checkUrl } = await req.json();
     if (!accessToken) {
       return new Response(JSON.stringify({ success: false, message: "Thiếu Access Token." }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    if (!checkUrl) {
+      return new Response(JSON.stringify({ success: false, message: "Thiếu URL kiểm tra." }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const checkUrl = `https://api.akng.io.vn/graph/me?access_token=${accessToken}`;
+    const finalUrl = `${checkUrl}?access_token=${accessToken}`;
     
-    const response = await fetch(checkUrl);
+    const response = await fetch(finalUrl);
     const responseData = await response.json();
 
     if (response.ok && responseData.id) {
