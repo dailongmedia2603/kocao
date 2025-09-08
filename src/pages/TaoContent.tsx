@@ -129,26 +129,64 @@ const TaoContent = () => {
     defaultValues: { name: "", kocId: "", newsPostId: "", prompt: "Tóm tắt tin tức thành một kịch bản video ngắn gọn, hấp dẫn, phù hợp để đọc trong video ngắn." },
   });
 
-  const onSubmit = async (values: z.infer<typeof scriptFormSchema>) => {
+  const generateScriptMutation = useMutation({
+    mutationFn: async (values: z.infer<typeof scriptFormSchema>) => {
+      if (!user) throw new Error("User not authenticated");
+
+      const selectedNews = news.find(post => post.id === values.newsPostId);
+      const selectedKoc = kocs.find(koc => koc.id === values.kocId);
+
+      if (!selectedNews || !selectedKoc) {
+        throw new Error("Không tìm thấy tin tức hoặc KOC đã chọn.");
+      }
+
+      const { data, error } = await supabase.functions.invoke("generate-video-script", {
+        body: {
+          userId: user.id,
+          prompt: values.prompt,
+          newsContent: selectedNews.content,
+          kocName: selectedKoc.name,
+          maxWords: values.maxWords,
+        },
+      });
+
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
+
+      return { scriptContent: data.script, values };
+    },
+    onSuccess: async ({ scriptContent, values }) => {
+      setGeneratedScript(scriptContent);
+      
+      if (user) {
+        const { error: insertError } = await supabase.from('video_scripts').insert({
+          user_id: user.id,
+          name: values.name,
+          koc_id: values.kocId,
+          news_post_id: values.newsPostId,
+          script_content: scriptContent,
+        });
+
+        if (insertError) {
+          showError(`Lưu kịch bản thất bại: ${insertError.message}`);
+        } else {
+          showSuccess("Tạo và lưu kịch bản thành công!");
+          queryClient.invalidateQueries({ queryKey: ['video_scripts', user?.id] });
+        }
+      }
+    },
+    onError: (error: Error) => {
+      showError(`Lỗi tạo kịch bản: ${error.message}`);
+    },
+    onSettled: () => {
+      setIsGenerating(false);
+    }
+  });
+
+  const onSubmit = (values: z.infer<typeof scriptFormSchema>) => {
     setIsGenerating(true);
     setGeneratedScript("");
-    // Mock AI generation
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    const mockScript = `Kịch bản cho: ${values.name}\nKOC: ${kocs.find(k => k.id === values.kocId)?.name}\n\n---\n\n**Phân cảnh 1: Mở đầu**\n\n**Hình ảnh:** Cận cảnh tiêu đề tin tức.\n\n**Lời thoại:** (Giọng hào hứng) Tin nóng hổi đây! Bạn đã nghe gì chưa? [Tóm tắt ngắn gọn tin tức đã chọn].\n\n**Phân cảnh 2: Chi tiết**\n\n**Hình ảnh:** Các hình ảnh minh họa liên quan.\n\n**Lời thoại:** Cụ thể là... [Đi vào chi tiết hơn một chút]. Điều này có nghĩa là... [Giải thích ý nghĩa].\n\n**Phân cảnh 3: Kêu gọi hành động**\n\n**Hình ảnh:** Màn hình kết thúc với logo và thông tin.\n\n**Lời thoại:** Bạn nghĩ sao về điều này? Hãy để lại bình luận bên dưới nhé! Đừng quên theo dõi để cập nhật thêm nhiều tin tức thú vị khác!`;
-    setGeneratedScript(mockScript);
-    setIsGenerating(false);
-    
-    // Save to DB
-    if (user) {
-      await supabase.from('video_scripts').insert({
-        user_id: user.id,
-        name: values.name,
-        koc_id: values.kocId,
-        news_post_id: values.newsPostId,
-        script_content: mockScript,
-      });
-      queryClient.invalidateQueries({ queryKey: ['video_scripts', user?.id] });
-    }
+    generateScriptMutation.mutate(values);
   };
 
   const totalPosts = news.length;
@@ -179,7 +217,7 @@ const TaoContent = () => {
                           <FormField control={form.control} name="newsPostId" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel className="flex items-center"><Newspaper className="h-4 w-4 mr-2" />Tin tức</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" role="combobox" className={cn("w-full justify-between text-left", !field.value && "text-muted-foreground")}>{field.value ? <span className="truncate">{news.find((post) => post.id === field.value)?.content}</span> : "Chọn tin tức"}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Tìm tin tức..." /><CommandList><CommandEmpty>Không tìm thấy tin tức.</CommandEmpty><CommandGroup>{news.map((post) => (<CommandItem value={post.content || ""} key={post.id} onSelect={() => { form.setValue("newsPostId", post.id);}}><Check className={cn("mr-2 h-4 w-4", post.id === field.value ? "opacity-100" : "opacity-0")}/><span className="truncate">{post.content}</span></CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover><FormMessage /></FormItem>)} />
                           <FormField control={form.control} name="maxWords" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Sigma className="h-4 w-4 mr-2" />Số từ tối đa</FormLabel><FormControl><Input type="number" placeholder="Ví dụ: 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
                           <FormField control={form.control} name="prompt" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><MessageSquare className="h-4 w-4 mr-2" />Yêu cầu chi tiết</FormLabel><FormControl><Textarea className="min-h-[100px]" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          <Button type="submit" className="w-full" disabled={isGenerating}>{isGenerating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang xử lý...</> : <><Wand2 className="mr-2 h-4 w-4" /> Tạo kịch bản</>}</Button>
+                          <Button type="submit" className="w-full" disabled={generateScriptMutation.isPending}>{generateScriptMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang xử lý...</> : <><Wand2 className="mr-2 h-4 w-4" /> Tạo kịch bản</>}</Button>
                         </form>
                       </Form>
                     </div>
