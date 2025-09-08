@@ -12,7 +12,14 @@ import { Button } from "@/components/ui/button";
 import { Loader2, UploadCloud } from "lucide-react";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
-const ACCEPTED_AUDIO_TYPES = ["audio/mpeg"];
+const ACCEPTED_FILE_TYPES = [
+  "audio/mpeg",    // .mp3
+  "audio/wav",     // .wav
+  "video/mp4",     // .mp4
+  "video/webm",    // .webm
+  "video/quicktime", // .mov
+];
+const ACCEPTED_FILE_EXTENSIONS_STRING = ".mp3, .wav, .mp4, .webm, .mov";
 
 const formSchema = z.object({
   voice_name: z.string().min(1, "Tên giọng nói không được để trống."),
@@ -22,8 +29,8 @@ const formSchema = z.object({
     .refine((files) => files?.length === 1, "Vui lòng chọn một file.")
     .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `Kích thước file tối đa là 20MB.`)
     .refine(
-      (files) => ACCEPTED_AUDIO_TYPES.includes(files?.[0]?.type),
-      "Chỉ hỗ trợ file .mp3."
+      (files) => ACCEPTED_FILE_TYPES.includes(files?.[0]?.type),
+      `Định dạng không hợp lệ. Chỉ hỗ trợ: ${ACCEPTED_FILE_EXTENSIONS_STRING}`
     ),
 });
 
@@ -68,7 +75,7 @@ export const VoiceCloneForm = () => {
     <Card>
       <CardHeader>
         <CardTitle>Tạo Giọng Nói Mới</CardTitle>
-        <CardDescription>Tải lên một file âm thanh (.mp3, tối đa 20MB) để tạo ra một giọng nói tùy chỉnh.</CardDescription>
+        <CardDescription>Tải lên một file âm thanh hoặc video (tối đa 20MB) để tạo ra một giọng nói tùy chỉnh.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -89,9 +96,9 @@ export const VoiceCloneForm = () => {
             )} />
             <FormField control={form.control} name="file" render={({ field }) => (
               <FormItem>
-                <FormLabel>File âm thanh</FormLabel>
+                <FormLabel>File âm thanh / video</FormLabel>
                 <FormControl>
-                  <Input type="file" accept="audio/mpeg" onChange={(e) => field.onChange(e.target.files)} />
+                  <Input type="file" accept={ACCEPTED_FILE_TYPES.join(',')} onChange={(e) => field.onChange(e.target.files)} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
