@@ -87,7 +87,11 @@ serve(async (req) => {
             continue;
           }
 
-          if (!data.data) continue;
+          // FIX: Check if data.data is an array before filtering
+          if (!data.data || !Array.isArray(data.data)) {
+            console.warn(`No data array in response for source ${source.source_id}. Skipping.`);
+            continue;
+          }
 
           const postsToInsert = data.data
             .filter((post: any) => post.message)
