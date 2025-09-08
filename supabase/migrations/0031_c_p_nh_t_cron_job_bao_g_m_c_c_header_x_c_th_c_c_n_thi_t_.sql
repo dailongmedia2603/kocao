@@ -3,14 +3,16 @@
 -- First, ensure the necessary extensions are available
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS supabase_vault;
-CREATE EXTENSION IF NOT EXISTS pgtap;
-CREATE EXTENSION IF NOT EXISTS http;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- Grant necessary permissions for pg_cron to access secrets and network
+-- Grant the pgsodium_keyholder role to the postgres user, which pg_cron runs as.
+-- This is the key fix for the _crypto_aead_det_encrypt permission error.
+GRANT pgsodium_keyholder TO postgres;
+
+-- Grant necessary schema usage permissions
 GRANT USAGE ON SCHEMA cron TO postgres;
 GRANT USAGE ON SCHEMA vault TO postgres;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA vault TO postgres;
+GRANT USAGE ON SCHEMA net TO postgres;
 
 -- Remove any existing job with the same name to avoid conflicts
 SELECT cron.unschedule('daily-koc-stats-scan');
