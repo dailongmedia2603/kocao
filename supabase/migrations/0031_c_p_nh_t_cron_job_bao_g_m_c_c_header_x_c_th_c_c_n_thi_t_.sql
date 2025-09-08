@@ -1,5 +1,3 @@
--- This script schedules a cron job to run the scan-koc-stats function daily at 00:01 UTC.
-
 -- First, ensure the necessary extensions are available
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS supabase_vault;
@@ -7,13 +5,13 @@ CREATE EXTENSION IF NOT EXISTS supabase_vault;
 -- Grant usage to the postgres user if not already granted
 GRANT USAGE ON SCHEMA cron TO postgres;
 
--- Remove any existing job with the same name to avoid conflicts
+-- Remove the old, failing job
 SELECT cron.unschedule('daily-koc-stats-scan');
 
--- Schedule the new job with proper headers
+-- Schedule the new, corrected job to run daily at 00:01 UTC
 SELECT cron.schedule(
   'daily-koc-stats-scan',
-  '1 0 * * *', -- Runs every day at 00:01 UTC
+  '1 0 * * *',
   $$
     SELECT net.http_post(
       url:='https://ypwupyjwwixgnwpohngd.supabase.co/functions/v1/scan-koc-stats',
