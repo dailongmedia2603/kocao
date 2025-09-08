@@ -71,7 +71,7 @@ serve(async (req) => {
         const until = Math.floor(endOfDay.getTime() / 1000);
 
         const fields = "id,message,created_time,permalink_url";
-        const apiUrl = `https://api.akng.io.vn/graph/${source.source_id}/posts?access_token=${accessToken}&limit=25&since=${since}&until=${until}&fields=${fields}`;
+        const apiUrl = `https://api.akng.io.vn/graph/${source.source_id}/posts?access_token=${accessToken}&limit=100&since=${since}&until=${until}&fields=${fields}`;
         
         try {
           const response = await fetch(apiUrl);
