@@ -76,8 +76,39 @@ const LogViewer = ({ taskId }: { taskId: string }) => {
 };
 
 const fetchTasks = async () => {
-  const data = await callVoiceApi({ path: "v1/tasks?limit=20&type=minimax_tts", method: "GET" });
-  return data.data;
+  // Step 1: Fetch tasks from the external API
+  const apiData = await callVoiceApi({ path: "v1/tasks?limit=20&type=minimax_tts", method: "GET" });
+  const apiTasks = apiData.data;
+
+  if (!apiTasks || apiTasks.length === 0) {
+    return [];
+  }
+
+  // Step 2: Get task IDs
+  const taskIds = apiTasks.map((task: any) => task.id);
+
+  // Step 3: Fetch corresponding names from our DB
+  const { data: dbTasks, error: dbError } = await supabase
+    .from("voice_tasks")
+    .select("id, voice_name")
+    .in("id", taskIds);
+
+  if (dbError) {
+    console.error("Error fetching voice names:", dbError);
+    // Return API tasks without names as a fallback
+    return apiTasks;
+  }
+
+  // Step 4: Create a map for easy lookup
+  const nameMap = new Map(dbTasks.map(task => [task.id, task.voice_name]));
+
+  // Step 5: Merge the data
+  const mergedTasks = apiTasks.map((task: any) => ({
+    ...task,
+    voice_name: nameMap.get(task.id) || "Không có tên", // Add the name
+  }));
+
+  return mergedTasks;
 };
 
 const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView }: { task: any, onSelect: (id: string) => void, isSelected: boolean, onDelete: (id: string) => void, onLogView: (id: string) => void }) => {
@@ -95,7 +126,8 @@ const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView }: { task: a
       <div className="flex items-center gap-4 flex-1 min-w-0">
         <Checkbox checked={isSelected} onCheckedChange={() => onSelect(task.id)} aria-label={`Select task ${task.id}`} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <p className="font-semibold truncate">{task.voice_name}</p>
+          <div className="flex items-center gap-2 mt-1">
             {getStatusBadge(task.status)}
             <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(task.created_at), { addSuffix: true, locale: vi })}</p>
           </div>

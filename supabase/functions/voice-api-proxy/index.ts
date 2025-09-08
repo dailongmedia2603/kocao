@@ -46,41 +46,54 @@ serve(async (req) => {
     const { path, method, body } = await req.json();
     const apiUrl = `https://gateway.vivoo.work/${path}`;
 
+    // Extract voice_name and remove it from the body sent to the external API
+    const { voice_name, ...apiBody } = body;
+
     const fetchOptions = {
       method: method,
       headers: {
         "xi-api-key": apiKey,
         "Content-Type": "application/json",
       },
-      body: body ? JSON.stringify(body) : undefined,
+      body: apiBody ? JSON.stringify(apiBody) : undefined,
     };
 
     const apiResponse = await fetch(apiUrl, fetchOptions);
     const responseData = await apiResponse.json();
 
-    // --- LOGGING LOGIC ---
+    // --- LOGGING & DB INSERT LOGIC ---
     if (path === "v1m/task/text-to-speech" && method === "POST") {
+      const taskId = responseData?.task_id;
+      
       const logPayload = {
         user_id: user.id,
-        task_id: responseData?.task_id || null,
-        request_payload: body,
+        task_id: taskId || null,
+        request_payload: body, // Log the original body with voice_name
         response_body: responseData,
         status_code: apiResponse.status,
       };
       
-      const { error: logError } = await supabaseAdmin
-        .from("tts_logs")
-        .insert(logPayload);
-        
-      if (logError) {
-        console.error("Failed to write to tts_logs:", logError);
+      const { error: logError } = await supabaseAdmin.from("tts_logs").insert(logPayload);
+      if (logError) console.error("Failed to write to tts_logs:", logError);
+
+      // Insert into our own tasks table if successful
+      if (taskId && apiResponse.ok) {
+        const { error: dbError } = await supabaseAdmin
+          .from("voice_tasks")
+          .insert({
+              id: taskId,
+              user_id: user.id,
+              voice_name: voice_name, // The new field
+              status: 'doing',
+              task_type: 'minimax_tts',
+          });
+        if (dbError) console.error("Failed to insert into voice_tasks:", dbError);
       }
     }
     // --- END LOGGING LOGIC ---
 
     if (!apiResponse.ok) {
       let errorMessage = responseData.message || JSON.stringify(responseData);
-      // Cung cấp thông báo lỗi thân thiện hơn cho lỗi cụ thể này
       if (errorMessage.includes("minimax_tts_error")) {
         errorMessage = "Lỗi từ nhà cung cấp dịch vụ giọng nói. Vui lòng thử lại sau hoặc chọn một giọng nói khác.";
       }

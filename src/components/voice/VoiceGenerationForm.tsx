@@ -11,8 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Loader2, Wand2 } from "lucide-react";
 import { Skeleton } from "../ui/skeleton";
+import { Input } from "@/components/ui/input";
 
 const formSchema = z.object({
+  voice_name: z.string().min(1, "Tên voice không được để trống."),
   text: z.string().min(1, "Văn bản không được để trống.").max(2500, "Văn bản không được quá 2500 ký tự."),
   voice_id: z.string().min(1, "Vui lòng chọn một giọng nói."),
   model: z.string().min(1, "Vui lòng chọn một model."),
@@ -33,12 +35,13 @@ export const VoiceGenerationForm = () => {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { text: "", voice_id: "", model: "speech-2.5-hd-preview" },
+    defaultValues: { voice_name: "", text: "", voice_id: "", model: "speech-2.5-hd-preview" },
   });
 
   const createVoiceMutation = useMutation({
     mutationFn: (values: z.infer<typeof formSchema>) => {
       const body = {
+        voice_name: values.voice_name,
         text: values.text,
         model: values.model,
         voice_setting: { voice_id: values.voice_id }
@@ -48,7 +51,7 @@ export const VoiceGenerationForm = () => {
     onSuccess: () => {
       showSuccess("Đã gửi yêu cầu tạo voice! Vui lòng chờ trong giây lát.");
       queryClient.invalidateQueries({ queryKey: ["voice_tasks"] });
-      form.reset({ ...form.getValues(), text: "" });
+      form.reset({ ...form.getValues(), text: "", voice_name: "" });
     },
     onError: (error: Error) => {
       showError(`Tạo voice thất bại: ${error.message}`);
@@ -68,6 +71,13 @@ export const VoiceGenerationForm = () => {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField control={form.control} name="voice_name" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tên Voice</FormLabel>
+                <FormControl><Input placeholder="Ví dụ: Voice quảng cáo sản phẩm A" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
             <FormField control={form.control} name="text" render={({ field }) => (
               <FormItem>
                 <FormLabel>Văn bản</FormLabel>
