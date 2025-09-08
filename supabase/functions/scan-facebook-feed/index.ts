@@ -18,14 +18,10 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check for a specific user ID for manual scans
     const body = await req.json().catch(() => ({}));
     const specificUserId = body.userId;
 
-    // Build the initial query for sources
     let sourcesQuery = supabaseAdmin.from('news_sources').select('user_id, source_id, name');
-    
-    // If a specific user is provided, filter sources for that user
     if (specificUserId) {
       sourcesQuery = sourcesQuery.eq('user_id', specificUserId);
     }
@@ -45,10 +41,7 @@ serve(async (req) => {
       return acc;
     }, {});
 
-    // Build the initial query for tokens
     let tokensQuery = supabaseAdmin.from('user_facebook_tokens').select('user_id, access_token');
-    
-    // If a specific user is provided, only fetch their token
     if (specificUserId) {
       tokensQuery = tokensQuery.eq('user_id', specificUserId);
     }
@@ -67,7 +60,13 @@ serve(async (req) => {
       }
 
       for (const source of userSources) {
-        const apiUrl = `https://api.akng.io.vn/graph/${source.source_id}/feed?access_token=${accessToken}&limit=10`;
+        // Calculate timestamps for the last 7 days
+        const until = Math.floor(new Date().getTime() / 1000);
+        const since = Math.floor(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).getTime() / 1000);
+
+        // Update URL to use /posts and add time range
+        const apiUrl = `https://api.akng.io.vn/graph/${source.source_id}/posts?access_token=${accessToken}&limit=25&since=${since}&until=${until}`;
+        
         try {
           const response = await fetch(apiUrl);
           const data = await response.json();
@@ -87,7 +86,6 @@ serve(async (req) => {
             continue;
           }
 
-          // FIX: Check if data.data is an array before filtering
           if (!data.data || !Array.isArray(data.data)) {
             console.warn(`No data array in response for source ${source.source_id}. Skipping.`);
             continue;
