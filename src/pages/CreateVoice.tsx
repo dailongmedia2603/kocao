@@ -3,6 +3,7 @@ import { VoiceGenerationForm } from "@/components/voice/VoiceGenerationForm";
 import { TaskList } from "@/components/voice/TaskList";
 import { VoiceCloneForm } from "@/components/voice/VoiceCloneForm";
 import { ClonedVoiceList } from "@/components/voice/ClonedVoiceList";
+import { Mic, Copy } from "lucide-react";
 
 const CreateVoicePage = () => {
   return (
@@ -12,9 +13,25 @@ const CreateVoicePage = () => {
         <p className="text-muted-foreground mt-1">Tạo giọng nói từ văn bản hoặc clone giọng nói của riêng bạn.</p>
       </header>
       <Tabs defaultValue="tts" className="w-full">
-        <TabsList>
-          <TabsTrigger value="tts">Tạo Voice (Text-to-Speech)</TabsTrigger>
-          <TabsTrigger value="clone">Clone Voice</TabsTrigger>
+        <TabsList className="inline-flex h-auto items-center justify-center gap-1 rounded-none border-b bg-transparent p-0">
+          <TabsTrigger
+            value="tts"
+            className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-muted-foreground ring-offset-background transition-all hover:bg-muted/50 focus-visible:outline-none data-[state=active]:border-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-muted-foreground transition-colors group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white">
+              <Mic className="h-5 w-5" />
+            </div>
+            Tạo Voice (Text-to-Speech)
+          </TabsTrigger>
+          <TabsTrigger
+            value="clone"
+            className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-muted-foreground ring-offset-background transition-all hover:bg-muted/50 focus-visible:outline-none data-[state=active]:border-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-muted-foreground transition-colors group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white">
+              <Copy className="h-5 w-5" />
+            </div>
+            Clone Voice
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="tts" className="mt-6">
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
