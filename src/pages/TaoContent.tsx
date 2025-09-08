@@ -3,6 +3,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Bot, Newspaper } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const TaoContent = () => {
   return (
@@ -14,58 +15,57 @@ const TaoContent = () => {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        {/* AI Content Generation Card */}
-        <Card className="h-full flex flex-col">
-          <CardHeader className="flex-row items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 flex-shrink-0">
-              <Bot className="h-6 w-6" />
-            </div>
-            <div>
+      <Tabs defaultValue="create-content" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 md:w-[400px]">
+          <TabsTrigger value="create-content">
+            <Bot className="mr-2 h-4 w-4" />
+            Tạo content
+          </TabsTrigger>
+          <TabsTrigger value="news">
+            <Newspaper className="mr-2 h-4 w-4" />
+            Tin tức mới
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="create-content" className="mt-6">
+          <Card>
+            <CardHeader>
               <CardTitle>Tạo Content bằng AI</CardTitle>
-              <CardDescription className="mt-1">
+              <CardDescription>
                 Mô tả chi tiết yêu cầu của bạn, AI sẽ tạo ra nội dung sáng tạo.
               </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-grow flex flex-col">
-            <div className="flex-grow">
+            </CardHeader>
+            <CardContent className="space-y-4">
               <Textarea
                 placeholder="Ví dụ: Viết một bài đăng Facebook quảng cáo tai nghe không dây mới, nhấn mạnh vào thời lượng pin và chất lượng âm thanh."
-                className="min-h-[150px] resize-none"
+                className="min-h-[200px] resize-y"
               />
-            </div>
-            <Button className="mt-4 w-full">
-              <Bot className="mr-2 h-4 w-4" />
-              Tạo Content
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Facebook Post Scanner Card */}
-        <Card className="h-full flex flex-col">
-          <CardHeader className="flex-row items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
-              <Newspaper className="h-6 w-6" />
-            </div>
-            <div>
+              <Button className="w-full sm:w-auto">
+                <Bot className="mr-2 h-4 w-4" />
+                Bắt đầu tạo
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="news" className="mt-6">
+          <Card>
+            <CardHeader>
               <CardTitle>Cập nhật tin tức từ Facebook</CardTitle>
-              <CardDescription className="mt-1">
+              <CardDescription>
                 Dán ID hoặc URL bài viết để quét và lấy thông tin chi tiết.
               </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-grow flex flex-col justify-between">
-            <Input
-              placeholder="Nhập ID hoặc URL bài viết Facebook..."
-            />
-            <Button className="mt-4 w-full">
-              <Newspaper className="mr-2 h-4 w-4" />
-              Quét bài viết
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                placeholder="Nhập ID hoặc URL bài viết Facebook..."
+              />
+              <Button className="w-full sm:w-auto">
+                <Newspaper className="mr-2 h-4 w-4" />
+                Quét bài viết
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
