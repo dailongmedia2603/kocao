@@ -20,15 +20,12 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const specificUserId = body.userId;
-    const sourceIdsToScan = body.sourceIds; // Get the list of selected source IDs
+    const sourceIdsToScan = body.sourceIds;
 
     let sourcesQuery = supabaseAdmin.from('news_sources').select('user_id, source_id, name');
-    
     if (specificUserId) {
       sourcesQuery = sourcesQuery.eq('user_id', specificUserId);
     }
-
-    // If a list of specific source IDs is provided, filter by them
     if (sourceIdsToScan && Array.isArray(sourceIdsToScan) && sourceIdsToScan.length > 0) {
       sourcesQuery = sourcesQuery.in('source_id', sourceIdsToScan);
     }
@@ -95,12 +92,20 @@ serve(async (req) => {
             continue;
           }
 
-          if (!data.data || !Array.isArray(data.data)) {
+          // FIX: Handle nested data structure from the API proxy
+          let postsArray = null;
+          if (data.data && Array.isArray(data.data.data)) {
+            postsArray = data.data.data; // Handles {"data": {"data": [...]}}
+          } else if (Array.isArray(data.data)) {
+            postsArray = data.data; // Handles {"data": [...]}
+          }
+
+          if (!postsArray) {
             console.warn(`No data array in response for source ${source.source_id}. Skipping.`);
             continue;
           }
 
-          const postsToInsert = data.data
+          const postsToInsert = postsArray
             .filter((post: any) => post.message)
             .map((post: any) => ({
               user_id: userId,
