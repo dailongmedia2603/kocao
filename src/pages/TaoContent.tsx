@@ -16,13 +16,23 @@ const TaoContent = () => {
       </header>
 
       <Tabs defaultValue="create-content" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:w-[400px]">
-          <TabsTrigger value="create-content">
-            <Bot className="mr-2 h-4 w-4" />
+        <TabsList className="inline-flex h-auto items-center justify-center gap-1 rounded-none border-b bg-transparent p-0">
+          <TabsTrigger
+            value="create-content"
+            className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-muted-foreground ring-offset-background transition-all hover:bg-muted/50 focus-visible:outline-none data-[state=active]:border-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-muted-foreground transition-colors group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white">
+              <Bot className="h-5 w-5" />
+            </div>
             Tạo content
           </TabsTrigger>
-          <TabsTrigger value="news">
-            <Newspaper className="mr-2 h-4 w-4" />
+          <TabsTrigger
+            value="news"
+            className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-muted-foreground ring-offset-background transition-all hover:bg-muted/50 focus-visible:outline-none data-[state=active]:border-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-muted-foreground transition-colors group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white">
+              <Newspaper className="h-5 w-5" />
+            </div>
             Tin tức mới
           </TabsTrigger>
         </TabsList>
