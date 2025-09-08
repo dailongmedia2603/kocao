@@ -20,6 +20,8 @@ const formSchema = z.object({
   koc_id: z.string().min(1, "Vui lòng chọn KOC."),
   voice: z.string().min(1, "Vui lòng chọn giọng nói."),
   project_id: z.string().min(1, "Vui lòng chọn kịch bản (project)."),
+  model: z.string().min(1, "Vui lòng chọn model AI."),
+  max_words: z.coerce.number().positive("Số từ phải là số dương.").optional(),
   ai_prompt: z.string().min(1, "Yêu cầu cho AI không được để trống."),
 });
 
@@ -39,7 +41,9 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
       koc_id: "",
       voice: "",
       project_id: "",
-      ai_prompt: "Từ tin tức được cung cấp, hãy tạo một kịch bản video ngắn khoảng 300 từ, với giọng văn hấp dẫn, phù hợp với giới trẻ trên nền tảng TikTok. Kịch bản cần có mở đầu lôi cuốn, thân bài cung cấp thông tin chính và kết thúc kêu gọi hành động.",
+      model: "gemini-1.5-pro-latest",
+      max_words: 300,
+      ai_prompt: "Từ tin tức được cung cấp, hãy tạo một kịch bản video ngắn, với giọng văn hấp dẫn, phù hợp với giới trẻ trên nền tảng TikTok. Kịch bản cần có mở đầu lôi cuốn, thân bài cung cấp thông tin chính và kết thúc kêu gọi hành động.",
     },
   });
 
@@ -85,6 +89,8 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
         cloned_voice_name: selectedVoice.name,
         project_id: values.project_id,
         ai_prompt: values.ai_prompt,
+        model: values.model,
+        max_words: values.max_words,
         status: 'paused',
       });
       if (error) throw error;
@@ -125,6 +131,30 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
             <FormField control={form.control} name="project_id" render={({ field }) => (
               <FormItem><FormLabel>Kịch bản Extension</FormLabel>{isLoadingProjects ? <Skeleton className="h-10 w-full" /> : <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn kịch bản (project)" /></SelectTrigger></FormControl><SelectContent>{projects?.map(project => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent></Select>}<FormMessage /></FormItem>
             )} />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="model" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Model AI</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro</SelectItem>
+                      <SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="max_words" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Số từ tối đa</FormLabel>
+                  <FormControl><Input type="number" placeholder="Ví dụ: 300" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
+
             <FormField control={form.control} name="ai_prompt" render={({ field }) => (
               <FormItem><FormLabel>Yêu cầu cho AI (Script Generation)</FormLabel><FormControl><Textarea className="min-h-[120px]" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
