@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import {
@@ -18,10 +18,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash2, Edit, Mic, PlayCircle, Loader2, Inbox, Link as LinkIcon } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { MoreHorizontal, Trash2, Edit, Mic, PlayCircle, Loader2, Inbox, Link as LinkIcon, Users, FileText as FileTextIcon, Calendar, Activity, Settings2 } from "lucide-react";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { ViewPostContentDialog } from "./ViewPostContentDialog";
+import { showSuccess, showError } from "@/utils/toast";
 
 type NewsPost = {
   id: string;
@@ -33,17 +44,10 @@ type NewsPost = {
   post_url: string | null;
 };
 
-const fetchNewsPosts = async (userId: string) => {
-  const { data, error } = await supabase
-    .from('news_posts')
-    .select('id, source_name, content, created_time, status, voice_script, post_url')
-    .eq('user_id', userId)
-    .order('created_time', { ascending: false })
-    .limit(50);
-  
-  if (error) throw error;
-  return data as NewsPost[];
-};
+interface NewsTableProps {
+  news: NewsPost[];
+  isLoading: boolean;
+}
 
 const StatusBadge = ({ status }: { status: string }) => {
   switch (status) {
@@ -56,15 +60,27 @@ const StatusBadge = ({ status }: { status: string }) => {
   }
 };
 
-export const NewsTable = () => {
+export const NewsTable = ({ news, isLoading }: NewsTableProps) => {
   const { user } = useSession();
+  const queryClient = useQueryClient();
   const [isContentDialogOpen, setIsContentDialogOpen] = useState(false);
   const [selectedPostContent, setSelectedPostContent] = useState<string | null>(null);
+  const [postToDelete, setPostToDelete] = useState<NewsPost | null>(null);
 
-  const { data: news, isLoading } = useQuery({
-    queryKey: ['news_posts', user?.id],
-    queryFn: () => fetchNewsPosts(user!.id),
-    enabled: !!user,
+  const deletePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      const { error } = await supabase.from('news_posts').delete().eq('id', postId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showSuccess("Xóa bài viết thành công!");
+      queryClient.invalidateQueries({ queryKey: ['news_posts', user?.id] });
+      setPostToDelete(null);
+    },
+    onError: (error: Error) => {
+      showError(`Lỗi: ${error.message}`);
+      setPostToDelete(null);
+    },
   });
 
   const handleViewContent = (content: string | null) => {
@@ -74,19 +90,25 @@ export const NewsTable = () => {
     }
   };
 
+  const handleDelete = () => {
+    if (postToDelete) {
+      deletePostMutation.mutate(postToDelete.id);
+    }
+  };
+
   return (
     <>
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nguồn</TableHead>
-              <TableHead>Nội dung post</TableHead>
-              <TableHead>Ngày post</TableHead>
-              <TableHead>Link bài</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead>Kịch bản voice</TableHead>
-              <TableHead className="text-right">Hành động</TableHead>
+              <TableHead><div className="flex items-center gap-2"><Users className="h-4 w-4" />Nguồn</div></TableHead>
+              <TableHead><div className="flex items-center gap-2"><FileTextIcon className="h-4 w-4" />Nội dung post</div></TableHead>
+              <TableHead><div className="flex items-center gap-2"><Calendar className="h-4 w-4" />Ngày post</div></TableHead>
+              <TableHead><div className="flex items-center gap-2"><LinkIcon className="h-4 w-4" />Link bài</div></TableHead>
+              <TableHead><div className="flex items-center gap-2"><Activity className="h-4 w-4" />Trạng thái</div></TableHead>
+              <TableHead><div className="flex items-center gap-2"><Mic className="h-4 w-4" />Kịch bản voice</div></TableHead>
+              <TableHead className="text-right"><div className="flex items-center justify-end gap-2"><Settings2 className="h-4 w-4" />Hành động</div></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -147,11 +169,11 @@ export const NewsTable = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => alert('Chức năng đang được phát triển')}>
                           <Edit className="mr-2 h-4 w-4" />
                           <span>Sửa</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem className="text-red-600" onClick={() => setPostToDelete(item)}>
                           <Trash2 className="mr-2 h-4 w-4" />
                           <span>Xóa</span>
                         </DropdownMenuItem>
@@ -177,6 +199,22 @@ export const NewsTable = () => {
         onOpenChange={setIsContentDialogOpen}
         content={selectedPostContent}
       />
+      <AlertDialog open={!!postToDelete} onOpenChange={(isOpen) => !isOpen && setPostToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hành động này không thể hoàn tác. Bài viết sẽ bị xóa vĩnh viễn.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deletePostMutation.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deletePostMutation.isPending ? "Đang xóa..." : "Xóa"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

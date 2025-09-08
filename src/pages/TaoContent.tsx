@@ -1,16 +1,55 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useSession } from "@/contexts/SessionContext";
+import { isToday } from 'date-fns';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Bot, Newspaper, Settings, History } from "lucide-react";
+import { Bot, Newspaper, Settings, History, FileText, CalendarClock, Voicemail } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfigureNewsDialog } from "@/components/content/ConfigureNewsDialog";
 import { NewsTable } from "@/components/content/NewsTable";
 import { NewsScanLogDialog } from "@/components/content/NewsScanLogDialog";
+import { StatCard } from "@/components/content/StatCard";
+
+type NewsPost = {
+  id: string;
+  source_name: string | null;
+  content: string | null;
+  created_time: string;
+  status: string;
+  voice_script: string | null;
+  post_url: string | null;
+};
+
+const fetchNewsPosts = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('news_posts')
+    .select('id, source_name, content, created_time, status, voice_script, post_url')
+    .eq('user_id', userId)
+    .order('created_time', { ascending: false })
+    .limit(50);
+  
+  if (error) throw error;
+  return data as NewsPost[];
+};
 
 const TaoContent = () => {
   const [isConfigureOpen, setConfigureOpen] = useState(false);
   const [isLogOpen, setLogOpen] = useState(false);
+  const { user } = useSession();
+
+  const { data: news = [], isLoading } = useQuery<NewsPost[]>({
+    queryKey: ['news_posts', user?.id],
+    queryFn: () => fetchNewsPosts(user!.id),
+    enabled: !!user,
+  });
+
+  const totalPosts = news.length;
+  const todayPosts = news.filter(post => isToday(new Date(post.created_time))).length;
+  const voiceGeneratedPosts = news.filter(post => post.status === 'voice_generated').length;
 
   return (
     <>
@@ -64,20 +103,25 @@ const TaoContent = () => {
             </Card>
           </TabsContent>
           <TabsContent value="news" className="mt-6">
+            <div className="grid gap-4 md:grid-cols-3 mb-6">
+              <StatCard title="Tổng Post" value={isLoading ? '...' : totalPosts} icon={FileText} color="bg-blue-100 text-blue-600" />
+              <StatCard title="Post Hôm Nay" value={isLoading ? '...' : todayPosts} icon={CalendarClock} color="bg-green-100 text-green-600" />
+              <StatCard title="Đã Tạo Voice" value={isLoading ? '...' : voiceGeneratedPosts} icon={Voicemail} color="bg-purple-100 text-purple-600" />
+            </div>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Hộp thư tin tức</h2>
               <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={() => setLogOpen(true)}>
+                <Button variant="outline" onClick={() => setLogOpen(true)} className="bg-red-100 hover:bg-red-200 text-red-700 border-red-200">
                   <History className="mr-2 h-4 w-4" />
                   Nhật ký
                 </Button>
-                <Button variant="outline" onClick={() => setConfigureOpen(true)}>
+                <Button onClick={() => setConfigureOpen(true)} className="bg-red-700 hover:bg-red-800 text-white">
                   <Settings className="mr-2 h-4 w-4" />
                   Cấu hình
                 </Button>
               </div>
             </div>
-            <NewsTable />
+            <NewsTable news={news} isLoading={isLoading} />
           </TabsContent>
         </Tabs>
       </div>
