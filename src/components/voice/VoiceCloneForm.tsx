@@ -16,7 +16,7 @@ const ACCEPTED_AUDIO_TYPES = ["audio/mpeg"];
 
 const formSchema = z.object({
   voice_name: z.string().min(1, "Tên giọng nói không được để trống."),
-  preview_text: z.string().min(10, "Văn bản xem trước phải có ít nhất 10 ký tự.").max(200, "Văn bản không được quá 200 ký tự."),
+  preview_text: z.string().min(10, "Văn bản xem trước phải có ít nhất 10 ký tự.").max(300, "Văn bản không được quá 300 ký tự."),
   file: z
     .instanceof(FileList)
     .refine((files) => files?.length === 1, "Vui lòng chọn một file.")
@@ -31,7 +31,10 @@ export const VoiceCloneForm = () => {
   const queryClient = useQueryClient();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { voice_name: "", preview_text: "Xin chào, đây là giọng nói do GenAIPro tạo ra." },
+    defaultValues: {
+      voice_name: "",
+      preview_text: "Xin chào, tôi rất vui được hỗ trợ bạn với các dịch vụ giọng nói của chúng tôi. Hãy chọn một giọng nói phù hợp với bạn và cùng bắt đầu hành trình âm thanh sáng tạo của chúng ta",
+    },
   });
 
   const cloneVoiceMutation = useMutation({
@@ -43,6 +46,7 @@ export const VoiceCloneForm = () => {
 
       const { data, error } = await supabase.functions.invoke("voice-clone-proxy", { body: formData });
       if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
       if (!data.success) throw new Error(data.message || "Clone voice thất bại.");
       return data;
     },
