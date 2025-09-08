@@ -62,7 +62,7 @@ serve(async (req) => {
     if (path === "v1m/task/text-to-speech" && method === "POST") {
       const logPayload = {
         user_id: user.id,
-        task_id: responseData?.data?.id || null,
+        task_id: responseData?.Task_ID || null, // Sửa lỗi: Đọc đúng trường Task_ID
         request_payload: body,
         response_body: responseData,
         status_code: apiResponse.status,
