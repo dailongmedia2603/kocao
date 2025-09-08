@@ -8,13 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const TaoContent = () => {
   return (
     <div className="p-6 lg:p-8">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold">Công cụ Content</h1>
-        <p className="text-muted-foreground mt-1">
-          Sử dụng AI để tạo nội dung mới hoặc cập nhật tin tức từ các nguồn có sẵn.
-        </p>
-      </header>
-
       <Tabs defaultValue="create-content" className="w-full">
         <TabsList className="inline-flex h-auto items-center justify-center gap-1 rounded-none border-b bg-transparent p-0">
           <TabsTrigger
