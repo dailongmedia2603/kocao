@@ -80,28 +80,16 @@ export const TaskList = () => {
       }
       return data;
     },
-    onMutate: async (taskIdsToDelete) => {
-      await queryClient.cancelQueries({ queryKey: ["voice_tasks"] });
-      const previousTasks = queryClient.getQueryData(["voice_tasks"]);
-      queryClient.setQueryData(["voice_tasks"], (old: any[] | undefined) =>
-        old ? old.filter(task => !taskIdsToDelete.includes(task.id)) : []
-      );
-      setSelectedTaskIds([]);
-      setTasksToDelete([]);
-      return { previousTasks };
-    },
     onSuccess: (_, variables) => {
       showSuccess(`Đã xóa ${variables.length} task thành công!`);
-    },
-    onError: (err, _, context) => {
-      if (context?.previousTasks) {
-        queryClient.setQueryData(["voice_tasks"], context.previousTasks);
-      }
-      showError(`Lỗi: ${(err as Error).message}`);
+      // Invalidate query only after successful API response
+      queryClient.invalidateQueries({ queryKey: ["voice_tasks"] });
+      setSelectedTaskIds([]);
       setTasksToDelete([]);
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["voice_tasks"] });
+    onError: (error: Error) => {
+      showError(`Lỗi: ${error.message}`);
+      setTasksToDelete([]);
     },
   });
 
