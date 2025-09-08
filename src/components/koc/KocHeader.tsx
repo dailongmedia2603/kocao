@@ -1,4 +1,4 @@
-import { Bell, Users, BarChart3, Video, Mic } from "lucide-react";
+import { Bell, Users, BarChart3, Video, Mic, PenSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -8,11 +8,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSession } from "@/contexts/SessionContext";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const KocHeader = () => {
   const { profile, user, signOut } = useSession();
+  const location = useLocation();
 
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
     const first = firstName?.[0] || "";
@@ -35,6 +36,8 @@ const KocHeader = () => {
       "flex items-center justify-center h-7 w-7 rounded-md transition-colors",
       isActive ? "bg-red-600 text-white" : "bg-gray-200 text-gray-600"
     );
+
+  const isContentMenuActive = location.pathname.startsWith('/tao-content') || location.pathname.startsWith('/cap-nhat-tin-tuc');
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-white px-6 flex-shrink-0">
@@ -69,6 +72,33 @@ const KocHeader = () => {
             </>
           )}
         </NavLink>
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn(
+                "flex items-center p-2 rounded-lg font-semibold transition-colors text-sm",
+                isContentMenuActive
+                  ? "bg-red-50 text-red-600"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              )}
+            >
+              <div className={iconContainerClasses(isContentMenuActive)}>
+                <PenSquare className="h-4 w-4" />
+              </div>
+              <span className="ml-2">Tạo Content</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem asChild>
+              <NavLink to="/tao-content" className="w-full cursor-pointer">Tạo content</NavLink>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <NavLink to="/cap-nhat-tin-tuc" className="w-full cursor-pointer">Cập nhật tin tức</NavLink>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <NavLink to="/reports" className={navLinkClasses}>
           {({ isActive }) => (
             <>
