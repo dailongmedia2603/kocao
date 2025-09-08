@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { callVoiceApi } from "@/lib/voiceApi";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, History, Loader2, Trash2 } from "lucide-react";
+import { AlertCircle, History, Loader2, Trash2, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -20,13 +21,66 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+const LogViewer = ({ taskId }: { taskId: string }) => {
+  const { data: log, isLoading, isError, error } = useQuery({
+    queryKey: ['tts_log', taskId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tts_logs')
+        .select('*')
+        .eq('task_id', taskId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!taskId,
+  });
+
+  return (
+    <DialogContent className="max-w-3xl">
+      <DialogHeader>
+        <DialogTitle>API Log for Task {taskId}</DialogTitle>
+      </DialogHeader>
+      <div className="max-h-[60vh] overflow-y-auto pr-4">
+        {isLoading && <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>}
+        {isError && <p className="text-destructive">Lỗi khi tải log: {(error as Error).message}</p>}
+        {log ? (
+          <div className="space-y-4 text-sm">
+            <div>
+              <h4 className="font-semibold mb-2">Request Payload</h4>
+              <pre className="p-3 bg-muted rounded-md text-xs overflow-auto">
+                <code>{JSON.stringify(log.request_payload, null, 2)}</code>
+              </pre>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-2">Response Body (Status: {log.status_code})</h4>
+              <pre className="p-3 bg-muted rounded-md text-xs overflow-auto">
+                <code>{JSON.stringify(log.response_body, null, 2)}</code>
+              </pre>
+            </div>
+          </div>
+        ) : (
+          !isLoading && !isError && <p className="text-center text-muted-foreground py-8">Không tìm thấy log cho task này.</p>
+        )}
+      </div>
+    </DialogContent>
+  );
+};
 
 const fetchTasks = async () => {
   const data = await callVoiceApi({ path: "v1/tasks?limit=20&type=minimax_tts", method: "GET" });
   return data.data;
 };
 
-const TaskItem = ({ task, onSelect, isSelected, onDelete }: { task: any, onSelect: (id: string) => void, isSelected: boolean, onDelete: (id: string) => void }) => {
+const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView }: { task: any, onSelect: (id: string) => void, isSelected: boolean, onDelete: (id: string) => void, onLogView: (id: string) => void }) => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "done": return <Badge variant="default" className="bg-green-100 text-green-800">Hoàn thành</Badge>;
@@ -51,9 +105,14 @@ const TaskItem = ({ task, onSelect, isSelected, onDelete }: { task: any, onSelec
           {task.status === 'error' && <p className="text-xs text-destructive mt-1">{task.error_message}</p>}
         </div>
       </div>
-      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => onDelete(task.id)}>
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      <div className="flex items-center">
+        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-blue-500" onClick={() => onLogView(task.id)} title="Xem Log">
+          <FileText className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => onDelete(task.id)} title="Xóa Task">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 };
@@ -62,6 +121,7 @@ export const TaskList = () => {
   const queryClient = useQueryClient();
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [tasksToDelete, setTasksToDelete] = useState<string[]>([]);
+  const [logTaskId, setLogTaskId] = useState<string | null>(null);
 
   const { data: tasks, isLoading, isError, error } = useQuery({
     queryKey: ["voice_tasks"],
@@ -82,7 +142,6 @@ export const TaskList = () => {
     },
     onSuccess: (_, variables) => {
       showSuccess(`Đã xóa ${variables.length} task thành công!`);
-      // Invalidate query only after successful API response
       queryClient.invalidateQueries({ queryKey: ["voice_tasks"] });
       setSelectedTaskIds([]);
       setTasksToDelete([]);
@@ -133,6 +192,7 @@ export const TaskList = () => {
               onSelect={handleSelectTask}
               isSelected={selectedTaskIds.includes(task.id)}
               onDelete={(id) => handleDelete([id])}
+              onLogView={(id) => setLogTaskId(id)}
             />
           ))}</div>
           : <div className="text-center py-10 border-2 border-dashed rounded-lg"><History className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-4 text-lg font-medium">Chưa có task nào</h3><p className="mt-1 text-sm text-muted-foreground">Hãy bắt đầu tạo voice đầu tiên của bạn!</p></div>}
@@ -154,6 +214,10 @@ export const TaskList = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!logTaskId} onOpenChange={(open) => !open && setLogTaskId(null)}>
+        {logTaskId && <LogViewer taskId={logTaskId} />}
+      </Dialog>
     </>
   );
 };
