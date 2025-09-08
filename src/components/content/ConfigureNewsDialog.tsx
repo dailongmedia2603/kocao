@@ -181,6 +181,17 @@ export const ConfigureNewsDialog = ({ isOpen, onOpenChange }: ConfigureNewsDialo
     if(fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleDownloadSample = () => {
+    const sampleData = [
+      { "ID Fanpage / Group": "100064582455502", "Tên Fanpage / Group": "Kênh 14" },
+      { "ID Fanpage / Group": "100064792823973", "Tên Fanpage / Group": "VNExpress" },
+    ];
+    const worksheet = XLSX.utils.json_to_sheet(sampleData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Danh sách Fanpage");
+    XLSX.writeFile(workbook, "mau-import-fanpage.xlsx");
+  };
+
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     console.log("Configuration saved:", values);
     showSuccess("Đã lưu cấu hình!");
@@ -217,7 +228,13 @@ export const ConfigureNewsDialog = ({ isOpen, onOpenChange }: ConfigureNewsDialo
           </TabsContent>
           <TabsContent value="fanpages">
             <div className="space-y-4 pt-4">
-              <div className="flex justify-end"><Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={addFanpagesMutation.isPending}>{addFanpagesMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}Import Excel</Button><input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileImport} /></div>
+              <div className="flex justify-end items-center gap-4">
+                <Button variant="link" className="p-0 h-auto text-sm" onClick={handleDownloadSample}>
+                  Tải file mẫu
+                </Button>
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={addFanpagesMutation.isPending}>{addFanpagesMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}Import Excel</Button>
+                <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleFileImport} />
+              </div>
               <div className="rounded-md border max-h-80 overflow-auto">
                 <Table>
                   <TableHeader><TableRow><TableHead>Tên Fanpage / Group</TableHead><TableHead>ID</TableHead><TableHead className="text-right"></TableHead></TableRow></TableHeader>
