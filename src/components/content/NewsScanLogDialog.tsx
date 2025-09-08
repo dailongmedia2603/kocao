@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -95,33 +96,9 @@ export const NewsScanLogDialog = ({ isOpen, onOpenChange }: NewsScanLogDialogPro
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
-        <DialogHeader className="flex-row justify-between items-center">
-          <div>
-            <DialogTitle>Nhật ký quét tin tức</DialogTitle>
-            <DialogDescription>Lịch sử các lần hệ thống tự động quét tin từ các nguồn đã cấu hình.</DialogDescription>
-          </div>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm" disabled={!logs || logs.length === 0 || clearLogsMutation.isPending}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Xóa tất cả
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Hành động này không thể hoàn tác. Toàn bộ lịch sử quét tin sẽ bị xóa vĩnh viễn.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                <AlertDialogAction onClick={() => clearLogsMutation.mutate()} disabled={clearLogsMutation.isPending}>
-                  {clearLogsMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Xóa"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+        <DialogHeader>
+          <DialogTitle>Nhật ký quét tin tức</DialogTitle>
+          <DialogDescription>Lịch sử các lần hệ thống tự động quét tin từ các nguồn đã cấu hình.</DialogDescription>
         </DialogHeader>
         <ScrollArea className="h-[60vh] pr-4 mt-4">
           {isLoading ? (
@@ -153,6 +130,30 @@ export const NewsScanLogDialog = ({ isOpen, onOpenChange }: NewsScanLogDialogPro
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground"><Inbox className="h-12 w-12" /><p className="mt-4">Chưa có nhật ký nào.</p></div>
           )}
         </ScrollArea>
+        <DialogFooter>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={!logs || logs.length === 0 || clearLogsMutation.isPending}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Xóa tất cả
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Hành động này không thể hoàn tác. Toàn bộ lịch sử quét tin sẽ bị xóa vĩnh viễn.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                <AlertDialogAction onClick={() => clearLogsMutation.mutate()} disabled={clearLogsMutation.isPending}>
+                  {clearLogsMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Xóa"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
