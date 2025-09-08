@@ -62,7 +62,7 @@ serve(async (req) => {
     if (path === "v1m/task/text-to-speech" && method === "POST") {
       const logPayload = {
         user_id: user.id,
-        task_id: responseData?.task_id || null, // Sửa lỗi: Đọc đúng trường task_id (chữ thường)
+        task_id: responseData?.task_id || null,
         request_payload: body,
         response_body: responseData,
         status_code: apiResponse.status,
@@ -73,14 +73,17 @@ serve(async (req) => {
         .insert(logPayload);
         
       if (logError) {
-        // Log the error to the console but don't fail the main request
         console.error("Failed to write to tts_logs:", logError);
       }
     }
     // --- END LOGGING LOGIC ---
 
     if (!apiResponse.ok) {
-      const errorMessage = responseData.message || JSON.stringify(responseData);
+      let errorMessage = responseData.message || JSON.stringify(responseData);
+      // Cung cấp thông báo lỗi thân thiện hơn cho lỗi cụ thể này
+      if (errorMessage.includes("minimax_tts_error")) {
+        errorMessage = "Lỗi từ nhà cung cấp dịch vụ giọng nói. Vui lòng thử lại sau hoặc chọn một giọng nói khác.";
+      }
       return new Response(JSON.stringify({ error: errorMessage }), { status: apiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
