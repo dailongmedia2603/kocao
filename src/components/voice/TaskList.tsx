@@ -75,21 +75,33 @@ export const TaskList = () => {
   const deleteTasksMutation = useMutation({
     mutationFn: async (taskIds: string[]) => {
       const data = await callVoiceApi({ path: "v1/task/delete", method: "POST", body: { task_ids: taskIds } });
-      // Explicitly check for success flag in the response body
       if (data.success === false) {
         throw new Error(data.message || "API báo lỗi nhưng không có thông báo chi tiết.");
       }
       return data;
     },
-    onSuccess: (_, variables) => {
-      showSuccess(`Đã xóa ${variables.length} task thành công!`);
-      queryClient.invalidateQueries({ queryKey: ["voice_tasks"] });
+    onMutate: async (taskIdsToDelete) => {
+      await queryClient.cancelQueries({ queryKey: ["voice_tasks"] });
+      const previousTasks = queryClient.getQueryData(["voice_tasks"]);
+      queryClient.setQueryData(["voice_tasks"], (old: any[] | undefined) =>
+        old ? old.filter(task => !taskIdsToDelete.includes(task.id)) : []
+      );
       setSelectedTaskIds([]);
       setTasksToDelete([]);
+      return { previousTasks };
     },
-    onError: (error: Error) => {
-      showError(`Lỗi: ${error.message}`);
+    onSuccess: (_, variables) => {
+      showSuccess(`Đã xóa ${variables.length} task thành công!`);
+    },
+    onError: (err, _, context) => {
+      if (context?.previousTasks) {
+        queryClient.setQueryData(["voice_tasks"], context.previousTasks);
+      }
+      showError(`Lỗi: ${(err as Error).message}`);
       setTasksToDelete([]);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["voice_tasks"] });
     },
   });
 
