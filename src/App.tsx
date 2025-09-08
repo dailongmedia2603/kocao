@@ -15,6 +15,7 @@ import KocLayout from "./components/koc/KocLayout";
 import Reports from "./pages/Reports";
 import CreateVoicePage from "./pages/CreateVoice";
 import TaoContent from "./pages/TaoContent";
+import Automation from "./pages/Automation";
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/extensions" element={<Extensions />} />
+              <Route path="/automation" element={<Automation />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
             <Route element={<KocLayout />}>
