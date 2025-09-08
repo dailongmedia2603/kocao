@@ -3,16 +3,14 @@
 -- First, ensure the necessary extensions are available
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS supabase_vault;
-CREATE EXTENSION IF NOT EXISTS pgtap; -- For testing if needed
+CREATE EXTENSION IF NOT EXISTS pgtap;
 CREATE EXTENSION IF NOT EXISTS http;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
-
--- Grant usage to the postgres user if not already granted
+-- Grant necessary permissions for pg_cron to access secrets and network
 GRANT USAGE ON SCHEMA cron TO postgres;
 GRANT USAGE ON SCHEMA vault TO postgres;
-GRANT EXECUTE ON FUNCTION vault.get_secret(text) TO postgres;
-
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA vault TO postgres;
 
 -- Remove any existing job with the same name to avoid conflicts
 SELECT cron.unschedule('daily-koc-stats-scan');
