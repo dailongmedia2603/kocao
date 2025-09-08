@@ -7,8 +7,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (_req) => {
-  if (_req.method === "OPTIONS") {
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
@@ -18,11 +18,26 @@ serve(async (_req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: allSources, error: sourcesError } = await supabaseAdmin
-      .from('news_sources')
-      .select('user_id, source_id, name');
+    // Check for a specific user ID for manual scans
+    const body = await req.json().catch(() => ({}));
+    const specificUserId = body.userId;
+
+    // Build the initial query for sources
+    let sourcesQuery = supabaseAdmin.from('news_sources').select('user_id, source_id, name');
     
+    // If a specific user is provided, filter sources for that user
+    if (specificUserId) {
+      sourcesQuery = sourcesQuery.eq('user_id', specificUserId);
+    }
+
+    const { data: allSources, error: sourcesError } = await sourcesQuery;
     if (sourcesError) throw sourcesError;
+
+    if (!allSources || allSources.length === 0) {
+      return new Response(JSON.stringify({ success: true, message: "Không có nguồn tin tức nào để quét." }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const sourcesByUser = allSources.reduce((acc: any, source: any) => {
       acc[source.user_id] = acc[source.user_id] || [];
@@ -30,9 +45,15 @@ serve(async (_req) => {
       return acc;
     }, {});
 
-    const { data: allTokens, error: tokensError } = await supabaseAdmin
-      .from('user_facebook_tokens')
-      .select('user_id, access_token');
+    // Build the initial query for tokens
+    let tokensQuery = supabaseAdmin.from('user_facebook_tokens').select('user_id, access_token');
+    
+    // If a specific user is provided, only fetch their token
+    if (specificUserId) {
+      tokensQuery = tokensQuery.eq('user_id', specificUserId);
+    }
+
+    const { data: allTokens, error: tokensError } = await tokensQuery;
     if (tokensError) throw tokensError;
     const tokenMap = new Map(allTokens.map((t: any) => [t.user_id, t.access_token]));
 

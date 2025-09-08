@@ -55,7 +55,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { showSuccess, showError } from "@/utils/toast";
+import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
 import { Upload, Trash2, ChevronsUpDown, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -83,6 +83,7 @@ export const ConfigureNewsDialog = ({ isOpen, onOpenChange }: ConfigureNewsDialo
   const { user } = useSession();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const loadingToastId = useRef<string | number | null>(null);
 
   const { data: fanpages = [], isLoading: isLoadingFanpages } = useQuery<Fanpage[]>({
     queryKey: ['news_sources', user?.id],
@@ -143,6 +144,26 @@ export const ConfigureNewsDialog = ({ isOpen, onOpenChange }: ConfigureNewsDialo
     onError: (error: Error) => showError(`Lỗi: ${error.message}`),
   });
 
+  const scanMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("User not authenticated");
+      const { error } = await supabase.functions.invoke("scan-facebook-feed", {
+        body: { userId: user.id }
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      if (loadingToastId.current) dismissToast(loadingToastId.current);
+      showSuccess("Quét tin tức thành công! Dữ liệu sẽ sớm được cập nhật.");
+      queryClient.invalidateQueries({ queryKey: ['news_posts', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['news_scan_logs', user?.id] });
+    },
+    onError: (error: Error) => {
+      if (loadingToastId.current) dismissToast(loadingToastId.current);
+      showError(`Lỗi khi quét: ${error.message}`);
+    }
+  });
+
   const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -194,7 +215,8 @@ export const ConfigureNewsDialog = ({ isOpen, onOpenChange }: ConfigureNewsDialo
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     console.log("Configuration saved:", values);
-    showSuccess("Đã lưu cấu hình!");
+    loadingToastId.current = showLoading("Đang quét tin tức từ các nguồn đã chọn...");
+    scanMutation.mutate();
     onOpenChange(false);
   };
 
