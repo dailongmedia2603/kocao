@@ -73,7 +73,14 @@ export const TaskList = () => {
   });
 
   const deleteTasksMutation = useMutation({
-    mutationFn: (taskIds: string[]) => callVoiceApi({ path: "v1/task/delete", method: "POST", body: { task_ids: taskIds } }),
+    mutationFn: async (taskIds: string[]) => {
+      const data = await callVoiceApi({ path: "v1/task/delete", method: "POST", body: { task_ids: taskIds } });
+      // Explicitly check for success flag in the response body
+      if (data.success === false) {
+        throw new Error(data.message || "API báo lỗi nhưng không có thông báo chi tiết.");
+      }
+      return data;
+    },
     onSuccess: (_, variables) => {
       showSuccess(`Đã xóa ${variables.length} task thành công!`);
       queryClient.invalidateQueries({ queryKey: ["voice_tasks"] });
