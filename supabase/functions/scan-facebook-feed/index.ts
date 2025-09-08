@@ -60,11 +60,14 @@ serve(async (req) => {
       }
 
       for (const source of userSources) {
-        // Calculate timestamps for the last 7 days
-        const until = Math.floor(new Date().getTime() / 1000);
-        const since = Math.floor(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).getTime() / 1000);
+        // Calculate timestamps for the current day (00:01 to 23:59)
+        const now = new Date();
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 1, 0);
+        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        const since = Math.floor(startOfDay.getTime() / 1000);
+        const until = Math.floor(endOfDay.getTime() / 1000);
 
-        // Update URL to use /posts and add time range
+        // Update URL to use /posts and add the correct time range
         const apiUrl = `https://api.akng.io.vn/graph/${source.source_id}/posts?access_token=${accessToken}&limit=25&since=${since}&until=${until}`;
         
         try {
