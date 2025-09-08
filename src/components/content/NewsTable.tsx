@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
@@ -17,9 +18,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Trash2, Edit, Mic, PlayCircle, Loader2, Inbox } from "lucide-react";
-import { formatDistanceToNow } from 'date-fns';
+import { MoreHorizontal, Trash2, Edit, Mic, PlayCircle, Loader2, Inbox, Link as LinkIcon } from "lucide-react";
+import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { ViewPostContentDialog } from "./ViewPostContentDialog";
 
 type NewsPost = {
   id: string;
@@ -28,12 +30,13 @@ type NewsPost = {
   created_time: string;
   status: string;
   voice_script: string | null;
+  post_url: string | null;
 };
 
 const fetchNewsPosts = async (userId: string) => {
   const { data, error } = await supabase
     .from('news_posts')
-    .select('id, source_name, content, created_time, status, voice_script')
+    .select('id, source_name, content, created_time, status, voice_script, post_url')
     .eq('user_id', userId)
     .order('created_time', { ascending: false })
     .limit(50);
@@ -55,96 +58,125 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 export const NewsTable = () => {
   const { user } = useSession();
+  const [isContentDialogOpen, setIsContentDialogOpen] = useState(false);
+  const [selectedPostContent, setSelectedPostContent] = useState<string | null>(null);
+
   const { data: news, isLoading } = useQuery({
     queryKey: ['news_posts', user?.id],
     queryFn: () => fetchNewsPosts(user!.id),
     enabled: !!user,
   });
 
+  const handleViewContent = (content: string | null) => {
+    if (content) {
+      setSelectedPostContent(content);
+      setIsContentDialogOpen(true);
+    }
+  };
+
   return (
-    <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[50px]">STT</TableHead>
-            <TableHead>Nguồn</TableHead>
-            <TableHead>Nội dung post</TableHead>
-            <TableHead>Ngày post</TableHead>
-            <TableHead>Trạng thái</TableHead>
-            <TableHead>Kịch bản voice</TableHead>
-            <TableHead className="text-right">Hành động</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {isLoading ? (
+    <>
+      <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={7} className="h-48 text-center">
-                <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">Đang tải tin tức...</p>
-              </TableCell>
+              <TableHead>Nguồn</TableHead>
+              <TableHead>Nội dung post</TableHead>
+              <TableHead>Ngày post</TableHead>
+              <TableHead>Link bài</TableHead>
+              <TableHead>Trạng thái</TableHead>
+              <TableHead>Kịch bản voice</TableHead>
+              <TableHead className="text-right">Hành động</TableHead>
             </TableRow>
-          ) : news && news.length > 0 ? (
-            news.map((item, index) => (
-              <TableRow key={item.id}>
-                <TableCell className="font-medium">{index + 1}</TableCell>
-                <TableCell>
-                  <span className="font-medium">{item.source_name || 'Không rõ'}</span>
-                </TableCell>
-                <TableCell>
-                  <p className="max-w-xs truncate" title={item.content || ''}>
-                    {item.content}
-                  </p>
-                </TableCell>
-                <TableCell>{formatDistanceToNow(new Date(item.created_time), { addSuffix: true, locale: vi })}</TableCell>
-                <TableCell>
-                  <StatusBadge status={item.status} />
-                </TableCell>
-                <TableCell>
-                  {item.voice_script ? (
-                    <Button variant="outline" size="sm">
-                      <PlayCircle className="mr-2 h-4 w-4" />
-                      Xem kịch bản
-                    </Button>
-                  ) : (
-                    <Button variant="secondary" size="sm">
-                      <Mic className="mr-2 h-4 w-4" />
-                      Tạo voice
-                    </Button>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Mở menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Edit className="mr-2 h-4 w-4" />
-                        <span>Sửa</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        <span>Xóa</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="h-48 text-center">
+                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
+                  <p className="mt-2 text-sm text-muted-foreground">Đang tải tin tức...</p>
                 </TableCell>
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={7} className="h-48 text-center">
-                <Inbox className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-4 font-medium">Không có tin tức nào</p>
-                <p className="text-sm text-muted-foreground">Hãy cấu hình nguồn để bắt đầu quét tin tức.</p>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </div>
+            ) : news && news.length > 0 ? (
+              news.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>
+                    <span className="font-medium">{item.source_name || 'Không rõ'}</span>
+                  </TableCell>
+                  <TableCell>
+                    <p 
+                      className="max-w-xs truncate cursor-pointer hover:text-primary" 
+                      title="Bấm để xem đầy đủ"
+                      onClick={() => handleViewContent(item.content)}
+                    >
+                      {item.content}
+                    </p>
+                  </TableCell>
+                  <TableCell>{format(new Date(item.created_time), 'dd/MM/yyyy', { locale: vi })}</TableCell>
+                  <TableCell>
+                    {item.post_url && (
+                      <a href={item.post_url} target="_blank" rel="noopener noreferrer">
+                        <Button variant="outline" size="icon" className="h-8 w-8">
+                          <LinkIcon className="h-4 w-4" />
+                        </Button>
+                      </a>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge status={item.status} />
+                  </TableCell>
+                  <TableCell>
+                    {item.voice_script ? (
+                      <Button variant="outline" size="sm">
+                        <PlayCircle className="mr-2 h-4 w-4" />
+                        Xem kịch bản
+                      </Button>
+                    ) : (
+                      <Button variant="secondary" size="sm">
+                        <Mic className="mr-2 h-4 w-4" />
+                        Tạo voice
+                      </Button>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Mở menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <Edit className="mr-2 h-4 w-4" />
+                          <span>Sửa</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-red-600">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          <span>Xóa</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={7} className="h-48 text-center">
+                  <Inbox className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <p className="mt-4 font-medium">Không có tin tức nào</p>
+                  <p className="text-sm text-muted-foreground">Hãy cấu hình nguồn để bắt đầu quét tin tức.</p>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      <ViewPostContentDialog 
+        isOpen={isContentDialogOpen}
+        onOpenChange={setIsContentDialogOpen}
+        content={selectedPostContent}
+      />
+    </>
   );
 };
