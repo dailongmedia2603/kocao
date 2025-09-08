@@ -150,8 +150,13 @@ const TaoContent = () => {
         },
       });
 
-      if (error) throw new Error(error.message);
-      if (data.error) throw new Error(data.error);
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data.success) {
+        throw new Error(data.error);
+      }
 
       return { scriptContent: data.script, values };
     },

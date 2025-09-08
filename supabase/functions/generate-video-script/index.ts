@@ -79,18 +79,23 @@ serve(async (req) => {
     const geminiData = await geminiResponse.json();
 
     if (!geminiResponse.ok || !geminiData.candidates || geminiData.candidates.length === 0) {
-      throw new Error(geminiData?.error?.message || "Lỗi từ API Gemini.");
+      if (geminiData?.promptFeedback?.blockReason) {
+        throw new Error(`Nội dung bị chặn vì lý do an toàn: ${geminiData.promptFeedback.blockReason}. Vui lòng điều chỉnh lại nội dung tin tức hoặc yêu cầu.`);
+      }
+      throw new Error(geminiData?.error?.message || "Lỗi từ API Gemini. Vui lòng kiểm tra lại API Key hoặc nội dung yêu cầu.");
     }
 
     const generatedText = geminiData.candidates[0].content.parts[0].text;
 
-    return new Response(JSON.stringify({ script: generatedText }), {
+    return new Response(JSON.stringify({ success: true, script: generatedText }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    console.error("Error in generate-video-script:", error.message);
+    return new Response(JSON.stringify({ success: false, error: error.message }), {
+      status: 200, // Always return 200, but indicate error in the body
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
