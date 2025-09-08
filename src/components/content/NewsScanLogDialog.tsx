@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import {
@@ -18,7 +18,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Loader2, ServerCrash, Inbox } from "lucide-react";
+import { Loader2, ServerCrash, Inbox, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { showSuccess, showError } from "@/utils/toast";
 
 type ScanLog = {
   id: string;
@@ -43,6 +56,8 @@ const CodeBlock = ({ data }: { data: any }) => (
 
 export const NewsScanLogDialog = ({ isOpen, onOpenChange }: NewsScanLogDialogProps) => {
   const { user } = useSession();
+  const queryClient = useQueryClient();
+
   const { data: logs, isLoading, isError } = useQuery<ScanLog[]>({
     queryKey: ['news_scan_logs', user?.id],
     queryFn: async () => {
@@ -59,12 +74,54 @@ export const NewsScanLogDialog = ({ isOpen, onOpenChange }: NewsScanLogDialogPro
     enabled: !!user && isOpen,
   });
 
+  const clearLogsMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("User not authenticated");
+      const { error } = await supabase
+        .from('news_scan_logs')
+        .delete()
+        .eq('user_id', user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showSuccess("Đã xóa toàn bộ nhật ký.");
+      queryClient.invalidateQueries({ queryKey: ['news_scan_logs', user?.id] });
+    },
+    onError: (error: Error) => {
+      showError(`Lỗi: ${error.message}`);
+    },
+  });
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
-        <DialogHeader>
-          <DialogTitle>Nhật ký quét tin tức</DialogTitle>
-          <DialogDescription>Lịch sử các lần hệ thống tự động quét tin từ các nguồn đã cấu hình.</DialogDescription>
+        <DialogHeader className="flex-row justify-between items-center">
+          <div>
+            <DialogTitle>Nhật ký quét tin tức</DialogTitle>
+            <DialogDescription>Lịch sử các lần hệ thống tự động quét tin từ các nguồn đã cấu hình.</DialogDescription>
+          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={!logs || logs.length === 0 || clearLogsMutation.isPending}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Xóa tất cả
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Hành động này không thể hoàn tác. Toàn bộ lịch sử quét tin sẽ bị xóa vĩnh viễn.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                <AlertDialogAction onClick={() => clearLogsMutation.mutate()} disabled={clearLogsMutation.isPending}>
+                  {clearLogsMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Xóa"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </DialogHeader>
         <ScrollArea className="h-[60vh] pr-4 mt-4">
           {isLoading ? (
