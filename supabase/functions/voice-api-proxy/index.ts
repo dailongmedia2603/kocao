@@ -26,17 +26,19 @@ serve(async (req) => {
     if (userError) throw new Error(userError.message);
     if (!user) throw new Error("User not found");
 
-    const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
+    const { data: apiKeys, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
       .select("api_key")
       .eq("user_id", user.id)
-      .limit(1)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1);
 
-    if (apiKeyError || !apiKeyData) {
+    if (apiKeyError) throw apiKeyError;
+
+    if (!apiKeys || apiKeys.length === 0) {
       return new Response(JSON.stringify({ error: "Không tìm thấy API Key. Vui lòng thêm key trong Cài đặt." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const apiKey = apiKeyData.api_key;
+    const apiKey = apiKeys[0].api_key;
 
     const { path, method, body } = await req.json();
     const apiUrl = `https://gateway.vivoo.work/${path}`;

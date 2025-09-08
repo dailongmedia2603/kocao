@@ -32,12 +32,22 @@ serve(async (req) => {
     if (!user) throw new Error("User not found");
     logPayload.user_id = user.id;
 
-    const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.from("user_voice_api_keys").select("api_key").eq("user_id", user.id).limit(1).single();
-    if (apiKeyError || !apiKeyData) throw new Error("Không tìm thấy API Key.");
+    const { data: apiKeys, error: apiKeyError } = await supabaseAdmin
+      .from("user_voice_api_keys")
+      .select("api_key")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true })
+      .limit(1);
+
+    if (apiKeyError) throw apiKeyError;
+
+    if (!apiKeys || apiKeys.length === 0) {
+      return new Response(JSON.stringify({ error: "Không tìm thấy API Key. Vui lòng thêm key trong Cài đặt." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const apiKey = apiKeys[0].api_key;
     
     const formData = await req.formData();
     
-    // Log request payload (without the file)
     logPayload.request_payload = {
       voice_name: formData.get("voice_name"),
       preview_text: formData.get("preview_text"),
@@ -50,13 +60,12 @@ serve(async (req) => {
 
     const response = await fetch(apiUrl, {
       method: "POST",
-      headers: { "xi-api-key": apiKeyData.api_key },
+      headers: { "xi-api-key": apiKey },
       body: formData,
     });
 
     const responseData = await response.json();
     
-    // Log the response
     logPayload.status_code = response.status;
     logPayload.status_text = response.statusText;
     logPayload.response_body = responseData;
@@ -77,7 +86,6 @@ serve(async (req) => {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } finally {
-    // Insert the log into the database
     if (logPayload.user_id) {
       const { error: logError } = await supabaseAdmin
         .from("voice_clone_logs")
