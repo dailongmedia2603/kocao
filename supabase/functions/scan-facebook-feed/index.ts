@@ -18,7 +18,6 @@ serve(async (_req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Get all news sources and group them by user
     const { data: allSources, error: sourcesError } = await supabaseAdmin
       .from('news_sources')
       .select('user_id, source_id, name');
@@ -31,14 +30,12 @@ serve(async (_req) => {
       return acc;
     }, {});
 
-    // 2. Get all Facebook tokens and map them by user
     const { data: allTokens, error: tokensError } = await supabaseAdmin
       .from('user_facebook_tokens')
       .select('user_id, access_token');
     if (tokensError) throw tokensError;
     const tokenMap = new Map(allTokens.map((t: any) => [t.user_id, t.access_token]));
 
-    // 3. Process each user's sources
     for (const userId in sourcesByUser) {
       const userSources = sourcesByUser[userId];
       const accessToken = tokenMap.get(userId);
@@ -49,10 +46,20 @@ serve(async (_req) => {
       }
 
       for (const source of userSources) {
+        const apiUrl = `https://api.akng.io.vn/graph/${source.source_id}/feed?access_token=${accessToken}&limit=10`;
         try {
-          const apiUrl = `https://api.akng.io.vn/graph/${source.source_id}/feed?access_token=${accessToken}&limit=10`;
           const response = await fetch(apiUrl);
           const data = await response.json();
+
+          await supabaseAdmin.from('news_scan_logs').insert({
+            user_id: userId,
+            source_id: source.source_id,
+            source_name: source.name,
+            request_url: apiUrl,
+            status_code: response.status,
+            response_body: data,
+            error_message: data.error ? data.error.message : null
+          });
 
           if (data.error) {
             console.error(`API Error for source ${source.source_id} (User: ${userId}):`, data.error.message);
@@ -61,31 +68,37 @@ serve(async (_req) => {
 
           if (!data.data) continue;
 
-          const postsToInsert = [];
-          for (const post of data.data) {
-            if (post.message) { // Only process posts with text content
-              postsToInsert.push({
-                user_id: userId,
-                source_id: source.source_id,
-                source_name: source.name,
-                post_id: post.id,
-                content: post.message,
-                post_url: post.actions?.find((a:any) => a.name === "Comment")?.link || `https://facebook.com/${post.id}`,
-                created_time: post.created_time,
-              });
-            }
-          }
+          const postsToInsert = data.data
+            .filter((post: any) => post.message)
+            .map((post: any) => ({
+              user_id: userId,
+              source_id: source.source_id,
+              source_name: source.name,
+              post_id: post.id,
+              content: post.message,
+              post_url: post.actions?.find((a:any) => a.name === "Comment")?.link || `https://facebook.com/${post.id}`,
+              created_time: post.created_time,
+            }));
 
           if (postsToInsert.length > 0) {
             const { error: insertError } = await supabaseAdmin
               .from('news_posts')
-              .insert(postsToInsert, { onConflict: 'user_id, post_id' }); // Ignore duplicates
+              .insert(postsToInsert, { onConflict: 'user_id, post_id' });
             
             if (insertError) {
               console.error(`DB Insert Error for source ${source.source_id}:`, insertError.message);
             }
           }
         } catch (e) {
+          await supabaseAdmin.from('news_scan_logs').insert({
+            user_id: userId,
+            source_id: source.source_id,
+            source_name: source.name,
+            request_url: apiUrl,
+            status_code: 500,
+            response_body: { error: "Function exception" },
+            error_message: e.message
+          });
           console.error(`Failed to process source ${source.source_id} for user ${userId}:`, e.message);
         }
       }

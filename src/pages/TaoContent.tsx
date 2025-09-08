@@ -2,13 +2,15 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Bot, Newspaper, Settings } from "lucide-react";
+import { Bot, Newspaper, Settings, History } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfigureNewsDialog } from "@/components/content/ConfigureNewsDialog";
 import { NewsTable } from "@/components/content/NewsTable";
+import { NewsScanLogDialog } from "@/components/content/NewsScanLogDialog";
 
 const TaoContent = () => {
   const [isConfigureOpen, setConfigureOpen] = useState(false);
+  const [isLogOpen, setLogOpen] = useState(false);
 
   return (
     <>
@@ -64,16 +66,23 @@ const TaoContent = () => {
           <TabsContent value="news" className="mt-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Hộp thư tin tức</h2>
-              <Button variant="outline" onClick={() => setConfigureOpen(true)}>
-                <Settings className="mr-2 h-4 w-4" />
-                Cấu hình
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setLogOpen(true)}>
+                  <History className="mr-2 h-4 w-4" />
+                  Nhật ký
+                </Button>
+                <Button variant="outline" onClick={() => setConfigureOpen(true)}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Cấu hình
+                </Button>
+              </div>
             </div>
             <NewsTable />
           </TabsContent>
         </Tabs>
       </div>
       <ConfigureNewsDialog isOpen={isConfigureOpen} onOpenChange={setConfigureOpen} />
+      <NewsScanLogDialog isOpen={isLogOpen} onOpenChange={setLogOpen} />
     </>
   );
 };
