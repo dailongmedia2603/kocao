@@ -46,8 +46,9 @@ serve(async (req) => {
     const { path, method, body } = await req.json();
     const apiUrl = `https://gateway.vivoo.work/${path}`;
 
-    // Extract voice_name and remove it from the body sent to the external API
-    const { voice_name, ...apiBody } = body;
+    // FIX: Safely handle the body to prevent crashes on GET requests (which have no body)
+    const voice_name = body?.voice_name;
+    const { voice_name: _removed, ...apiBody } = body || {};
 
     const fetchOptions = {
       method: method,
@@ -55,7 +56,8 @@ serve(async (req) => {
         "xi-api-key": apiKey,
         "Content-Type": "application/json",
       },
-      body: apiBody ? JSON.stringify(apiBody) : undefined,
+      // FIX: Only include a body for relevant methods and if it's not empty
+      body: (method !== 'GET' && Object.keys(apiBody).length > 0) ? JSON.stringify(apiBody) : undefined,
     };
 
     const apiResponse = await fetch(apiUrl, fetchOptions);
