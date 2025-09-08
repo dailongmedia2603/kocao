@@ -14,9 +14,9 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, prompt, newsContent, kocName, maxWords } = await req.json();
-    if (!userId || !prompt || !newsContent || !kocName) {
-      throw new Error("Thiếu thông tin cần thiết (userId, prompt, newsContent, kocName).");
+    const { userId, prompt, newsContent, kocName, maxWords, model } = await req.json();
+    if (!userId || !prompt || !newsContent || !kocName || !model) {
+      throw new Error("Thiếu thông tin cần thiết (userId, prompt, newsContent, kocName, model).");
     }
 
     const supabaseAdmin = createClient(
@@ -60,7 +60,7 @@ serve(async (req) => {
       - Chỉ trả về nội dung kịch bản, không thêm bất kỳ lời giải thích hay ghi chú nào khác.
     `;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${geminiApiKey}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
     
     const geminiResponse = await fetch(geminiUrl, {
       method: 'POST',
