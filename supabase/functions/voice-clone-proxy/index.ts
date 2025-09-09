@@ -32,19 +32,10 @@ serve(async (req) => {
     if (!user) throw new Error("User not found");
     logPayload.user_id = user.id;
 
-    const { data: apiKeys, error: apiKeyError } = await supabaseAdmin
-      .from("user_voice_api_keys")
-      .select("api_key")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true })
-      .limit(1);
-
-    if (apiKeyError) throw apiKeyError;
-
-    if (!apiKeys || apiKeys.length === 0) {
-      return new Response(JSON.stringify({ error: "Không tìm thấy API Key. Vui lòng thêm key trong Cài đặt." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const apiKey = Deno.env.get("SHARED_VOICE_API_KEY");
+    if (!apiKey) {
+      throw new Error("SHARED_VOICE_API_KEY chưa được cấu hình trong Supabase Secrets.");
     }
-    const apiKey = apiKeys[0].api_key;
     
     const formData = await req.formData();
     

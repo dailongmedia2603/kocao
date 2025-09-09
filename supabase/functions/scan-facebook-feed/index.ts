@@ -18,6 +18,11 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    const accessToken = Deno.env.get("SHARED_FACEBOOK_ACCESS_TOKEN");
+    if (!accessToken) {
+      throw new Error("SHARED_FACEBOOK_ACCESS_TOKEN chưa được cấu hình trong Supabase Secrets.");
+    }
+
     const body = await req.json().catch(() => ({}));
     const specificUserId = body.userId;
     const sourceIdsToScan = body.sourceIds;
@@ -39,105 +44,79 @@ serve(async (req) => {
       });
     }
 
-    const sourcesByUser = allSources.reduce((acc: any, source: any) => {
-      acc[source.user_id] = acc[source.user_id] || [];
-      acc[source.user_id].push(source);
-      return acc;
-    }, {});
+    for (const source of allSources) {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 1, 0);
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      const since = Math.floor(startOfDay.getTime() / 1000);
+      const until = Math.floor(endOfDay.getTime() / 1000);
 
-    let tokensQuery = supabaseAdmin.from('user_facebook_tokens').select('user_id, access_token');
-    if (specificUserId) {
-      tokensQuery = tokensQuery.eq('user_id', specificUserId);
-    }
+      const fields = "id,message,created_time,permalink_url";
+      const apiUrl = `https://api.akng.io.vn/graph/${source.source_id}/posts?access_token=${accessToken}&limit=100&since=${since}&until=${until}&fields=${fields}`;
+      
+      try {
+        const response = await fetch(apiUrl);
+        const data = await response.json();
 
-    const { data: allTokens, error: tokensError } = await tokensQuery;
-    if (tokensError) throw tokensError;
-    const tokenMap = new Map(allTokens.map((t: any) => [t.user_id, t.access_token]));
+        await supabaseAdmin.from('news_scan_logs').insert({
+          user_id: source.user_id,
+          source_id: source.source_id,
+          source_name: source.name,
+          request_url: apiUrl,
+          status_code: response.status,
+          response_body: data,
+          error_message: data.error ? data.error.message : null
+        });
 
-    for (const userId in sourcesByUser) {
-      const userSources = sourcesByUser[userId];
-      const accessToken = tokenMap.get(userId);
-
-      if (!accessToken) {
-        console.warn(`Skipping user ${userId}: No Facebook token found.`);
-        continue;
-      }
-
-      for (const source of userSources) {
-        const now = new Date();
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 1, 0);
-        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-        const since = Math.floor(startOfDay.getTime() / 1000);
-        const until = Math.floor(endOfDay.getTime() / 1000);
-
-        const fields = "id,message,created_time,permalink_url";
-        const apiUrl = `https://api.akng.io.vn/graph/${source.source_id}/posts?access_token=${accessToken}&limit=100&since=${since}&until=${until}&fields=${fields}`;
-        
-        try {
-          const response = await fetch(apiUrl);
-          const data = await response.json();
-
-          await supabaseAdmin.from('news_scan_logs').insert({
-            user_id: userId,
-            source_id: source.source_id,
-            source_name: source.name,
-            request_url: apiUrl,
-            status_code: response.status,
-            response_body: data,
-            error_message: data.error ? data.error.message : null
-          });
-
-          if (data.error) {
-            console.error(`API Error for source ${source.source_id} (User: ${userId}):`, data.error.message);
-            continue;
-          }
-
-          // FIX: Handle nested data structure from the API proxy
-          let postsArray = null;
-          if (data.data && Array.isArray(data.data.data)) {
-            postsArray = data.data.data; // Handles {"data": {"data": [...]}}
-          } else if (Array.isArray(data.data)) {
-            postsArray = data.data; // Handles {"data": [...]}
-          }
-
-          if (!postsArray) {
-            console.warn(`No data array in response for source ${source.source_id}. Skipping.`);
-            continue;
-          }
-
-          const postsToInsert = postsArray
-            .filter((post: any) => post.message)
-            .map((post: any) => ({
-              user_id: userId,
-              source_id: source.source_id,
-              source_name: source.name,
-              post_id: post.id,
-              content: post.message,
-              post_url: post.permalink_url || `https://facebook.com/${post.id}`,
-              created_time: post.created_time,
-            }));
-
-          if (postsToInsert.length > 0) {
-            const { error: insertError } = await supabaseAdmin
-              .from('news_posts')
-              .insert(postsToInsert, { onConflict: 'user_id, post_id' });
-            
-            if (insertError) {
-              console.error(`DB Insert Error for source ${source.source_id}:`, insertError.message);
-            }
-          }
-        } catch (e) {
-          await supabaseAdmin.from('news_scan_logs').insert({
-            user_id: userId,
-            source_id: source.source_id,
-            source_name: source.name,
-            request_url: apiUrl,
-            status_code: 500,
-            response_body: { error: "Function exception" },
-            error_message: e.message
-          });
-          console.error(`Failed to process source ${source.source_id} for user ${userId}:`, e.message);
+        if (data.error) {
+          console.error(`API Error for source ${source.source_id} (User: ${source.user_id}):`, data.error.message);
+          continue;
         }
+
+        let postsArray = null;
+        if (data.data && Array.isArray(data.data.data)) {
+          postsArray = data.data.data;
+        } else if (Array.isArray(data.data)) {
+          postsArray = data.data;
+        }
+
+        if (!postsArray) {
+          console.warn(`No data array in response for source ${source.source_id}. Skipping.`);
+          continue;
+        }
+
+        const postsToInsert = postsArray
+          .filter((post: any) => post.message)
+          .map((post: any) => ({
+            user_id: source.user_id,
+            source_id: source.source_id,
+            source_name: source.name,
+            post_id: post.id,
+            content: post.message,
+            post_url: post.permalink_url || `https://facebook.com/${post.id}`,
+            created_time: post.created_time,
+          }));
+
+        if (postsToInsert.length > 0) {
+          const { error: insertError } = await supabaseAdmin
+            .from('news_posts')
+            .insert(postsToInsert, { onConflict: 'user_id, post_id' });
+          
+          if (insertError) {
+            console.error(`DB Insert Error for source ${source.source_id}:`, insertError.message);
+          }
+        }
+      } catch (e) {
+        await supabaseAdmin.from('news_scan_logs').insert({
+          user_id: source.user_id,
+          source_id: source.source_id,
+          source_name: source.name,
+          request_url: apiUrl,
+          status_code: 500,
+          response_body: { error: "Function exception" },
+          error_message: e.message
+        });
+        console.error(`Failed to process source ${source.source_id} for user ${source.user_id}:`, e.message);
       }
     }
 

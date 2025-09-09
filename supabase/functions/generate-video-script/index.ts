@@ -19,22 +19,10 @@ serve(async (req) => {
       throw new Error("Thiếu thông tin cần thiết (userId, prompt, newsContent, kocName, model).");
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
-      .from('user_api_keys')
-      .select('api_key')
-      .eq('user_id', userId)
-      .limit(1)
-      .single();
-
-    if (apiKeyError || !apiKeyData) {
-      throw new Error("Không tìm thấy API Key Gemini cho người dùng này. Vui lòng thêm key trong Cài đặt.");
+    const geminiApiKey = Deno.env.get("SHARED_GEMINI_API_KEY");
+    if (!geminiApiKey) {
+      throw new Error("SHARED_GEMINI_API_KEY chưa được cấu hình trong Supabase Secrets.");
     }
-    const geminiApiKey = apiKeyData.api_key;
 
     const fullPrompt = `
       Bạn là một chuyên gia sáng tạo nội dung cho các video ngắn trên mạng xã hội.

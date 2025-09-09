@@ -18,12 +18,10 @@ serve(async (_req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { data: allTokens, error: tokensError } = await supabaseAdmin
-      .from("user_tiktok_tokens")
-      .select("user_id, access_token");
-    if (tokensError) throw tokensError;
-
-    const tokenMap = new Map(allTokens.map(t => [t.user_id, t.access_token]));
+    const accessToken = Deno.env.get("SHARED_TIKTOK_ACCESS_TOKEN");
+    if (!accessToken) {
+      throw new Error("SHARED_TIKTOK_ACCESS_TOKEN chưa được cấu hình trong Supabase Secrets.");
+    }
 
     const { data: kocs, error: fetchError } = await supabaseAdmin
       .from("kocs")
@@ -39,12 +37,6 @@ serve(async (_req) => {
     }
 
     const scanPromises = kocs.map(async (koc) => {
-      const accessToken = tokenMap.get(koc.user_id);
-      if (!accessToken) {
-        console.warn(`Bỏ qua KOC ${koc.id}: không tìm thấy token cho user ${koc.user_id}.`);
-        return { id: koc.id, status: 'skipped', reason: 'No token for user' };
-      }
-      
       try {
         const apiUrl = `https://api.akng.io.vn/tiktok/user?input=${encodeURIComponent(koc.channel_url)}&access_token=${accessToken}`;
         const response = await fetch(apiUrl);
