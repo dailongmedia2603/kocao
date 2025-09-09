@@ -3,11 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { Button } from "@/components/ui/button";
-import { Bot, Plus } from "lucide-react";
+import { Bot, Plus, Wand2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateCampaignDialog } from "@/components/automation/CreateCampaignDialog";
 import { CampaignCard } from "@/components/automation/CampaignCard";
-// We will create EditCampaignDialog later if needed. For now, let's focus on create and view.
+import { AiConfigDialog } from "@/components/automation/AiConfigDialog";
 
 type Campaign = {
   id: string;
@@ -35,8 +35,7 @@ const fetchCampaigns = async (userId: string) => {
 const Automation = () => {
   const { user } = useSession();
   const [isCreateOpen, setCreateOpen] = useState(false);
-  // const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
-  // const [isEditOpen, setEditOpen] = useState(false);
+  const [isAiConfigOpen, setAiConfigOpen] = useState(false);
 
   const { data: campaigns, isLoading } = useQuery<Campaign[]>({
     queryKey: ['automation_campaigns', user?.id],
@@ -52,9 +51,14 @@ const Automation = () => {
             <h1 className="text-3xl font-bold">Automation Campaigns</h1>
             <p className="text-muted-foreground mt-1">Tạo và quản lý các quy trình làm việc tự động.</p>
           </div>
-          <Button onClick={() => setCreateOpen(true)} className="bg-red-600 hover:bg-red-700 text-white">
-            <Plus className="mr-2 h-4 w-4" /> Tạo chiến dịch
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setAiConfigOpen(true)}>
+              <Wand2 className="mr-2 h-4 w-4" /> Cấu hình AI
+            </Button>
+            <Button onClick={() => setCreateOpen(true)} className="bg-red-600 hover:bg-red-700 text-white">
+              <Plus className="mr-2 h-4 w-4" /> Tạo chiến dịch
+            </Button>
+          </div>
         </header>
 
         {isLoading ? (
@@ -84,6 +88,7 @@ const Automation = () => {
         )}
       </div>
       <CreateCampaignDialog isOpen={isCreateOpen} onOpenChange={setCreateOpen} />
+      <AiConfigDialog isOpen={isAiConfigOpen} onOpenChange={setAiConfigOpen} />
     </>
   );
 };
