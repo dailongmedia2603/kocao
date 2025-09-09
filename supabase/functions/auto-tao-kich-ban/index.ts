@@ -76,7 +76,7 @@ serve(async (req) => {
             prompt: fullPrompt,
             newsContent: post.content,
             kocName: "KOC", // Tên KOC có thể được lấy từ bảng khác nếu cần
-            model: "gemini-1.5-pro-latest", // Model có thể được lấy từ cấu hình
+            model: aiConfig.model || "gemini-1.5-pro-latest", // Sử dụng model từ cấu hình
           },
         });
 

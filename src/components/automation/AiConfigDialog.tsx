@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const formSchema = z.object({
   word_count: z.coerce.number().positive("Số từ phải là số dương.").optional(),
@@ -24,6 +25,7 @@ const formSchema = z.object({
   ai_role: z.string().optional(),
   mandatory_requirements: z.string().optional(),
   presentation_structure: z.string().optional(),
+  model: z.string().optional(),
 });
 
 type AiConfigDialogProps = {
@@ -64,9 +66,10 @@ export const AiConfigDialog = ({ isOpen, onOpenChange }: AiConfigDialogProps) =>
         ai_role: config.ai_role || "",
         mandatory_requirements: config.mandatory_requirements || "",
         presentation_structure: config.presentation_structure || "",
+        model: config.model || "gemini-1.5-pro-latest",
       });
     } else {
-      form.reset();
+      form.reset({ model: "gemini-1.5-pro-latest" });
     }
   }, [config, form]);
 
@@ -112,6 +115,19 @@ export const AiConfigDialog = ({ isOpen, onOpenChange }: AiConfigDialogProps) =>
                     <FormField control={form.control} name="word_count" render={({ field }) => (<FormItem><FormLabel>Số từ</FormLabel><FormControl><Input type="number" placeholder="Ví dụ: 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="tone_of_voice" render={({ field }) => (<FormItem><FormLabel>Tông giọng</FormLabel><FormControl><Input placeholder="Ví dụ: Hài hước, nghiêm túc" {...field} /></FormControl><FormMessage /></FormItem>)} />
                   </div>
+                  <FormField control={form.control} name="model" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Model AI</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro</SelectItem>
+                          <SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                   <FormField control={form.control} name="writing_style" render={({ field }) => (<FormItem><FormLabel>Văn phong</FormLabel><FormControl><Textarea placeholder="Ví dụ: Trẻ trung, chuyên nghiệp, kể chuyện..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={form.control} name="writing_method" render={({ field }) => (<FormItem><FormLabel>Cách viết</FormLabel><FormControl><Textarea placeholder="Ví dụ: Sử dụng câu ngắn, đi thẳng vào vấn đề..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={form.control} name="ai_role" render={({ field }) => (<FormItem><FormLabel>Vai trò AI</FormLabel><FormControl><Textarea placeholder="Ví dụ: Đóng vai một chuyên gia marketing..." {...field} /></FormControl><FormMessage /></FormItem>)} />
