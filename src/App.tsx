@@ -5,6 +5,7 @@ import ProjectsList from "./pages/ProjectsList";
 import ProjectDetail from "./pages/ProjectDetail";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { SessionContextProvider } from "./contexts/SessionContext";
 import { Toaster } from "sonner";
@@ -24,6 +25,7 @@ function App() {
         <Toaster richColors position="top-right" />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />

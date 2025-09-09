@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useSession } from "@/contexts/SessionContext";
 import { Input } from "@/components/ui/input";
@@ -122,9 +122,9 @@ const Login = () => {
           <div className="mt-6">
             <p className="text-center text-sm text-gray-600">
               New on our platform?{' '}
-              <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
+              <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
                 Create an account
-              </a>
+              </Link>
             </p>
           </div>
         </div>
