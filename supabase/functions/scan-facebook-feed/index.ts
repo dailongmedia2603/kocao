@@ -15,6 +15,19 @@ serve(async (req) => {
   try {
     const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     
+    // **LOGIC KHÔI PHỤC:** Lấy một token duy nhất để dùng chung
+    const { data: tokenData, error: tokenError } = await supabaseAdmin
+      .from('user_facebook_tokens')
+      .select('access_token')
+      .limit(1)
+      .single();
+
+    if (tokenError || !tokenData) {
+      throw new Error("Chưa có Access Token Facebook nào được cấu hình trong hệ thống.");
+    }
+    const accessToken = tokenData.access_token;
+    // **KẾT THÚC LOGIC KHÔI PHỤC**
+
     const body = await req.json().catch(() => ({}));
     const specificUserId = body.userId;
     const sourceIdsToScan = body.sourceIds;
@@ -32,42 +45,14 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, message: "Không có nguồn tin tức nào được chọn để quét." }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // THAY ĐỔI QUAN TRỌNG BẮT ĐẦU TỪ ĐÂY
-    // Nhóm các nguồn theo user_id để lấy token một lần cho mỗi user
-    const sourcesByUser = allSources.reduce((acc, source) => {
-      if (!acc[source.user_id]) {
-        acc[source.user_id] = [];
-      }
-      acc[source.user_id].push(source);
-      return acc;
-    }, {});
-
-    // Lấy token cho tất cả user cần quét
-    const userIds = Object.keys(sourcesByUser);
-    const { data: tokens, error: tokenError } = await supabaseAdmin
-      .from('user_facebook_tokens')
-      .select('user_id, access_token')
-      .in('user_id', userIds);
-
-    if (tokenError) throw tokenError;
-
-    const tokenMap = new Map(tokens.map(t => [t.user_id, t.access_token]));
-    // KẾT THÚC THAY ĐỔI
-
     for (const source of allSources) {
-      // Lấy đúng token cho người dùng sở hữu nguồn tin này
-      const accessToken = tokenMap.get(source.user_id);
-      if (!accessToken) {
-        console.error(`Không tìm thấy token cho user ${source.user_id} của nguồn ${source.source_id}. Bỏ qua.`);
-        continue; // Bỏ qua nếu không có token
-      }
-
       const now = new Date();
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 1, 0);
       const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
       const since = Math.floor(startOfDay.getTime() / 1000);
       const until = Math.floor(endOfDay.getTime() / 1000);
       const fields = "id,message,created_time,permalink_url";
+      // Sử dụng accessToken đã lấy ở trên cho tất cả các yêu cầu
       const apiUrl = `https://api.akng.io.vn/graph/${source.source_id}/posts?access_token=${accessToken}&limit=100&since=${since}&until=${until}&fields=${fields}`;
       
       try {
