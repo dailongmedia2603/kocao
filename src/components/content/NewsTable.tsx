@@ -77,7 +77,7 @@ export const NewsTable = ({ news, isLoading }: NewsTableProps) => {
     },
     onSuccess: () => {
       showSuccess("Xóa bài viết thành công!");
-      queryClient.invalidateQueries({ queryKey: ['news_posts', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['news_posts_for_script', user?.id] });
       setPostToDelete(null);
     },
     onError: (error: Error) => {
@@ -93,7 +93,7 @@ export const NewsTable = ({ news, isLoading }: NewsTableProps) => {
     },
     onSuccess: () => {
       showSuccess(`Đã xóa ${selectedRows.length} bài viết thành công!`);
-      queryClient.invalidateQueries({ queryKey: ['news_posts', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['news_posts_for_script', user?.id] });
       setSelectedRows([]);
       setIsBulkDeleteDialogOpen(false);
     },
