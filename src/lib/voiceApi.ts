@@ -11,11 +11,16 @@ export const callVoiceApi = async ({ path, method, body }: CallVoiceApiProps) =>
     body: { path, method, body },
   });
 
+  // The Edge function returns a JSON body with an `error` key even on non-2xx responses.
+  // Prioritize this specific message.
+  if (data?.error) {
+    throw new Error(data.error);
+  }
+
+  // Fallback to the generic invoke error if there's no specific message.
   if (error) {
     throw new Error(`Lỗi Edge Function: ${error.message}`);
   }
-  if (data.error) {
-    throw new Error(`Lỗi API: ${data.error}`);
-  }
+
   return data;
 };
