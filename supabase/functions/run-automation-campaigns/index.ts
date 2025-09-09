@@ -13,13 +13,11 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Tạo Supabase Admin Client để có toàn quyền truy cập
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 2. Lấy tất cả các chiến dịch đang ở trạng thái 'active'
     const { data: campaigns, error: campaignError } = await supabaseAdmin
       .from('automation_campaigns')
       .select('*')
@@ -32,19 +30,16 @@ serve(async (req) => {
 
     console.log(`Tìm thấy ${campaigns.length} chiến dịch đang hoạt động. Bắt đầu xử lý...`);
 
-    // 3. Lặp qua từng chiến dịch để xử lý
     for (const campaign of campaigns) {
-      // 3a. Tìm một tin tức 'new' cho người dùng của chiến dịch này
       const { data: newsPost, error: newsError } = await supabaseAdmin
         .from('news_posts')
         .select('*')
         .eq('user_id', campaign.user_id)
         .eq('status', 'new')
-        .order('created_time', { ascending: true }) // Ưu tiên xử lý tin cũ nhất trước
+        .order('created_time', { ascending: true })
         .limit(1)
         .single();
 
-      // Nếu không có tin mới, bỏ qua chiến dịch này và chuyển sang chiến dịch tiếp theo
       if (!newsPost) {
         console.log(`Không có tin mới cho chiến dịch '${campaign.name}'. Bỏ qua.`);
         continue;
@@ -52,20 +47,19 @@ serve(async (req) => {
 
       console.log(`Đang xử lý tin tức ID: ${newsPost.id} cho chiến dịch '${campaign.name}'...`);
 
-      // 3b. Đánh dấu tin tức là 'processing' để tránh bị xử lý lại trong lần chạy sau
       await supabaseAdmin
         .from('news_posts')
         .update({ status: 'processing' })
         .eq('id', newsPost.id);
 
       try {
-        // 3c. Bước 1: Tạo kịch bản thoại
+        // BƯỚC 2: TẠO KỊCH BẢN
         const { data: scriptData, error: scriptError } = await supabaseAdmin.functions.invoke('generate-video-script', {
           body: {
             userId: campaign.user_id,
             prompt: campaign.ai_prompt,
             newsContent: newsPost.content,
-            kocName: "KOC", // Tên KOC sẽ được lấy từ campaign trong tương lai
+            kocName: "KOC", // Sẽ được thay thế bằng tên KOC thật
             maxWords: campaign.max_words,
             model: campaign.model,
           },
@@ -85,37 +79,19 @@ serve(async (req) => {
           script_content: generatedScript,
         });
 
-        // 3d. Bước 2: Tạo voice từ kịch bản
-        const { data: voiceData, error: voiceError } = await supabaseAdmin.functions.invoke('voice-api-proxy', {
-          body: {
-            path: 'v1m/task/text-to-speech',
-            method: 'POST',
-            body: {
-              voice_name: `Tự động: ${newsPost.content.substring(0, 50)}...`,
-              text: generatedScript,
-              model: 'speech-2.5-hd-preview',
-              voice_setting: { voice_id: campaign.cloned_voice_id }
-            }
-          }
-        });
-
-        if (voiceError || voiceData.error) {
-          throw new Error(voiceError?.message || voiceData.error || "Lỗi khi tạo voice.");
-        }
-
-        // 3e. Cập nhật trạng thái tin tức thành công
+        // CẬP NHẬT TRẠNG THÁI TIN TỨC THÀNH 'script_generated'
         await supabaseAdmin
           .from('news_posts')
-          .update({ status: 'voice_generating', voice_script: generatedScript })
+          .update({ status: 'script_generated', voice_script: generatedScript })
           .eq('id', newsPost.id);
         
-        console.log(`Đã gửi yêu cầu tạo voice thành công cho tin tức ID: ${newsPost.id}.`);
+        console.log(`Đã tạo kịch bản thành công cho tin tức ID: ${newsPost.id}.`);
 
       } catch (processingError) {
-        // Nếu có lỗi ở bất kỳ bước nào, cập nhật tin tức là 'failed' và ghi lại lỗi
+        // Nếu có lỗi, cập nhật tin tức là 'failed' và ghi lại lỗi
         await supabaseAdmin
           .from('news_posts')
-          .update({ status: 'failed', voice_script: `LỖI: ${processingError.message}` })
+          .update({ status: 'failed', voice_script: `LỖI TẠO KỊCH BẢN: ${processingError.message}` })
           .eq('id', newsPost.id);
         console.error(`Lỗi xử lý tin tức ID ${newsPost.id}:`, processingError.message);
       }
