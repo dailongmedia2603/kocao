@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,6 +67,8 @@ export const NewsTable = ({ news, isLoading }: NewsTableProps) => {
   const [isContentDialogOpen, setIsContentDialogOpen] = useState(false);
   const [selectedPostContent, setSelectedPostContent] = useState<string | null>(null);
   const [postToDelete, setPostToDelete] = useState<NewsPost | null>(null);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
 
   const deletePostMutation = useMutation({
     mutationFn: async (postId: string) => {
@@ -83,6 +86,23 @@ export const NewsTable = ({ news, isLoading }: NewsTableProps) => {
     },
   });
 
+  const deleteMultiplePostsMutation = useMutation({
+    mutationFn: async (postIds: string[]) => {
+      const { error } = await supabase.from('news_posts').delete().in('id', postIds);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showSuccess(`Đã xóa ${selectedRows.length} bài viết thành công!`);
+      queryClient.invalidateQueries({ queryKey: ['news_posts', user?.id] });
+      setSelectedRows([]);
+      setIsBulkDeleteDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      showError(`Lỗi khi xóa hàng loạt: ${error.message}`);
+      setIsBulkDeleteDialogOpen(false);
+    },
+  });
+
   const handleViewContent = (content: string | null) => {
     if (content) {
       setSelectedPostContent(content);
@@ -96,12 +116,58 @@ export const NewsTable = ({ news, isLoading }: NewsTableProps) => {
     }
   };
 
+  const handleBulkDelete = () => {
+    if (selectedRows.length > 0) {
+      deleteMultiplePostsMutation.mutate(selectedRows);
+    }
+  };
+
+  const handleSelectAll = (checked: boolean | 'indeterminate') => {
+    if (checked === true) {
+      setSelectedRows(news.map(item => item.id));
+    } else {
+      setSelectedRows([]);
+    }
+  };
+
+  const handleSelectRow = (rowId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedRows(prev => [...prev, rowId]);
+    } else {
+      setSelectedRows(prev => prev.filter(id => id !== rowId));
+    }
+  };
+
+  const numSelected = selectedRows.length;
+  const rowCount = news?.length || 0;
+
   return (
     <>
+      <div className="mb-4 flex h-9 items-center">
+        {numSelected > 0 && (
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground">
+              Đã chọn {numSelected} trên {rowCount}
+            </span>
+            <Button variant="destructive" size="sm" onClick={() => setIsBulkDeleteDialogOpen(true)}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Xóa mục đã chọn
+            </Button>
+          </div>
+        )}
+      </div>
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[40px]">
+                <Checkbox
+                  checked={rowCount > 0 && numSelected === rowCount ? true : (numSelected > 0 ? 'indeterminate' : false)}
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all"
+                  disabled={isLoading || !news || news.length === 0}
+                />
+              </TableHead>
               <TableHead><div className="flex items-center gap-2"><Users className="h-4 w-4" />Nguồn</div></TableHead>
               <TableHead><div className="flex items-center gap-2"><FileTextIcon className="h-4 w-4" />Nội dung post</div></TableHead>
               <TableHead><div className="flex items-center gap-2"><Calendar className="h-4 w-4" />Ngày post</div></TableHead>
@@ -114,14 +180,21 @@ export const NewsTable = ({ news, isLoading }: NewsTableProps) => {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-48 text-center">
+                <TableCell colSpan={8} className="h-48 text-center">
                   <Loader2 className="mx-auto h-8 w-8 animate-spin text-muted-foreground" />
                   <p className="mt-2 text-sm text-muted-foreground">Đang tải tin tức...</p>
                 </TableCell>
               </TableRow>
             ) : news && news.length > 0 ? (
               news.map((item) => (
-                <TableRow key={item.id}>
+                <TableRow key={item.id} data-state={selectedRows.includes(item.id) ? "selected" : undefined}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedRows.includes(item.id)}
+                      onCheckedChange={(checked) => handleSelectRow(item.id, !!checked)}
+                      aria-label="Select row"
+                    />
+                  </TableCell>
                   <TableCell>
                     <span className="font-medium">{item.source_name || 'Không rõ'}</span>
                   </TableCell>
@@ -184,7 +257,7 @@ export const NewsTable = ({ news, isLoading }: NewsTableProps) => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="h-48 text-center">
+                <TableCell colSpan={8} className="h-48 text-center">
                   <Inbox className="mx-auto h-12 w-12 text-muted-foreground" />
                   <p className="mt-4 font-medium">Không có tin tức nào</p>
                   <p className="text-sm text-muted-foreground">Hãy cấu hình nguồn để bắt đầu quét tin tức.</p>
@@ -211,6 +284,22 @@ export const NewsTable = ({ news, isLoading }: NewsTableProps) => {
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={deletePostMutation.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {deletePostMutation.isPending ? "Đang xóa..." : "Xóa"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hành động này sẽ xóa vĩnh viễn {numSelected} bài viết đã chọn. Không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} disabled={deleteMultiplePostsMutation.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleteMultiplePostsMutation.isPending ? "Đang xóa..." : `Xóa (${numSelected})`}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
