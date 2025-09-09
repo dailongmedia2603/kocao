@@ -24,20 +24,25 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing Authorization header");
     
-    const { data, error: userError } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
+    const { data: { user: authUser }, error: userError } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
     if (userError) throw new Error(userError.message);
-    if (!data.user) throw new Error("User not found");
-    user = data.user;
+    if (!authUser) throw new Error("User not found");
+    user = authUser;
 
-    const apiKey = Deno.env.get("SHARED_VOICE_API_KEY");
-    if (!apiKey) {
-      throw new Error("SHARED_VOICE_API_KEY chưa được cấu hình trong Supabase Secrets.");
+    const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
+      .from("user_voice_api_keys")
+      .select("api_key")
+      .limit(1)
+      .single();
+
+    if (apiKeyError || !apiKeyData) {
+      throw new Error("Chưa có API Key Voice nào được cấu hình trong hệ thống. Vui lòng liên hệ quản trị viên.");
     }
+    const apiKey = apiKeyData.api_key;
 
     const { path, method, body } = await req.json();
     const apiUrl = `https://gateway.vivoo.work/${path}`;
 
-    // FIX: Safely handle the body to prevent crashes on GET requests (which have no body)
     const voice_name = body?.voice_name;
     const { voice_name: _removed, ...apiBody } = body || {};
 
@@ -47,43 +52,23 @@ serve(async (req) => {
         "xi-api-key": apiKey,
         "Content-Type": "application/json",
       },
-      // FIX: Only include a body for relevant methods and if it's not empty
       body: (method !== 'GET' && Object.keys(apiBody).length > 0) ? JSON.stringify(apiBody) : undefined,
     };
 
     const apiResponse = await fetch(apiUrl, fetchOptions);
     const responseData = await apiResponse.json();
 
-    // --- LOGGING & DB INSERT LOGIC ---
     if (path === "v1m/task/text-to-speech" && method === "POST") {
       const taskId = responseData?.task_id;
-      
-      const logPayload = {
-        user_id: user.id,
-        task_id: taskId || null,
-        request_payload: body, // Log the original body with voice_name
-        response_body: responseData,
-        status_code: apiResponse.status,
-      };
-      
+      const logPayload = { user_id: user.id, task_id: taskId || null, request_payload: body, response_body: responseData, status_code: apiResponse.status };
       const { error: logError } = await supabaseAdmin.from("tts_logs").insert(logPayload);
       if (logError) console.error("Failed to write to tts_logs:", logError);
 
-      // Insert into our own tasks table if successful
       if (taskId && apiResponse.ok) {
-        const { error: dbError } = await supabaseAdmin
-          .from("voice_tasks")
-          .insert({
-              id: taskId,
-              user_id: user.id,
-              voice_name: voice_name, // The new field
-              status: 'doing',
-              task_type: 'minimax_tts',
-          });
+        const { error: dbError } = await supabaseAdmin.from("voice_tasks").insert({ id: taskId, user_id: user.id, voice_name: voice_name, status: 'doing', task_type: 'minimax_tts' });
         if (dbError) console.error("Failed to insert into voice_tasks:", dbError);
       }
     }
-    // --- END LOGGING LOGIC ---
 
     if (!apiResponse.ok) {
       let errorMessage = responseData.message || JSON.stringify(responseData);
@@ -93,15 +78,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: errorMessage }), { status: apiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    return new Response(JSON.stringify(responseData), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-
+    return new Response(JSON.stringify(responseData), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

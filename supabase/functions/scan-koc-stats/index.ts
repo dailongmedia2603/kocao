@@ -13,27 +13,19 @@ serve(async (_req) => {
   }
 
   try {
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    const accessToken = Deno.env.get("SHARED_TIKTOK_ACCESS_TOKEN");
-    if (!accessToken) {
-      throw new Error("SHARED_TIKTOK_ACCESS_TOKEN chưa được cấu hình trong Supabase Secrets.");
+    const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+    
+    const { data: tokenData, error: tokenError } = await supabaseAdmin.from("user_tiktok_tokens").select("access_token").limit(1).single();
+    if (tokenError || !tokenData) {
+      throw new Error("Chưa có Access Token TikTok nào được cấu hình trong hệ thống.");
     }
+    const accessToken = tokenData.access_token;
 
-    const { data: kocs, error: fetchError } = await supabaseAdmin
-      .from("kocs")
-      .select("id, channel_url, user_id")
-      .not("channel_url", "is", null);
-
+    const { data: kocs, error: fetchError } = await supabaseAdmin.from("kocs").select("id, channel_url, user_id").not("channel_url", "is", null);
     if (fetchError) throw fetchError;
+
     if (!kocs || kocs.length === 0) {
-      return new Response(JSON.stringify({ message: "Không có KOC nào để quét." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
+      return new Response(JSON.stringify({ message: "Không có KOC nào để quét." }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
     }
 
     const scanPromises = kocs.map(async (koc) => {
@@ -53,27 +45,13 @@ serve(async (_req) => {
         if (userInfo && statsData) {
           const { followerCount, heartCount, videoCount } = statsData;
           const { nickname, uniqueId, createTime } = userInfo;
-
-          const { error: updateError } = await supabaseAdmin
-            .from("kocs")
-            .update({
-              follower_count: parseInt(followerCount, 10),
-              like_count: parseInt(heartCount, 10),
-              video_count: parseInt(videoCount, 10),
-              channel_nickname: nickname,
-              channel_unique_id: uniqueId,
-              channel_created_at: new Date(createTime * 1000).toISOString(),
-              stats_updated_at: new Date().toISOString(),
-            })
-            .eq("id", koc.id);
-
+          const { error: updateError } = await supabaseAdmin.from("kocs").update({ follower_count: parseInt(followerCount, 10), like_count: parseInt(heartCount, 10), video_count: parseInt(videoCount, 10), channel_nickname: nickname, channel_unique_id: uniqueId, channel_created_at: new Date(createTime * 1000).toISOString(), stats_updated_at: new Date().toISOString() }).eq("id", koc.id);
           if (updateError) {
             console.error(`Lỗi DB cho KOC ${koc.id}:`, updateError.message);
             return { id: koc.id, status: 'failed', reason: 'DB update error' };
           }
           return { id: koc.id, status: 'success' };
         } else {
-          console.warn(`Dữ liệu API không đầy đủ cho KOC ${koc.id}`);
           return { id: koc.id, status: 'skipped', reason: 'Incomplete API data' };
         }
       } catch (e) {
@@ -85,15 +63,8 @@ serve(async (_req) => {
     const results = await Promise.all(scanPromises);
     const successCount = results.filter(r => r.status === 'success').length;
 
-    return new Response(JSON.stringify({ message: `Quét hoàn tất. Cập nhật thành công ${successCount}/${kocs.length} KOCs.` }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
-
+    return new Response(JSON.stringify({ message: `Quét hoàn tất. Cập nhật thành công ${successCount}/${kocs.length} KOCs.` }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return new Response(JSON.stringify({ error: error.message }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 });
   }
 });

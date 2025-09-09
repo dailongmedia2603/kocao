@@ -15,14 +15,7 @@ serve(async (req) => {
 
   const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   
-  let logPayload = {
-    user_id: null,
-    request_url: "https://gateway.vivoo.work/v1m/voice/clone",
-    request_payload: {},
-    response_body: null,
-    status_code: null,
-    status_text: null,
-  };
+  let logPayload = { user_id: null, request_url: "https://gateway.vivoo.work/v1m/voice/clone", request_payload: {}, response_body: null, status_code: null, status_text: null };
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -32,29 +25,18 @@ serve(async (req) => {
     if (!user) throw new Error("User not found");
     logPayload.user_id = user.id;
 
-    const apiKey = Deno.env.get("SHARED_VOICE_API_KEY");
-    if (!apiKey) {
-      throw new Error("SHARED_VOICE_API_KEY chưa được cấu hình trong Supabase Secrets.");
+    const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.from("user_voice_api_keys").select("api_key").limit(1).single();
+    if (apiKeyError || !apiKeyData) {
+      throw new Error("Chưa có API Key Voice nào được cấu hình trong hệ thống. Vui lòng liên hệ quản trị viên.");
     }
+    const apiKey = apiKeyData.api_key;
     
     const formData = await req.formData();
-    
-    logPayload.request_payload = {
-      voice_name: formData.get("voice_name"),
-      preview_text: formData.get("preview_text"),
-      language_tag: "Vietnamese",
-    };
-    
+    logPayload.request_payload = { voice_name: formData.get("voice_name"), preview_text: formData.get("preview_text"), language_tag: "Vietnamese" };
     formData.append("language_tag", "Vietnamese");
     
     const apiUrl = "https://gateway.vivoo.work/v1m/voice/clone";
-
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "xi-api-key": apiKey },
-      body: formData,
-    });
-
+    const response = await fetch(apiUrl, { method: "POST", headers: { "xi-api-key": apiKey }, body: formData });
     const responseData = await response.json();
     
     logPayload.status_code = response.status;
@@ -63,27 +45,18 @@ serve(async (req) => {
 
     if (!response.ok) throw new Error(responseData.message || JSON.stringify(responseData));
 
-    return new Response(JSON.stringify(responseData), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-
+    return new Response(JSON.stringify(responseData), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     logPayload.response_body = { error: err.message };
     if (!logPayload.status_code) {
       logPayload.status_code = 500;
       logPayload.status_text = "Internal Server Error";
     }
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } finally {
     if (logPayload.user_id) {
-      const { error: logError } = await supabaseAdmin
-        .from("voice_clone_logs")
-        .insert(logPayload);
-      if (logError) {
-        console.error("Failed to write to voice_clone_logs:", logError);
-      }
+      const { error: logError } = await supabaseAdmin.from("voice_clone_logs").insert(logPayload);
+      if (logError) console.error("Failed to write to voice_clone_logs:", logError);
     }
   }
 });
