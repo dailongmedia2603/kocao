@@ -54,9 +54,10 @@ serve(async (req) => {
           throw new Error(`Không tìm thấy bất kỳ chiến dịch tự động nào được cấu hình cho user ${post.user_id}`);
         }
 
-        // Gọi API để tạo voice
+        // Gọi API để tạo voice, gửi kèm userId
         const { data: voiceData, error: voiceError } = await supabaseAdmin.functions.invoke('voice-api-proxy', {
           body: {
+            userId: post.user_id, // **ĐÂY LÀ THAY ĐỔI QUAN TRỌNG**
             path: "v1m/task/text-to-speech",
             method: "POST",
             body: {

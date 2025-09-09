@@ -18,16 +18,24 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
   
-  let user;
-
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing Authorization header");
-    
-    const { data: { user: authUser }, error: userError } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (userError) throw new Error(userError.message);
-    if (!authUser) throw new Error("User not found");
-    user = authUser;
+    const { path, method, body, userId } = await req.json();
+    let user;
+
+    // **LOGIC XÁC THỰC ĐƯỢC NÂNG CẤP**
+    if (userId) {
+      // Trường hợp 1: Gọi từ server-side (ví dụ: auto-tao-voice)
+      // Tin tưởng userId được gửi từ function đáng tin cậy
+      user = { id: userId };
+    } else {
+      // Trường hợp 2: Gọi từ client-side (UI)
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) throw new Error("Missing Authorization header");
+      
+      const { data: { user: authUser }, error: userError } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
+      if (userError || !authUser) throw new Error("Invalid or expired token.");
+      user = authUser;
+    }
 
     const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
@@ -40,12 +48,10 @@ serve(async (req) => {
     }
     const apiKey = apiKeyData.api_key;
 
-    const { path, method, body } = await req.json();
-    const apiUrl = `https://gateway.vivoo.work/${path}`;
-
     const voice_name = body?.voice_name;
     const { voice_name: _removed, ...apiBody } = body || {};
 
+    const apiUrl = `https://gateway.vivoo.work/${path}`;
     const fetchOptions = {
       method: method,
       headers: {
