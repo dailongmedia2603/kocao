@@ -42,17 +42,16 @@ serve(async (req) => {
           .update({ status: 'voice_processing' })
           .eq('id', post.id);
 
-        // Tìm chiến dịch tự động đang hoạt động của người dùng này
+        // Tìm bất kỳ chiến dịch tự động nào của người dùng này (bỏ qua trạng thái 'active')
         const { data: campaign, error: campaignError } = await supabaseAdmin
           .from('automation_campaigns')
           .select('cloned_voice_id, cloned_voice_name')
           .eq('user_id', post.user_id)
-          .eq('status', 'active')
           .limit(1)
           .single();
 
         if (campaignError || !campaign) {
-          throw new Error(`Không tìm thấy chiến dịch tự động đang hoạt động cho user ${post.user_id}`);
+          throw new Error(`Không tìm thấy bất kỳ chiến dịch tự động nào được cấu hình cho user ${post.user_id}`);
         }
 
         // Gọi API để tạo voice
