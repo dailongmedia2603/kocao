@@ -18,13 +18,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên mẫu không được để trống."),
-  word_count: z.coerce.number().positive("Số từ phải là số dương.").optional(),
-  writing_style: z.string().optional(),
-  writing_method: z.string().optional(),
-  tone_of_voice: z.string().optional(),
   ai_role: z.string().optional(),
+  business_field: z.string().optional(),
+  writing_style: z.string().optional(),
+  tone_of_voice: z.string().optional(),
+  goal: z.string().optional(),
+  word_count: z.coerce.number().positive("Số từ phải là số dương.").optional(),
   mandatory_requirements: z.string().optional(),
-  presentation_structure: z.string().optional(),
   model: z.string().optional(),
 });
 
@@ -50,14 +50,14 @@ export const CreateOrEditPromptTemplateDialog = ({ isOpen, onOpenChange, templat
     } else {
       form.reset({
         name: "",
-        word_count: 300,
+        ai_role: "Đóng vai là 1 người trẻ (GenZ) thường hay hoạt động tương tác như đăng bài / comment trên các nhóm cộng đồng facebook. Có sở thích sử dụng iphone và luôn mới lên đời mới nhất.",
+        business_field: "Công nghệ / Iphone",
+        writing_style: "Phong cách giới trẻ (GenZ), phong cách mạng xã hội, có phần trẻ trâu, nghĩa gì nói đó không có bất kì cấu trúc gì cả.",
+        tone_of_voice: "Vui vẻ, hài hước, nói 1 cách tự nhiên gần gũi.",
+        goal: "Viết tự nhiên như 1 người thật chứ không có dấu hiệu AI hay seeding.",
+        word_count: 70,
+        mandatory_requirements: "- Phải có viết tắt theo phong cách giới trẻ trên mạng xã hội.\n- Nói cụt ngũn, không chào hỏi và đi thẳng vào vấn đề\n- Xưng hô theo vùng miền miền nam\n- không có dấu câu rõ ràng\n- Có phần trẻ trâu, thẳng thắng\n- Tuyệt đối không có các câu mở đầu giả tạo như: Chời ơi, ôi, chào mọi người,...\n- Quan trọng: Iphone 17 chưa ra mắt, nên tuyệt đối không xin review ai đã dùng rồi hoặc ai đã lên rồi nhé.\n- Quan trọng: Iphone 17 thông tin gần như đã có hết rồi, nên trong nội dung không được hỏi hay nói có gì mới không nhé.",
         model: "gemini-1.5-pro-latest",
-        writing_style: "",
-        writing_method: "",
-        tone_of_voice: "",
-        ai_role: "",
-        mandatory_requirements: "",
-        presentation_structure: "",
       });
     }
   }, [template, form, isOpen]);
@@ -97,10 +97,17 @@ export const CreateOrEditPromptTemplateDialog = ({ isOpen, onOpenChange, templat
             <ScrollArea className="h-[60vh] pr-4">
               <div className="space-y-4">
                 <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Tên mẫu</FormLabel><FormControl><Input placeholder="Ví dụ: Mẫu tin tức TikTok" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="ai_role" render={({ field }) => (<FormItem><FormLabel>Vai trò của bạn</FormLabel><FormControl><Textarea placeholder="Ví dụ: Đóng vai một chuyên gia marketing..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField control={form.control} name="word_count" render={({ field }) => (<FormItem><FormLabel>Số từ</FormLabel><FormControl><Input type="number" placeholder="Ví dụ: 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  <FormField control={form.control} name="tone_of_voice" render={({ field }) => (<FormItem><FormLabel>Tông giọng</FormLabel><FormControl><Input placeholder="Ví dụ: Hài hước, nghiêm túc" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  <FormField control={form.control} name="business_field" render={({ field }) => (<FormItem><FormLabel>Lĩnh vực kinh doanh</FormLabel><FormControl><Input placeholder="Ví dụ: Công nghệ / Iphone" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  <FormField control={form.control} name="writing_style" render={({ field }) => (<FormItem><FormLabel>Phong cách</FormLabel><FormControl><Input placeholder="Ví dụ: Phong cách giới trẻ (GenZ)" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField control={form.control} name="tone_of_voice" render={({ field }) => (<FormItem><FormLabel>Tông giọng</FormLabel><FormControl><Input placeholder="Ví dụ: Hài hước, nghiêm túc" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  <FormField control={form.control} name="word_count" render={({ field }) => (<FormItem><FormLabel>Độ dài bài viết (số từ)</FormLabel><FormControl><Input type="number" placeholder="Ví dụ: 70" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                </div>
+                <FormField control={form.control} name="goal" render={({ field }) => (<FormItem><FormLabel>Mục tiêu cần đạt</FormLabel><FormControl><Textarea placeholder="Ví dụ: Viết tự nhiên như 1 người thật..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={form.control} name="mandatory_requirements" render={({ field }) => (<FormItem><FormLabel>Điều kiện bắt buộc</FormLabel><FormControl><Textarea className="min-h-[150px]" placeholder="Ví dụ: Phải có viết tắt theo phong cách giới trẻ..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="model" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Model AI</FormLabel>
@@ -114,11 +121,6 @@ export const CreateOrEditPromptTemplateDialog = ({ isOpen, onOpenChange, templat
                     <FormMessage />
                   </FormItem>
                 )} />
-                <FormField control={form.control} name="writing_style" render={({ field }) => (<FormItem><FormLabel>Văn phong</FormLabel><FormControl><Textarea placeholder="Ví dụ: Trẻ trung, chuyên nghiệp, kể chuyện..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="writing_method" render={({ field }) => (<FormItem><FormLabel>Cách viết</FormLabel><FormControl><Textarea placeholder="Ví dụ: Sử dụng câu ngắn, đi thẳng vào vấn đề..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="ai_role" render={({ field }) => (<FormItem><FormLabel>Vai trò AI</FormLabel><FormControl><Textarea placeholder="Ví dụ: Đóng vai một chuyên gia marketing..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="mandatory_requirements" render={({ field }) => (<FormItem><FormLabel>Yêu cầu bắt buộc</FormLabel><FormControl><Textarea placeholder="Ví dụ: Luôn có câu kêu gọi hành động ở cuối..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={form.control} name="presentation_structure" render={({ field }) => (<FormItem><FormLabel>Cấu trúc trình bày</FormLabel><FormControl><Textarea placeholder="Ví dụ: Mở đầu (3 giây), Thân bài (20 giây), Kết bài (5 giây)..." {...field} /></FormControl><FormMessage /></FormItem>)} />
               </div>
             </ScrollArea>
             <DialogFooter>
