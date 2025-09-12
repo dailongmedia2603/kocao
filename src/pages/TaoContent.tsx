@@ -62,6 +62,7 @@ type VideoScript = {
 const scriptFormSchema = z.object({
   name: z.string().min(1, "Tên kịch bản không được để trống."),
   kocId: z.string().min(1, "Vui lòng chọn KOC."),
+  newsProcessingRequest: z.string().optional(),
   newsPostId: z.string().min(1, "Vui lòng chọn tin tức."),
   model: z.string().min(1, "Vui lòng chọn model AI."),
   maxWords: z.coerce.number().positive("Số từ phải là số dương.").optional(),
@@ -136,6 +137,7 @@ const TaoContent = () => {
     defaultValues: { 
       name: "", 
       kocId: "", 
+      newsProcessingRequest: "",
       newsPostId: "", 
       model: "gemini-1.5-pro-latest",
       toneOfVoice: "hài hước",
@@ -159,6 +161,7 @@ const TaoContent = () => {
       }
 
       const detailedPrompt = `
+${values.newsProcessingRequest ? `- Yêu cầu xử lý tin tức: ${values.newsProcessingRequest}` : ''}
 - Tông giọng: ${values.toneOfVoice || 'chuyên nghiệp, hấp dẫn'}
 - Văn phong: ${values.writingStyle || 'kể chuyện, sử dụng văn nói'}
 - Cách viết: ${values.writingMethod || 'sử dụng câu ngắn, đi thẳng vào vấn đề'}
@@ -248,6 +251,7 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                           <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><FileSignature className="h-4 w-4 mr-2" />Tên kịch bản</FormLabel><FormControl><Input placeholder="Ví dụ: Kịch bản tin tức Campuchia" {...field} /></FormControl><FormMessage /></FormItem>)} />
                           <FormField control={form.control} name="kocId" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel className="flex items-center"><UserCircle className="h-4 w-4 mr-2" />Tạo cho KOC</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>{field.value ? kocs.find((koc) => koc.id === field.value)?.name : "Chọn KOC"}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Tìm KOC..." /><CommandList><CommandEmpty>Không tìm thấy KOC.</CommandEmpty><CommandGroup>{kocs.map((koc) => (<CommandItem value={koc.name} key={koc.id} onSelect={() => { form.setValue("kocId", koc.id);}}><Check className={cn("mr-2 h-4 w-4", koc.id === field.value ? "opacity-100" : "opacity-0")}/>{koc.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover><FormMessage /></FormItem>)} />
+                          <FormField control={form.control} name="newsProcessingRequest" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Settings2 className="h-4 w-4 mr-2" />Yêu cầu xử lý tin tức</FormLabel><FormControl><Textarea placeholder="Ví dụ: Tóm tắt lại tin tức, chỉ lấy ý chính, không lấy các chi tiết rườm rà." {...field} /></FormControl><FormMessage /></FormItem>)} />
                           <FormField control={form.control} name="newsPostId" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel className="flex items-center"><Newspaper className="h-4 w-4 mr-2" />Tin tức</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" role="combobox" className={cn("w-full justify-between text-left", !field.value && "text-muted-foreground")}>{field.value ? <span className="truncate">{news.find((post) => post.id === field.value)?.content}</span> : "Chọn tin tức"}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Tìm tin tức..." /><CommandList><CommandEmpty>Không tìm thấy tin tức.</CommandEmpty><CommandGroup>{news.map((post) => (<CommandItem value={post.content || ""} key={post.id} onSelect={() => { form.setValue("newsPostId", post.id);}}><Check className={cn("mr-2 h-4 w-4", post.id === field.value ? "opacity-100" : "opacity-0")}/><span className="truncate">{post.content}</span></CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover><FormMessage /></FormItem>)} />
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Model AI</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro</SelectItem><SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
