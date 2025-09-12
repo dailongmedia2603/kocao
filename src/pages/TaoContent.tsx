@@ -161,9 +161,9 @@ const TaoContent = () => {
         throw new Error(data.error);
       }
 
-      return { scriptContent: data.script, values };
+      return { scriptContent: data.script, prompt: data.prompt, values };
     },
-    onSuccess: async ({ scriptContent, values }) => {
+    onSuccess: async ({ scriptContent, prompt, values }) => {
       setGeneratedScript(scriptContent);
       
       if (user) {
@@ -173,6 +173,7 @@ const TaoContent = () => {
           koc_id: values.kocId,
           news_post_id: values.newsPostId,
           script_content: scriptContent,
+          ai_prompt: prompt,
         });
 
         if (insertError) {

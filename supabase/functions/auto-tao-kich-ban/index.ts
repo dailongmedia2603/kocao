@@ -85,12 +85,22 @@ serve(async (req) => {
         }
         
         const generatedScript = scriptData.script;
+        const usedPrompt = scriptData.prompt;
 
         // Cập nhật bài viết với kịch bản và trạng thái mới
         await supabaseAdmin
           .from('news_posts')
           .update({ status: 'script_generated', voice_script: generatedScript })
           .eq('id', post.id);
+
+        // Lưu kịch bản vào CSDL, bao gồm cả prompt
+        await supabaseAdmin.from('video_scripts').insert({
+          user_id: post.user_id,
+          name: `Tự động: ${post.content.substring(0, 50)}...`,
+          news_post_id: post.id,
+          script_content: generatedScript,
+          ai_prompt: usedPrompt,
+        });
 
         console.log(`Đã tạo kịch bản thành công cho tin tức ID: ${post.id}.`);
 

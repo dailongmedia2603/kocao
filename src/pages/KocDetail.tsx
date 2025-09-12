@@ -28,6 +28,7 @@ import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
 import { UploadVideoDialog } from "@/components/koc/UploadVideoDialog";
 import { EditableFileName } from "@/components/koc/EditableFileName";
 import { ViewScriptContentDialog } from "@/components/content/ViewScriptContentDialog";
+import { ViewScriptLogDialog } from "@/components/content/ViewScriptLogDialog";
 
 // Utils
 import { showSuccess, showError } from "@/utils/toast";
@@ -63,6 +64,7 @@ type VideoScript = {
   name: string;
   script_content: string | null;
   created_at: string;
+  ai_prompt: string | null;
   news_posts: { content: string | null } | null;
 };
 
@@ -151,6 +153,7 @@ const KocDetail = () => {
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
   const [selectedScript, setSelectedScript] = useState<VideoScript | null>(null);
   const [isViewScriptOpen, setIsViewScriptOpen] = useState(false);
+  const [isViewLogOpen, setIsViewLogOpen] = useState(false);
   const [scriptToDelete, setScriptToDelete] = useState<VideoScript | null>(null);
 
   const { data: koc, isLoading: isKocLoading } = useQuery<Koc>({
@@ -417,13 +420,14 @@ const KocDetail = () => {
                           <TableHead>Nguồn tin tức</TableHead>
                           <TableHead>Ngày tạo</TableHead>
                           <TableHead>Nội dung</TableHead>
+                          <TableHead>Log</TableHead>
                           <TableHead className="text-right">Hành động</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {areScriptsLoading ? (
                           <TableRow>
-                            <TableCell colSpan={5} className="h-24 text-center">
+                            <TableCell colSpan={6} className="h-24 text-center">
                               <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                             </TableCell>
                           </TableRow>
@@ -451,6 +455,19 @@ const KocDetail = () => {
                                   Xem chi tiết
                                 </Button>
                               </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="link"
+                                  className="p-0 h-auto"
+                                  disabled={!script.ai_prompt}
+                                  onClick={() => {
+                                    setSelectedScript(script);
+                                    setIsViewLogOpen(true);
+                                  }}
+                                >
+                                  Xem log
+                                </Button>
+                              </TableCell>
                               <TableCell className="text-right">
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
@@ -473,7 +490,7 @@ const KocDetail = () => {
                           ))
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={5} className="h-24 text-center">
+                            <TableCell colSpan={6} className="h-24 text-center">
                               Chưa có kịch bản tự động nào.
                             </TableCell>
                           </TableRow>
@@ -551,6 +568,7 @@ const KocDetail = () => {
         </AlertDialogContent>
       </AlertDialog>
       <ViewScriptContentDialog isOpen={isViewScriptOpen} onOpenChange={setIsViewScriptOpen} title={selectedScript?.name || null} content={selectedScript?.script_content || null} />
+      <ViewScriptLogDialog isOpen={isViewLogOpen} onOpenChange={setIsViewLogOpen} title={selectedScript?.name || null} prompt={selectedScript?.ai_prompt || null} />
       <AlertDialog open={!!scriptToDelete} onOpenChange={(isOpen) => !isOpen && setScriptToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Kịch bản "{scriptToDelete?.name}" sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader>

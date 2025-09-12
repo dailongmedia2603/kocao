@@ -65,7 +65,7 @@ serve(async (req) => {
     }
 
     const generatedText = geminiData.candidates[0].content.parts[0].text;
-    return new Response(JSON.stringify({ success: true, script: generatedText }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ success: true, script: generatedText, prompt: fullPrompt }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     return new Response(JSON.stringify({ success: false, error: error.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
