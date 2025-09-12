@@ -9,7 +9,7 @@ import { vi } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,14 +18,16 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 // Icons
-import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, SlidersHorizontal, CreditCard, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, CalendarDays } from "lucide-react";
+import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, SlidersHorizontal, CreditCard, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, CalendarDays, Bot, MoreHorizontal, Loader2 } from "lucide-react";
 
 // Custom Components
 import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
 import { UploadVideoDialog } from "@/components/koc/UploadVideoDialog";
 import { EditableFileName } from "@/components/koc/EditableFileName";
+import { ViewScriptContentDialog } from "@/components/content/ViewScriptContentDialog";
 
 // Utils
 import { showSuccess, showError } from "@/utils/toast";
@@ -56,6 +58,14 @@ type KocFile = {
   r2_key: string;
 };
 
+type VideoScript = {
+  id: string;
+  name: string;
+  script_content: string | null;
+  created_at: string;
+  news_posts: { content: string | null } | null;
+};
+
 // Data fetching
 const fetchKocDetails = async (kocId: string) => {
   const { data, error } = await supabase
@@ -74,6 +84,16 @@ const fetchKocFiles = async (kocId: string): Promise<KocFile[]> => {
   if (error) throw new Error(`Không thể lấy danh sách tệp: ${error.message}`);
   if (!data.files) throw new Error("Phản hồi từ server không hợp lệ.");
   return data.files as KocFile[];
+};
+
+const fetchVideoScripts = async (kocId: string) => {
+  const { data, error } = await supabase
+    .from('video_scripts')
+    .select('*, news_posts(content)')
+    .eq('koc_id', kocId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data as VideoScript[];
 };
 
 // Mock data
@@ -129,6 +149,9 @@ const KocDetail = () => {
   const [isSourceVideoUploadOpen, setSourceVideoUploadOpen] = useState(false);
   const [isSourceAudioUploadOpen, setSourceAudioUploadOpen] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const [selectedScript, setSelectedScript] = useState<VideoScript | null>(null);
+  const [isViewScriptOpen, setIsViewScriptOpen] = useState(false);
+  const [scriptToDelete, setScriptToDelete] = useState<VideoScript | null>(null);
 
   const { data: koc, isLoading: isKocLoading } = useQuery<Koc>({
     queryKey: ["koc", kocId],
@@ -140,6 +163,12 @@ const KocDetail = () => {
   const { data: files, isLoading: areFilesLoading, isError, error: filesError } = useQuery<KocFile[]>({
     queryKey: filesQueryKey,
     queryFn: () => fetchKocFiles(kocId!),
+    enabled: !!kocId,
+  });
+
+  const { data: videoScripts, isLoading: areScriptsLoading } = useQuery<VideoScript[]>({
+    queryKey: ["video_scripts", kocId],
+    queryFn: () => fetchVideoScripts(kocId!),
     enabled: !!kocId,
   });
 
@@ -172,6 +201,22 @@ const KocDetail = () => {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: filesQueryKey });
+    },
+  });
+
+  const deleteScriptMutation = useMutation({
+    mutationFn: async (scriptId: string) => {
+      const { error } = await supabase.from('video_scripts').delete().eq('id', scriptId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showSuccess("Xóa kịch bản thành công!");
+      queryClient.invalidateQueries({ queryKey: ['video_scripts', kocId] });
+      setScriptToDelete(null);
+    },
+    onError: (error: Error) => {
+      showError(`Lỗi: ${error.message}`);
+      setScriptToDelete(null);
     },
   });
 
@@ -259,6 +304,9 @@ const KocDetail = () => {
                 </TabsTrigger>
                 <TabsTrigger value="sources" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
                   <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><FileArchive className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Nguồn Video/Audio</span></div>
+                </TabsTrigger>
+                <TabsTrigger value="auto-scripts" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
+                  <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Bot className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Kịch bản tự động</span></div>
                 </TabsTrigger>
                 <TabsTrigger value="reports" disabled className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
                   <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><FileText className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Báo cáo</span></div>
@@ -355,6 +403,86 @@ const KocDetail = () => {
                   </AccordionItem>
                 </Accordion>
               </TabsContent>
+              <TabsContent value="auto-scripts" className="mt-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Danh sách kịch bản tự động</CardTitle>
+                    <CardDescription>Các kịch bản được tạo tự động cho KOC này.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Tên kịch bản</TableHead>
+                          <TableHead>Nguồn tin tức</TableHead>
+                          <TableHead>Ngày tạo</TableHead>
+                          <TableHead>Nội dung</TableHead>
+                          <TableHead className="text-right">Hành động</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {areScriptsLoading ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="h-24 text-center">
+                              <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+                            </TableCell>
+                          </TableRow>
+                        ) : videoScripts && videoScripts.length > 0 ? (
+                          videoScripts.map((script) => (
+                            <TableRow key={script.id}>
+                              <TableCell className="font-medium">{script.name}</TableCell>
+                              <TableCell>
+                                <p className="max-w-xs truncate" title={script.news_posts?.content || ''}>
+                                  {script.news_posts?.content || 'N/A'}
+                                </p>
+                              </TableCell>
+                              <TableCell>
+                                {format(new Date(script.created_at), "dd/MM/yyyy HH:mm", { locale: vi })}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="link"
+                                  className="p-0 h-auto"
+                                  onClick={() => {
+                                    setSelectedScript(script);
+                                    setIsViewScriptOpen(true);
+                                  }}
+                                >
+                                  Xem chi tiết
+                                </Button>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-8 w-8 p-0">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      className="text-destructive"
+                                      onClick={() => setScriptToDelete(script)}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Xóa
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={5} className="h-24 text-center">
+                              Chưa có kịch bản tự động nào.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
             </Tabs>
           </div>
           <div className="lg:col-span-1">
@@ -420,6 +548,16 @@ const KocDetail = () => {
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. {filesToDelete.length} tệp sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} disabled={deleteFilesMutation.isPending}>{deleteFilesMutation.isPending ? "Đang xóa..." : "Xóa"}</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <ViewScriptContentDialog isOpen={isViewScriptOpen} onOpenChange={setIsViewScriptOpen} title={selectedScript?.name || null} content={selectedScript?.script_content || null} />
+      <AlertDialog open={!!scriptToDelete} onOpenChange={(isOpen) => !isOpen && setScriptToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Kịch bản "{scriptToDelete?.name}" sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={() => scriptToDelete && deleteScriptMutation.mutate(scriptToDelete.id)} disabled={deleteScriptMutation.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deleteScriptMutation.isPending ? "Đang xóa..." : "Xóa"}</AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
