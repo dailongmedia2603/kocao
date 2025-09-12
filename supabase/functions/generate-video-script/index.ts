@@ -38,10 +38,7 @@ serve(async (req) => {
       ---
       ${prompt}
       ---
-      **Yêu cầu bổ sung:**
-      - Kịch bản phải được viết bằng tiếng Việt.
-      - Giọng văn phải tự nhiên, lôi cuốn, và phù hợp với nền tảng video ngắn.
-      - Chia kịch bản thành các phân cảnh rõ ràng.
+      **Yêu cầu hệ thống:**
       - ${maxWords ? `Độ dài kịch bản không được vượt quá ${maxWords} từ.` : 'Giữ kịch bản ngắn gọn, súc tích.'}
       - Chỉ trả về nội dung kịch bản, không thêm bất kỳ lời giải thích hay ghi chú nào khác.
     `;
