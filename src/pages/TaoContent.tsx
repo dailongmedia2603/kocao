@@ -27,7 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Icons
-import { Bot, Newspaper, Settings, History, FileText, CalendarClock, Voicemail, Wand2, ChevronDown, FileSignature, UserCircle, Sigma, MessageSquare, Loader2, Hash, AlignLeft, Settings2, Trash2, Edit, MoreHorizontal, Check, ChevronsUpDown } from "lucide-react";
+import { Bot, Newspaper, Settings, History, FileText, CalendarClock, Voicemail, Wand2, ChevronDown, FileSignature, UserCircle, Sigma, MessageSquare, Loader2, Hash, AlignLeft, Settings2, Trash2, Edit, MoreHorizontal, Check, ChevronsUpDown, CheckSquare } from "lucide-react";
 
 // Custom Components
 import { ConfigureNewsDialog } from "@/components/content/ConfigureNewsDialog";
@@ -65,7 +65,11 @@ const scriptFormSchema = z.object({
   newsPostId: z.string().min(1, "Vui lòng chọn tin tức."),
   model: z.string().min(1, "Vui lòng chọn model AI."),
   maxWords: z.coerce.number().positive("Số từ phải là số dương.").optional(),
-  prompt: z.string().min(1, "Yêu cầu không được để trống."),
+  toneOfVoice: z.string().optional(),
+  writingStyle: z.string().optional(),
+  writingMethod: z.string().optional(),
+  aiRole: z.string().optional(),
+  mandatoryRequirements: z.string().optional(),
 });
 
 // Data Fetching Functions
@@ -128,7 +132,17 @@ const TaoContent = () => {
 
   const form = useForm<z.infer<typeof scriptFormSchema>>({
     resolver: zodResolver(scriptFormSchema),
-    defaultValues: { name: "", kocId: "", newsPostId: "", model: "gemini-1.5-pro-latest", prompt: "Tóm tắt tin tức thành một kịch bản video ngắn gọn, hấp dẫn, phù hợp để đọc trong video ngắn." },
+    defaultValues: { 
+      name: "", 
+      kocId: "", 
+      newsPostId: "", 
+      model: "gemini-1.5-pro-latest",
+      toneOfVoice: "hài hước",
+      writingStyle: "kể chuyện, sử dụng văn nói",
+      writingMethod: "Sử dụng câu ngắn, đi thẳng vào vấn đề",
+      aiRole: "Đóng vai là 1 người tự quay video tiktok để nói chuyện, chia sẻ tự nhiên, nghĩ gì nói đó.",
+      mandatoryRequirements: "",
+    },
   });
 
   const generateScriptMutation = useMutation({
@@ -142,10 +156,18 @@ const TaoContent = () => {
         throw new Error("Không tìm thấy tin tức hoặc KOC đã chọn.");
       }
 
+      const detailedPrompt = `
+- Tông giọng: ${values.toneOfVoice || 'chuyên nghiệp, hấp dẫn'}
+- Văn phong: ${values.writingStyle || 'kể chuyện, sử dụng văn nói'}
+- Cách viết: ${values.writingMethod || 'sử dụng câu ngắn, đi thẳng vào vấn đề'}
+- Vai trò AI: ${values.aiRole || 'Một chuyên gia sáng tạo nội dung'}
+- Yêu cầu bắt buộc: ${values.mandatoryRequirements || 'Không có'}
+      `.trim();
+
       const { data, error } = await supabase.functions.invoke("generate-video-script", {
         body: {
           userId: user.id,
-          prompt: values.prompt,
+          prompt: detailedPrompt,
           newsContent: selectedNews.content,
           kocName: selectedKoc.name,
           maxWords: values.maxWords,
@@ -212,7 +234,7 @@ const TaoContent = () => {
             <TabsTrigger value="news" className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-muted-foreground ring-offset-background transition-all hover:bg-muted/50 focus-visible:outline-none data-[state=active]:border-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600"><div className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-muted-foreground transition-colors group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white"><Newspaper className="h-5 w-5" /></div>Tin tức mới</TabsTrigger>
           </TabsList>
           <TabsContent value="create-content" className="mt-6">
-            <Accordion type="single" collapsible className="w-full">
+            <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
               <AccordionItem value="item-1">
                 <AccordionTrigger className="text-lg font-semibold p-4 bg-card rounded-lg border hover:no-underline data-[state=open]:rounded-b-none"><div className="flex items-center gap-3"><Wand2 className="h-5 w-5 text-primary" />Tạo kịch bản video</div></AccordionTrigger>
                 <AccordionContent className="p-6 border border-t-0 rounded-b-lg">
@@ -224,9 +246,16 @@ const TaoContent = () => {
                           <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><FileSignature className="h-4 w-4 mr-2" />Tên kịch bản</FormLabel><FormControl><Input placeholder="Ví dụ: Kịch bản tin tức Campuchia" {...field} /></FormControl><FormMessage /></FormItem>)} />
                           <FormField control={form.control} name="kocId" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel className="flex items-center"><UserCircle className="h-4 w-4 mr-2" />Tạo cho KOC</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>{field.value ? kocs.find((koc) => koc.id === field.value)?.name : "Chọn KOC"}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Tìm KOC..." /><CommandList><CommandEmpty>Không tìm thấy KOC.</CommandEmpty><CommandGroup>{kocs.map((koc) => (<CommandItem value={koc.name} key={koc.id} onSelect={() => { form.setValue("kocId", koc.id);}}><Check className={cn("mr-2 h-4 w-4", koc.id === field.value ? "opacity-100" : "opacity-0")}/>{koc.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover><FormMessage /></FormItem>)} />
                           <FormField control={form.control} name="newsPostId" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel className="flex items-center"><Newspaper className="h-4 w-4 mr-2" />Tin tức</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" role="combobox" className={cn("w-full justify-between text-left", !field.value && "text-muted-foreground")}>{field.value ? <span className="truncate">{news.find((post) => post.id === field.value)?.content}</span> : "Chọn tin tức"}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Tìm tin tức..." /><CommandList><CommandEmpty>Không tìm thấy tin tức.</CommandEmpty><CommandGroup>{news.map((post) => (<CommandItem value={post.content || ""} key={post.id} onSelect={() => { form.setValue("newsPostId", post.id);}}><Check className={cn("mr-2 h-4 w-4", post.id === field.value ? "opacity-100" : "opacity-0")}/><span className="truncate">{post.content}</span></CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                          <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Model AI</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro</SelectItem><SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash</SelectItem><SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem><SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
-                          <FormField control={form.control} name="maxWords" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Sigma className="h-4 w-4 mr-2" />Số từ tối đa</FormLabel><FormControl><Input type="number" placeholder="Ví dụ: 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          <FormField control={form.control} name="prompt" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><MessageSquare className="h-4 w-4 mr-2" />Yêu cầu chi tiết</FormLabel><FormControl><Textarea className="min-h-[100px]" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Model AI</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro</SelectItem><SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                            <FormField control={form.control} name="maxWords" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Sigma className="h-4 w-4 mr-2" />Số từ tối đa</FormLabel><FormControl><Input type="number" placeholder="Ví dụ: 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          </div>
+                          <FormField control={form.control} name="toneOfVoice" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Voicemail className="h-4 w-4 mr-2" />Tông giọng</FormLabel><FormControl><Input placeholder="Ví dụ: hài hước, chuyên nghiệp..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          <FormField control={form.control} name="writingStyle" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><FileSignature className="h-4 w-4 mr-2" />Văn phong</FormLabel><FormControl><Textarea placeholder="Ví dụ: kể chuyện, sử dụng văn nói..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          <FormField control={form.control} name="writingMethod" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><AlignLeft className="h-4 w-4 mr-2" />Cách viết</FormLabel><FormControl><Textarea placeholder="Ví dụ: Sử dụng câu ngắn, đi thẳng vào vấn đề..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          <FormField control={form.control} name="aiRole" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Vai trò AI</FormLabel><FormControl><Textarea placeholder="Ví dụ: Đóng vai là 1 người tự quay video tiktok để nói chuyện..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          <FormField control={form.control} name="mandatoryRequirements" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><CheckSquare className="h-4 w-4 mr-2" />Yêu cầu bắt buộc</FormLabel><FormControl><Textarea placeholder="Ví dụ: Không nhắc đến đối thủ cạnh tranh..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          
                           <Button type="submit" className="w-full" disabled={generateScriptMutation.isPending}>{generateScriptMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang xử lý...</> : <><Wand2 className="mr-2 h-4 w-4" /> Tạo kịch bản</>}</Button>
                         </form>
                       </Form>
