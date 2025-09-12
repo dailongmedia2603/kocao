@@ -18,6 +18,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // Lấy 5 bài viết mới nhất có trạng thái 'new' để xử lý
     const { data: posts, error: postsError } = await supabaseAdmin
       .from('news_posts')
       .select('*')
@@ -35,65 +36,47 @@ serve(async (req) => {
 
     for (const post of posts) {
       try {
+        // Đánh dấu bài viết là đang xử lý để tránh bị lấy lại ở lần chạy sau
         await supabaseAdmin
           .from('news_posts')
           .update({ status: 'processing' })
           .eq('id', post.id);
 
+        // Lấy cấu hình AI của người dùng
         const { data: aiConfig, error: configError } = await supabaseAdmin
           .from('ai_prompt_templates')
           .select('*')
           .eq('user_id', post.user_id)
-          .eq('is_default', true)
           .single();
         
-        if (configError) throw new Error(`Không tìm thấy cấu hình AI mặc định cho user ${post.user_id}`);
+        if (configError) throw new Error(`Không tìm thấy cấu hình AI cho user ${post.user_id}`);
 
+        // Tạo prompt đầy đủ từ cấu hình và nội dung tin tức
         const fullPrompt = `
-### CHỈ THỊ AN TOÀN (ƯU TIÊN CAO NHẤT)
-Bạn là một trợ lý AI chuyên nghiệp, hữu ích và an toàn. Hãy tập trung vào việc tạo ra nội dung marketing chất lượng cao, phù hợp với ngữ cảnh được cung cấp. TUYỆT ĐỐI TRÁNH các chủ đề nhạy cảm, gây tranh cãi, hoặc có thể bị hiểu lầm là tiêu cực. Luôn duy trì một thái độ tích cực và chuyên nghiệp.
----
-### YÊU CẦU VIẾT NỘI DUNG TỰ NHIÊN NHƯ NGƯOI THẬT
-Bạn là một trợ lý AI viết nội dung bài viết / comment tự nhiên như người dùng thật. Hãy dựa vào các thông tin dưới đây để xây dựng nội dung chất lượng và tự nhiên nhé.
----
-### THÔNG TIN HUẤN LUYỆN CHUNG
-- **Vai trò của bạn:** ${aiConfig.ai_role || 'Một người dùng mạng xã hội'}
-- **Lĩnh vực kinh doanh:** ${aiConfig.business_field || 'Không xác định'}
-- **Phong cách:** ${aiConfig.writing_style || 'Tự nhiên'}
-- **Tông giọng:** ${aiConfig.tone_of_voice || 'Thân thiện'}
-- **Ngôn ngữ:** Tiếng Việt
-- **Mục tiêu cần đạt:** ${aiConfig.goal || 'Tạo nội dung chất lượng'}
----
-### TÀI LIỆU NỘI BỘ THAM KHẢO
-(Không có tài liệu tham khảo liên quan)
----
-### HÀNH ĐỘNG
-Dựa vào TOÀN BỘ thông tin, hãy tạo nội dung đúng yêu cầu, tự nhiên như người thật, không được có dấu hiệu máy móc, khô cứng, seeding
----
-**THÔNG TIN CHI TIẾT BÀI VIẾT:**
-**Dạng bài:**
-Đặt câu hỏi / thảo luận
-**Định hướng nội dung chi tiết:**
-${post.content}
----
-**ĐỘ DÀI BÀI VIẾT:**
-Bài viết phải có độ dài khoảng ${aiConfig.word_count || 100} từ. Cho phép chênh lệch trong khoảng +/- 10%.
----
-**ĐIỀU KIỆN BẮT BUỘC (QUAN TRỌNG NHẤT):**
-AI phải tuân thủ TUYỆT ĐỐI tất cả các điều kiện sau đây cho MỌI bài viết được tạo ra:
-${aiConfig.mandatory_requirements || 'Không có điều kiện bắt buộc.'}
----
-**YÊU CẦU:** Dựa vào TOÀN BỘ thông tin trên, hãy tạo ra chính xác 1 bài viết hoàn chỉnh.
-**CỰC KỲ QUAN TRỌNG:** Nếu tạo nhiều hơn 1 bài viết, hãy phân cách mỗi bài viết bằng một dòng duy nhất chứa chính xác: "--- ARTICLE SEPARATOR ---". Chỉ trả về nội dung bài viết, KHÔNG thêm bất kỳ lời chào, câu giới thiệu, hay tiêu đề không cần thiết nào.
+          Dựa vào các thông tin sau đây, hãy tạo một kịch bản video hấp dẫn.
+          **Nội dung tin tức gốc:**
+          ---
+          ${post.content}
+          ---
+          **Yêu cầu chi tiết:**
+          - Số từ: ${aiConfig.word_count || 'Không giới hạn'}
+          - Văn phong: ${aiConfig.writing_style || 'Tự do'}
+          - Cách viết: ${aiConfig.writing_method || 'Tự do'}
+          - Tông giọng: ${aiConfig.tone_of_voice || 'Tự do'}
+          - Vai trò AI: ${aiConfig.ai_role || 'Một chuyên gia sáng tạo nội dung'}
+          - Yêu cầu bắt buộc: ${aiConfig.mandatory_requirements || 'Không có'}
+          - Cấu trúc trình bày: ${aiConfig.presentation_structure || 'Tự do'}
+          - Yêu cầu cuối cùng: Chỉ trả về nội dung kịch bản, không thêm bất kỳ lời giải thích hay ghi chú nào khác.
         `;
 
+        // Gọi function generate-video-script để tái sử dụng logic
         const { data: scriptData, error: scriptError } = await supabaseAdmin.functions.invoke('generate-video-script', {
           body: {
             userId: post.user_id,
             prompt: fullPrompt,
-            newsContent: post.content, // Vẫn truyền để giữ tương thích, nhưng prompt đã chứa nó
-            kocName: "KOC",
-            model: aiConfig.model || "gemini-1.5-pro-latest",
+            newsContent: post.content,
+            kocName: "KOC", // Tên KOC có thể được lấy từ bảng khác nếu cần
+            model: aiConfig.model || "gemini-1.5-pro-latest", // Sử dụng model từ cấu hình
           },
         });
 
@@ -104,11 +87,13 @@ ${aiConfig.mandatory_requirements || 'Không có điều kiện bắt buộc.'}
         const generatedScript = scriptData.script;
         const usedPrompt = scriptData.prompt;
 
+        // Cập nhật bài viết với kịch bản và trạng thái mới
         await supabaseAdmin
           .from('news_posts')
           .update({ status: 'script_generated', voice_script: generatedScript })
           .eq('id', post.id);
 
+        // Lưu kịch bản vào CSDL, bao gồm cả prompt
         await supabaseAdmin.from('video_scripts').insert({
           user_id: post.user_id,
           name: `Tự động: ${post.content.substring(0, 50)}...`,
@@ -120,6 +105,7 @@ ${aiConfig.mandatory_requirements || 'Không có điều kiện bắt buộc.'}
         console.log(`Đã tạo kịch bản thành công cho tin tức ID: ${post.id}.`);
 
       } catch (processingError) {
+        // Nếu có lỗi, cập nhật tin tức là 'failed' và ghi lại lỗi
         await supabaseAdmin
           .from('news_posts')
           .update({ status: 'failed', voice_script: `LỖI TẠO KỊCH BẢN: ${processingError.message}` })
