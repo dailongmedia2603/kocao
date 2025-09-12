@@ -6,10 +6,11 @@ import { showSuccess, showError } from "@/utils/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Edit, Trash2, CheckCircle, Wand2, MoreHorizontal, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, CheckCircle, Wand2, MoreHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { CreateOrEditPromptTemplateDialog } from "./CreateOrEditPromptTemplateDialog";
+import { ViewPromptTemplateDialog } from "./ViewPromptTemplateDialog";
 
 type Template = {
   id: string;
@@ -23,6 +24,8 @@ const AiPromptSettings = () => {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [viewingTemplate, setViewingTemplate] = useState<Template | null>(null);
 
   const { data: templates, isLoading } = useQuery<Template[]>({
     queryKey: ['ai_prompt_templates', user?.id],
@@ -73,6 +76,11 @@ const AiPromptSettings = () => {
     setIsDialogOpen(true);
   };
 
+  const handleView = (template: Template) => {
+    setViewingTemplate(template);
+    setIsViewDialogOpen(true);
+  };
+
   return (
     <>
       <Card>
@@ -92,18 +100,20 @@ const AiPromptSettings = () => {
           ) : templates && templates.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {templates.map((template) => (
-                <Card key={template.id} className={template.is_default ? "border-primary" : ""}>
+                <Card key={template.id} className={template.is_default ? "border-primary cursor-pointer hover:shadow-md transition-shadow" : "cursor-pointer hover:shadow-md transition-shadow"} onClick={() => handleView(template)}>
                   <CardHeader className="flex flex-row items-start justify-between pb-2">
                     <div>
                       <CardTitle className="text-lg">{template.name}</CardTitle>
                       {template.is_default && <Badge className="mt-2"><CheckCircle className="mr-1 h-3 w-3" />Mặc định</Badge>}
                     </div>
                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                      </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(template)}><Edit className="mr-2 h-4 w-4" />Sửa</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setDefaultMutation.mutate(template.id)} disabled={template.is_default || setDefaultMutation.isPending}><CheckCircle className="mr-2 h-4 w-4" />Đặt làm mặc định</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => deleteMutation.mutate(template.id)} disabled={deleteMutation.isPending} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Xóa</DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(template); }}><Edit className="mr-2 h-4 w-4" />Sửa</DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setDefaultMutation.mutate(template.id); }} disabled={template.is_default || setDefaultMutation.isPending}><CheckCircle className="mr-2 h-4 w-4" />Đặt làm mặc định</DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(template.id); }} disabled={deleteMutation.isPending} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Xóa</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </CardHeader>
@@ -125,6 +135,7 @@ const AiPromptSettings = () => {
         </CardContent>
       </Card>
       <CreateOrEditPromptTemplateDialog isOpen={isDialogOpen} onOpenChange={setIsDialogOpen} template={editingTemplate} />
+      <ViewPromptTemplateDialog isOpen={isViewDialogOpen} onOpenChange={setIsViewDialogOpen} template={viewingTemplate} />
     </>
   );
 };
