@@ -70,6 +70,7 @@ const scriptFormSchema = z.object({
   writingMethod: z.string().optional(),
   aiRole: z.string().optional(),
   mandatoryRequirements: z.string().optional(),
+  exampleDialogue: z.string().optional(),
 });
 
 // Data Fetching Functions
@@ -142,6 +143,7 @@ const TaoContent = () => {
       writingMethod: "Sử dụng câu ngắn, đi thẳng vào vấn đề",
       aiRole: "Đóng vai là 1 người tự quay video tiktok để nói chuyện, chia sẻ tự nhiên, nghĩ gì nói đó.",
       mandatoryRequirements: "",
+      exampleDialogue: "",
     },
   });
 
@@ -162,6 +164,7 @@ const TaoContent = () => {
 - Cách viết: ${values.writingMethod || 'sử dụng câu ngắn, đi thẳng vào vấn đề'}
 - Vai trò AI: ${values.aiRole || 'Một chuyên gia sáng tạo nội dung'}
 - Yêu cầu bắt buộc: ${values.mandatoryRequirements || 'Không có'}
+${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn phong): ${values.exampleDialogue}` : ''}
       `.trim();
 
       const { data, error } = await supabase.functions.invoke("generate-video-script", {
@@ -255,6 +258,7 @@ const TaoContent = () => {
                           <FormField control={form.control} name="writingMethod" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><AlignLeft className="h-4 w-4 mr-2" />Cách viết</FormLabel><FormControl><Textarea placeholder="Ví dụ: Sử dụng câu ngắn, đi thẳng vào vấn đề..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                           <FormField control={form.control} name="aiRole" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Vai trò AI</FormLabel><FormControl><Textarea placeholder="Ví dụ: Đóng vai là 1 người tự quay video tiktok để nói chuyện..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                           <FormField control={form.control} name="mandatoryRequirements" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><CheckSquare className="h-4 w-4 mr-2" />Yêu cầu bắt buộc</FormLabel><FormControl><Textarea placeholder="Ví dụ: Không nhắc đến đối thủ cạnh tranh..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                          <FormField control={form.control} name="exampleDialogue" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><MessageSquare className="h-4 w-4 mr-2" />Lời thoại ví dụ</FormLabel><FormControl><Textarea placeholder="Ví dụ: 'Hello mọi người, lại là mình đây! Hôm nay có tin gì hot hòn họt nè...'" {...field} /></FormControl><FormMessage /></FormItem>)} />
                           
                           <Button type="submit" className="w-full" disabled={generateScriptMutation.isPending}>{generateScriptMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang xử lý...</> : <><Wand2 className="mr-2 h-4 w-4" /> Tạo kịch bản</>}</Button>
                         </form>
