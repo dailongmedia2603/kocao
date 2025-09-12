@@ -42,14 +42,15 @@ serve(async (req) => {
           .update({ status: 'processing' })
           .eq('id', post.id);
 
-        // Lấy cấu hình AI của người dùng
+        // Lấy cấu hình AI mặc định của người dùng
         const { data: aiConfig, error: configError } = await supabaseAdmin
           .from('ai_prompt_templates')
           .select('*')
           .eq('user_id', post.user_id)
+          .eq('is_default', true)
           .single();
         
-        if (configError) throw new Error(`Không tìm thấy cấu hình AI cho user ${post.user_id}`);
+        if (configError) throw new Error(`Không tìm thấy cấu hình AI mặc định cho user ${post.user_id}`);
 
         // Tạo prompt đầy đủ từ cấu hình và nội dung tin tức
         const fullPrompt = `
