@@ -41,7 +41,7 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
       koc_id: "",
       voice: "",
       project_id: "",
-      model: "gemini-1.5-pro-latest",
+      model: "gemini-1.5-pro",
       max_words: 300,
       ai_prompt: "Từ tin tức được cung cấp, hãy tạo một kịch bản video ngắn, với giọng văn hấp dẫn, phù hợp với giới trẻ trên nền tảng TikTok. Kịch bản cần có mở đầu lôi cuốn, thân bài cung cấp thông tin chính và kết thúc kêu gọi hành động.",
     },
@@ -139,8 +139,10 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl>
                     <SelectContent>
-                      <SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro</SelectItem>
-                      <SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash</SelectItem>
+                      <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                      <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                      <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                      <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

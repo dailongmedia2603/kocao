@@ -66,10 +66,10 @@ export const AiConfigDialog = ({ isOpen, onOpenChange }: AiConfigDialogProps) =>
         ai_role: config.ai_role || "",
         mandatory_requirements: config.mandatory_requirements || "",
         presentation_structure: config.presentation_structure || "",
-        model: config.model || "gemini-1.5-pro-latest",
+        model: config.model || "gemini-1.5-pro",
       });
     } else {
-      form.reset({ model: "gemini-1.5-pro-latest" });
+      form.reset({ model: "gemini-1.5-pro" });
     }
   }, [config, form]);
 
@@ -121,8 +121,10 @@ export const AiConfigDialog = ({ isOpen, onOpenChange }: AiConfigDialogProps) =>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl>
                         <SelectContent>
-                          <SelectItem value="gemini-1.5-pro-latest">Gemini 1.5 Pro</SelectItem>
-                          <SelectItem value="gemini-1.5-flash-latest">Gemini 1.5 Flash</SelectItem>
+                          <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                          <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                          <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                          <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
