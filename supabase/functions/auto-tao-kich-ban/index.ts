@@ -51,32 +51,25 @@ serve(async (req) => {
         
         if (configError) throw new Error(`Không tìm thấy cấu hình AI cho user ${post.user_id}`);
 
-        // Tạo prompt đầy đủ từ cấu hình và nội dung tin tức
-        const fullPrompt = `
-          Dựa vào các thông tin sau đây, hãy tạo một kịch bản video hấp dẫn.
-          **Nội dung tin tức gốc:**
-          ---
-          ${post.content}
-          ---
-          **Yêu cầu chi tiết:**
-          - Số từ: ${aiConfig.word_count || 'Không giới hạn'}
-          - Văn phong: ${aiConfig.writing_style || 'Tự do'}
-          - Cách viết: ${aiConfig.writing_method || 'Tự do'}
-          - Tông giọng: ${aiConfig.tone_of_voice || 'Tự do'}
-          - Vai trò AI: ${aiConfig.ai_role || 'Một chuyên gia sáng tạo nội dung'}
-          - Yêu cầu bắt buộc: ${aiConfig.mandatory_requirements || 'Không có'}
-          - Cấu trúc trình bày: ${aiConfig.presentation_structure || 'Tự do'}
-          - Yêu cầu cuối cùng: Chỉ trả về nội dung kịch bản, không thêm bất kỳ lời giải thích hay ghi chú nào khác.
-        `;
+        // Tạo prompt chi tiết từ cấu hình, đồng bộ với form tạo content
+        const detailedPrompt = `
+- Tông giọng: ${aiConfig.tone_of_voice || 'chuyên nghiệp, hấp dẫn'}
+- Văn phong: ${aiConfig.writing_style || 'kể chuyện, sử dụng văn nói'}
+- Cách viết: ${aiConfig.writing_method || 'sử dụng câu ngắn, đi thẳng vào vấn đề'}
+- Vai trò AI: ${aiConfig.ai_role || 'Một chuyên gia sáng tạo nội dung'}
+- Yêu cầu bắt buộc: ${aiConfig.mandatory_requirements || 'Không có'}
+- Cấu trúc trình bày: ${aiConfig.presentation_structure || 'Tự do'}
+        `.trim();
 
         // Gọi function generate-video-script để tái sử dụng logic
         const { data: scriptData, error: scriptError } = await supabaseAdmin.functions.invoke('generate-video-script', {
           body: {
             userId: post.user_id,
-            prompt: fullPrompt,
+            prompt: detailedPrompt,
             newsContent: post.content,
             kocName: "KOC", // Tên KOC có thể được lấy từ bảng khác nếu cần
-            model: aiConfig.model || "gemini-1.5-pro-latest", // Sử dụng model từ cấu hình
+            maxWords: aiConfig.word_count,
+            model: aiConfig.model || "gemini-1.5-pro-latest",
           },
         });
 
