@@ -49,7 +49,7 @@ serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: fullPrompt }] }],
-        generationConfig: { temperature: 0.7, topK: 1, topP: 1, maxOutputTokens: 2048 },
+        generationConfig: { temperature: 0.7, topK: 1, topP: 1, maxOutputTokens: 8192 },
       }),
     });
     const geminiData = await geminiResponse.json();
