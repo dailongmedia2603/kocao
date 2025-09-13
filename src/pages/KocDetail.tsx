@@ -21,7 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 // Icons
-import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, SlidersHorizontal, CreditCard, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, CalendarDays, Bot, MoreHorizontal, Loader2 } from "lucide-react";
+import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, SlidersHorizontal, CreditCard, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, CalendarDays, Bot, MoreHorizontal, Loader2, Mic } from "lucide-react";
 
 // Custom Components
 import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
@@ -65,7 +65,16 @@ type VideoScript = {
   script_content: string | null;
   created_at: string;
   ai_prompt: string | null;
-  news_posts: { content: string | null } | null;
+  news_posts: { 
+    content: string | null;
+    voice_task_id: string | null;
+  } | null;
+};
+
+type VoiceTask = {
+  id: string;
+  status: string;
+  audio_url: string | null;
 };
 
 // Data fetching
@@ -91,7 +100,7 @@ const fetchKocFiles = async (kocId: string): Promise<KocFile[]> => {
 const fetchVideoScripts = async (kocId: string) => {
   const { data, error } = await supabase
     .from('video_scripts')
-    .select('*, news_posts(content)')
+    .select('*, news_posts(content, voice_task_id)')
     .eq('koc_id', kocId)
     .order('created_at', { ascending: false });
   if (error) throw error;
@@ -174,6 +183,32 @@ const KocDetail = () => {
     queryFn: () => fetchVideoScripts(kocId!),
     enabled: !!kocId,
   });
+
+  const voiceTaskIds = useMemo(() => 
+    videoScripts
+        ?.map(script => script.news_posts?.voice_task_id)
+        .filter((id): id is string => !!id) 
+    || [], 
+  [videoScripts]);
+
+  const { data: voiceTasks } = useQuery<VoiceTask[]>({
+      queryKey: ['voice_tasks_for_scripts', voiceTaskIds],
+      queryFn: async () => {
+          if (voiceTaskIds.length === 0) return [];
+          const { data, error } = await supabase
+              .from('voice_tasks')
+              .select('id, status, audio_url')
+              .in('id', voiceTaskIds);
+          if (error) throw error;
+          return data;
+      },
+      enabled: voiceTaskIds.length > 0,
+  });
+
+  const voiceTasksMap = useMemo(() => {
+      if (!voiceTasks) return new Map<string, VoiceTask>();
+      return new Map(voiceTasks.map(task => [task.id, task]));
+  }, [voiceTasks]);
 
   const generatedFiles = useMemo(() => files?.filter(file => file.r2_key.includes('/generated/')) || [], [files]);
   const sourceVideos = useMemo(() => files?.filter(file => file.r2_key.includes('/sources/videos/')) || [], [files]);
@@ -421,76 +456,99 @@ const KocDetail = () => {
                           <TableHead>Ngày tạo</TableHead>
                           <TableHead>Nội dung</TableHead>
                           <TableHead>Log</TableHead>
+                          <TableHead>Voice</TableHead>
                           <TableHead className="text-right">Hành động</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {areScriptsLoading ? (
                           <TableRow>
-                            <TableCell colSpan={6} className="h-24 text-center">
+                            <TableCell colSpan={7} className="h-24 text-center">
                               <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                             </TableCell>
                           </TableRow>
                         ) : videoScripts && videoScripts.length > 0 ? (
-                          videoScripts.map((script) => (
-                            <TableRow key={script.id}>
-                              <TableCell className="font-medium">{script.name}</TableCell>
-                              <TableCell>
-                                <p className="max-w-xs truncate" title={script.news_posts?.content || ''}>
-                                  {script.news_posts?.content || 'N/A'}
-                                </p>
-                              </TableCell>
-                              <TableCell>
-                                {format(new Date(script.created_at), "dd/MM/yyyy HH:mm", { locale: vi })}
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="link"
-                                  className="p-0 h-auto"
-                                  onClick={() => {
-                                    setSelectedScript(script);
-                                    setIsViewScriptOpen(true);
-                                  }}
-                                >
-                                  Xem chi tiết
-                                </Button>
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="link"
-                                  className="p-0 h-auto"
-                                  disabled={!script.ai_prompt}
-                                  onClick={() => {
-                                    setSelectedScript(script);
-                                    setIsViewLogOpen(true);
-                                  }}
-                                >
-                                  Xem log
-                                </Button>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="h-8 w-8 p-0">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem
-                                      className="text-destructive"
-                                      onClick={() => setScriptToDelete(script)}
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Xóa
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </TableCell>
-                            </TableRow>
-                          ))
+                          videoScripts.map((script) => {
+                            const voiceTaskId = script.news_posts?.voice_task_id;
+                            const voiceTask = voiceTaskId ? voiceTasksMap.get(voiceTaskId) : null;
+                            return (
+                              <TableRow key={script.id}>
+                                <TableCell className="font-medium">{script.name}</TableCell>
+                                <TableCell>
+                                  <p className="max-w-xs truncate" title={script.news_posts?.content || ''}>
+                                    {script.news_posts?.content || 'N/A'}
+                                  </p>
+                                </TableCell>
+                                <TableCell>
+                                  {format(new Date(script.created_at), "dd/MM/yyyy HH:mm", { locale: vi })}
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="link"
+                                    className="p-0 h-auto"
+                                    onClick={() => {
+                                      setSelectedScript(script);
+                                      setIsViewScriptOpen(true);
+                                    }}
+                                  >
+                                    Xem chi tiết
+                                  </Button>
+                                </TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="link"
+                                    className="p-0 h-auto"
+                                    disabled={!script.ai_prompt}
+                                    onClick={() => {
+                                      setSelectedScript(script);
+                                      setIsViewLogOpen(true);
+                                    }}
+                                  >
+                                    Xem log
+                                  </Button>
+                                </TableCell>
+                                <TableCell>
+                                  {voiceTask ? (
+                                      voiceTask.status === 'done' && voiceTask.audio_url ? (
+                                          <audio controls src={voiceTask.audio_url} className="h-8 w-full max-w-[150px]" />
+                                      ) : voiceTask.status === 'doing' ? (
+                                          <Badge variant="outline" className="text-blue-800 border-blue-200">
+                                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                              Đang xử lý
+                                          </Badge>
+                                      ) : voiceTask.status === 'error' ? (
+                                          <Badge variant="destructive">Lỗi</Badge>
+                                      ) : (
+                                          <Badge variant="secondary">Đang chờ</Badge>
+                                      )
+                                  ) : (
+                                      <span className="text-muted-foreground text-xs">Chưa có</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" className="h-8 w-8 p-0">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem
+                                        className="text-destructive"
+                                        onClick={() => setScriptToDelete(script)}
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Xóa
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })
                         ) : (
                           <TableRow>
-                            <TableCell colSpan={6} className="h-24 text-center">
+                            <TableCell colSpan={7} className="h-24 text-center">
                               Chưa có kịch bản tự động nào.
                             </TableCell>
                           </TableRow>
