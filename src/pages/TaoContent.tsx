@@ -286,7 +286,17 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
               <CardHeader><CardTitle>Kịch bản đã tạo</CardTitle><CardDescription>Danh sách các kịch bản đã được tạo bằng AI.</CardDescription></CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader><TableRow><TableHead className="w-[50px]"><Checkbox /></TableHead><TableHead className="w-[50px]"><Hash className="h-4 w-4" /></TableHead><TableHead><FileText className="h-4 w-4" /></TableHead><TableHead><UserCircle className="h-4 w-4" /></TableHead><TableHead><Newspaper className="h-4 w-4" /></TableHead><TableHead><AlignLeft className="h-4 w-4" /></TableHead><TableHead className="text-right"><Settings2 className="h-4 w-4" /></TableHead></TableRow></TableHeader>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[50px]"><Checkbox /></TableHead>
+                      <TableHead className="w-[50px]">#</TableHead>
+                      <TableHead>Tên kịch bản</TableHead>
+                      <TableHead>KOC</TableHead>
+                      <TableHead>Nguồn tin tức</TableHead>
+                      <TableHead>Nội dung</TableHead>
+                      <TableHead className="text-right">Hành động</TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
                     {isLoadingScripts ? <TableRow><TableCell colSpan={7} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
                     : scripts.length > 0 ? scripts.map((script, index) => (
