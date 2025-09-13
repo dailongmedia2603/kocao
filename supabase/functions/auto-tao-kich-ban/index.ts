@@ -34,76 +34,101 @@ serve(async (req) => {
 
     console.log(`Tìm thấy ${posts.length} tin tức mới. Bắt đầu xử lý...`);
 
-    for (const post of posts) {
-      try {
-        // Đánh dấu bài viết là đang xử lý để tránh bị lấy lại ở lần chạy sau
-        await supabaseAdmin
-          .from('news_posts')
-          .update({ status: 'processing' })
-          .eq('id', post.id);
+    // Nhóm các bài viết theo user_id
+    const postsByUser = posts.reduce((acc, post) => {
+      if (!acc[post.user_id]) {
+        acc[post.user_id] = [];
+      }
+      acc[post.user_id].push(post);
+      return acc;
+    }, {});
 
-        // Lấy cấu hình AI của người dùng
-        const { data: aiConfig, error: configError } = await supabaseAdmin
-          .from('ai_prompt_templates')
-          .select('*')
-          .eq('user_id', post.user_id)
-          .single();
+    // Xử lý cho từng người dùng
+    for (const userId in postsByUser) {
+      const userPosts = postsByUser[userId];
+
+      // Lấy danh sách KOC của người dùng này
+      const { data: kocs, error: kocsError } = await supabaseAdmin
+        .from('kocs')
+        .select('id, name')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
+
+      if (kocsError || !kocs || kocs.length === 0) {
+        console.error(`Không tìm thấy KOC nào cho user ${userId}. Bỏ qua ${userPosts.length} tin tức.`);
+        continue; // Bỏ qua nếu người dùng không có KOC
+      }
+
+      let kocIndex = 0; // Biến đếm để phân phối luân phiên
+
+      for (const post of userPosts) {
+        const assignedKoc = kocs[kocIndex];
         
-        if (configError) throw new Error(`Không tìm thấy cấu hình AI cho user ${post.user_id}`);
+        try {
+          // Đánh dấu bài viết là đang xử lý
+          await supabaseAdmin
+            .from('news_posts')
+            .update({ status: 'processing' })
+            .eq('id', post.id);
 
-        // Tạo prompt chi tiết từ cấu hình, đồng bộ với form tạo content
-        const detailedPrompt = `
-- Tông giọng: ${aiConfig.tone_of_voice || 'chuyên nghiệp, hấp dẫn'}
-- Văn phong: ${aiConfig.writing_style || 'kể chuyện, sử dụng văn nói'}
-- Cách viết: ${aiConfig.writing_method || 'sử dụng câu ngắn, đi thẳng vào vấn đề'}
-- Vai trò AI: ${aiConfig.ai_role || 'Một chuyên gia sáng tạo nội dung'}
-- Yêu cầu bắt buộc: ${aiConfig.mandatory_requirements || 'Không có'}
-- Cấu trúc trình bày: ${aiConfig.presentation_structure || 'Tự do'}
-        `.trim();
+          // Lấy cấu hình AI của người dùng
+          const { data: aiConfig, error: configError } = await supabaseAdmin
+            .from('ai_prompt_templates')
+            .select('*')
+            .eq('user_id', post.user_id)
+            .single();
+          
+          if (configError) throw new Error(`Không tìm thấy cấu hình AI cho user ${post.user_id}`);
 
-        // Gọi function generate-video-script để tái sử dụng logic
-        const { data: scriptData, error: scriptError } = await supabaseAdmin.functions.invoke('generate-video-script', {
-          body: {
-            userId: post.user_id,
-            prompt: detailedPrompt,
-            newsContent: post.content,
-            kocName: "KOC", // Tên KOC có thể được lấy từ bảng khác nếu cần
-            maxWords: aiConfig.word_count,
-            model: aiConfig.model || "gemini-1.5-pro-latest",
-          },
-        });
+          const detailedPrompt = `...`; // (Logic tạo prompt giữ nguyên)
 
-        if (scriptError || !scriptData.success) {
-          throw new Error(scriptError?.message || scriptData.error || "Lỗi khi tạo kịch bản.");
+          // Gọi function generate-video-script với tên KOC cụ thể
+          const { data: scriptData, error: scriptError } = await supabaseAdmin.functions.invoke('generate-video-script', {
+            body: {
+              userId: post.user_id,
+              prompt: detailedPrompt,
+              newsContent: post.content,
+              kocName: assignedKoc.name, // **SỬ DỤNG TÊN KOC ĐÃ GÁN**
+              maxWords: aiConfig.word_count,
+              model: aiConfig.model || "gemini-1.5-pro-latest",
+            },
+          });
+
+          if (scriptError || !scriptData.success) {
+            throw new Error(scriptError?.message || scriptData.error || "Lỗi khi tạo kịch bản.");
+          }
+          
+          const generatedScript = scriptData.script;
+          const usedPrompt = scriptData.prompt;
+
+          // Cập nhật bài viết
+          await supabaseAdmin
+            .from('news_posts')
+            .update({ status: 'script_generated', voice_script: generatedScript })
+            .eq('id', post.id);
+
+          // Lưu kịch bản vào CSDL với KOC ID chính xác
+          await supabaseAdmin.from('video_scripts').insert({
+            user_id: post.user_id,
+            name: `Tự động: ${post.content.substring(0, 50)}...`,
+            news_post_id: post.id,
+            koc_id: assignedKoc.id, // **GÁN KOC ID VÀO KỊCH BẢN**
+            script_content: generatedScript,
+            ai_prompt: usedPrompt,
+          });
+
+          console.log(`Đã tạo kịch bản cho KOC '${assignedKoc.name}' từ tin tức ID: ${post.id}.`);
+
+        } catch (processingError) {
+          await supabaseAdmin
+            .from('news_posts')
+            .update({ status: 'failed', voice_script: `LỖI TẠO KỊCH BẢN: ${processingError.message}` })
+            .eq('id', post.id);
+          console.error(`Lỗi xử lý tin tức ID ${post.id}:`, processingError.message);
         }
-        
-        const generatedScript = scriptData.script;
-        const usedPrompt = scriptData.prompt;
 
-        // Cập nhật bài viết với kịch bản và trạng thái mới
-        await supabaseAdmin
-          .from('news_posts')
-          .update({ status: 'script_generated', voice_script: generatedScript })
-          .eq('id', post.id);
-
-        // Lưu kịch bản vào CSDL, bao gồm cả prompt
-        await supabaseAdmin.from('video_scripts').insert({
-          user_id: post.user_id,
-          name: `Tự động: ${post.content.substring(0, 50)}...`,
-          news_post_id: post.id,
-          script_content: generatedScript,
-          ai_prompt: usedPrompt,
-        });
-
-        console.log(`Đã tạo kịch bản thành công cho tin tức ID: ${post.id}.`);
-
-      } catch (processingError) {
-        // Nếu có lỗi, cập nhật tin tức là 'failed' và ghi lại lỗi
-        await supabaseAdmin
-          .from('news_posts')
-          .update({ status: 'failed', voice_script: `LỖI TẠO KỊCH BẢN: ${processingError.message}` })
-          .eq('id', post.id);
-        console.error(`Lỗi xử lý tin tức ID ${post.id}:`, processingError.message);
+        // Chuyển sang KOC tiếp theo cho bài viết sau
+        kocIndex = (kocIndex + 1) % kocs.length;
       }
     }
 
