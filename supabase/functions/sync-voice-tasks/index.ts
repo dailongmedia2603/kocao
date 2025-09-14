@@ -8,9 +8,9 @@ const corsHeaders = {
 };
 
 // Helper function to call the voice API proxy
-const callVoiceApi = async (supabaseAdmin, path, method, body = {}) => {
+const callVoiceApi = async (supabaseAdmin, { path, method, body = {}, userId }) => {
   const { data, error } = await supabaseAdmin.functions.invoke("voice-api-proxy", {
-    body: { path, method, body },
+    body: { path, method, body, userId },
   });
   if (error) throw new Error(`Edge Function invoke error: ${error.message}`);
   if (data.error) throw new Error(`API Error: ${data.error}`);
@@ -28,10 +28,10 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Find all tasks in our DB that are currently 'doing'
+    // 1. Find all tasks in our DB that are currently 'doing', and get their user_id
     const { data: pendingTasks, error: fetchError } = await supabaseAdmin
       .from('voice_tasks')
-      .select('id')
+      .select('id, user_id')
       .eq('status', 'doing');
 
     if (fetchError) {
@@ -53,7 +53,12 @@ serve(async (req) => {
     // 2. For each task, check its status from the external API
     for (const task of pendingTasks) {
       try {
-        const apiTaskDetails = await callVoiceApi(supabaseAdmin, `v1/task/${task.id}`, "GET");
+        // Pass the userId for authentication in the proxy
+        const apiTaskDetails = await callVoiceApi(supabaseAdmin, {
+          path: `v1/task/${task.id}`,
+          method: "GET",
+          userId: task.user_id,
+        });
         
         if (apiTaskDetails && apiTaskDetails.data) {
           const { status, error_message, metadata } = apiTaskDetails.data;
