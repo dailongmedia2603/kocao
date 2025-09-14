@@ -203,6 +203,10 @@ const KocDetail = () => {
           return data;
       },
       enabled: voiceTaskIds.length > 0,
+      refetchInterval: (query) => {
+        const data = query.state.data as VoiceTask[] | undefined;
+        return data?.some(task => task.status === 'doing') ? 10000 : false;
+      },
   });
 
   const voiceTasksMap = useMemo(() => {
