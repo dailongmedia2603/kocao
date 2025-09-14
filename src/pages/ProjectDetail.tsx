@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { PlusCircle, ArrowLeft, MoreHorizontal, Play, RefreshCw, Terminal, Bot, MousePointerClick, UploadCloud, DownloadCloud, Clock, Type, Plug } from "lucide-react";
+import { PlusCircle, ArrowLeft, MoreHorizontal, Play, RefreshCw, Terminal, Bot, MousePointerClick, UploadCloud, DownloadCloud, Clock, Type, Plug, Film } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
 
 import { Button } from "@/components/ui/button";
@@ -62,6 +62,7 @@ const taskTypeDetails: { [key: string]: { name: string; icon: React.ElementType,
   UPLOAD_FILE: { name: "Tải lên tệp", icon: UploadCloud, description: "Tải một tệp lên trang web.", colorClasses: "bg-yellow-100 text-yellow-600" },
   DELAY: { name: "Chờ (Delay)", icon: Clock, description: "Tạm dừng kịch bản một lúc.", colorClasses: "bg-purple-100 text-purple-600" },
   PASTE_TEXT: { name: "Dán văn bản", icon: Type, description: "Nhập văn bản vào một ô.", colorClasses: "bg-indigo-100 text-indigo-600" },
+  CREATE_AND_AWAIT_VIDEO: { name: "Tạo và Chờ Video từ Web", icon: Film, description: "Tự động tạo video và chờ tải về.", colorClasses: "bg-cyan-100 text-cyan-600" },
   DEFAULT: { name: "Hành động không xác định", icon: Bot, description: "Một hành động không rõ.", colorClasses: "bg-gray-100 text-gray-600" },
 };
 

@@ -22,6 +22,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Select,
@@ -42,6 +43,12 @@ const formSchema = z.object({
   selector: z.string().optional(),
   delayDuration: z.coerce.number().optional(),
   pasteText: z.string().optional(),
+  // Fields for CREATE_AND_AWAIT_VIDEO
+  script: z.string().optional(),
+  inputSelector: z.string().optional(),
+  submitButtonSelector: z.string().optional(),
+  resultIdentifierSelector: z.string().optional(),
+  resultDownloadSelector: z.string().optional(),
 });
 
 type CreateTaskDialogProps = {
@@ -78,6 +85,11 @@ export const CreateTaskDialog = ({
         selector: "",
         delayDuration: undefined,
         pasteText: "",
+        script: "",
+        inputSelector: "",
+        submitButtonSelector: "",
+        resultIdentifierSelector: "",
+        resultDownloadSelector: "",
       });
       setSelectedKocFile(null);
     }
@@ -116,6 +128,18 @@ export const CreateTaskDialog = ({
           if (!values.selector) throw new Error("Vui lòng nhập CSS Selector của ô nhập liệu.");
           if (!values.pasteText) throw new Error("Vui lòng nhập nội dung cần dán.");
           payloadData = { selector: values.selector, text: values.pasteText };
+          break;
+        case "CREATE_AND_AWAIT_VIDEO":
+          if (!values.script || !values.inputSelector || !values.submitButtonSelector || !values.resultIdentifierSelector || !values.resultDownloadSelector) {
+            throw new Error("Vui lòng điền đầy đủ các trường cho việc tạo video.");
+          }
+          payloadData = {
+            script: values.script,
+            inputSelector: values.inputSelector,
+            submitButtonSelector: values.submitButtonSelector,
+            resultIdentifierSelector: values.resultIdentifierSelector,
+            resultDownloadSelector: values.resultDownloadSelector,
+          };
           break;
         default: throw new Error("Loại hành động không hợp lệ.");
       }
@@ -188,6 +212,7 @@ export const CreateTaskDialog = ({
                       <SelectItem value="UPLOAD_FILE">Tải lên tệp</SelectItem>
                       <SelectItem value="DELAY">Chờ (Delay)</SelectItem>
                       <SelectItem value="PASTE_TEXT">Dán văn bản</SelectItem>
+                      <SelectItem value="CREATE_AND_AWAIT_VIDEO">Tạo và Chờ Video từ Web</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -232,6 +257,25 @@ export const CreateTaskDialog = ({
                   <FormItem><FormLabel>CSS Selector của ô nhập liệu</FormLabel><FormControl><Input placeholder="input[name='username']" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
               </>
+            )}
+            {selectedType === "CREATE_AND_AWAIT_VIDEO" && (
+              <div className="space-y-4">
+                <FormField control={form.control} name="script" render={({ field }) => (
+                  <FormItem><FormLabel>Kịch bản Video</FormLabel><FormControl><Textarea placeholder="Dán nội dung kịch bản vào đây..." className="min-h-[100px]" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="inputSelector" render={({ field }) => (
+                  <FormItem><FormLabel>Input Selector</FormLabel><FormControl><Input placeholder="Selector của ô nhập kịch bản" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="submitButtonSelector" render={({ field }) => (
+                  <FormItem><FormLabel>Submit Button Selector</FormLabel><FormControl><Input placeholder="Selector của nút tạo video" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="resultIdentifierSelector" render={({ field }) => (
+                  <FormItem><FormLabel>Result Identifier Selector</FormLabel><FormControl><Input placeholder="Selector để lấy ID/tên video" {...field} /></FormControl><FormDescription className="text-xs">Selector để tìm định danh duy nhất (tên file, ID) của video sau khi bắt đầu tạo.</FormDescription><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="resultDownloadSelector" render={({ field }) => (
+                  <FormItem><FormLabel>Result Download Selector</FormLabel><FormControl><Input placeholder="Selector của nút tải xuống" {...field} /></FormControl><FormDescription className="text-xs">Selector của nút 'Tải xuống' tương ứng với video đã hoàn thành.</FormDescription><FormMessage /></FormItem>
+                )} />
+              </div>
             )}
 
             <DialogFooter>
