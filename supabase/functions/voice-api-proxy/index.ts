@@ -24,7 +24,7 @@ serve(async (req) => {
 
     // **LOGIC XÁC THỰC ĐƯỢC NÂNG CẤP**
     if (userId) {
-      // Trường hợp 1: Gọi từ server-side (ví dụ: auto-tao-voice)
+      // Trường hợp 1: Gọi từ server-side (ví dụ: auto-tao-voice, sync-voice-tasks)
       // Tin tưởng userId được gửi từ function đáng tin cậy
       user = { id: userId };
     } else {
@@ -37,14 +37,16 @@ serve(async (req) => {
       user = authUser;
     }
 
+    // **SỬA LỖI: Lấy API key của đúng người dùng**
     const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
       .select("api_key")
+      .eq("user_id", user.id) // Lọc theo user_id
       .limit(1)
       .single();
 
     if (apiKeyError || !apiKeyData) {
-      throw new Error("Chưa có API Key Voice nào được cấu hình trong hệ thống. Vui lòng liên hệ quản trị viên.");
+      throw new Error(`Chưa có API Key Voice nào được cấu hình cho người dùng này (ID: ${user.id}). Vui lòng kiểm tra cài đặt.`);
     }
     const apiKey = apiKeyData.api_key;
 
