@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { KocFileSelector, KocFile } from "./KocFileSelector";
 import { Skeleton } from "../ui/skeleton";
+import { ScrollArea } from "../ui/scroll-area";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên bước không được để trống"),
@@ -35,7 +36,15 @@ const formSchema = z.object({
 });
 
 type Koc = { id: string; name: string; };
-type VideoScript = { id: string; name: string; koc_id: string; script_content: string | null; };
+type VideoScriptWithVoice = {
+  id: string;
+  name: string;
+  koc_id: string;
+  script_content: string | null;
+  voice_task_id: string | null;
+  voice_status: string | null;
+  audio_url: string | null;
+};
 
 type Task = {
   id: string; name: string; type: string; payload: any;
@@ -64,11 +73,11 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
     enabled: !!user && isOpen && task?.type === 'CREATE_AND_AWAIT_VIDEO',
   });
 
-  const { data: videoScripts, isLoading: isLoadingScripts } = useQuery<VideoScript[]>({
-    queryKey: ['video_scripts_for_task', user?.id],
+  const { data: videoScripts, isLoading: isLoadingScripts } = useQuery<VideoScriptWithVoice[]>({
+    queryKey: ['video_scripts_with_voice_status', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase.from('video_scripts').select('id, name, koc_id, script_content').eq('user_id', user.id);
+      const { data, error } = await supabase.rpc('get_video_scripts_with_voice_status', { p_user_id: user.id });
       if (error) throw error;
       return data;
     },
@@ -163,9 +172,12 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
           if (values.videoScriptId) {
             const selectedScript = videoScripts?.find(s => s.id === values.videoScriptId);
             if (!selectedScript) throw new Error("Vui lòng chọn một kịch bản hợp lệ.");
+            if (selectedScript.voice_status !== 'done' || !selectedScript.audio_url) {
+              throw new Error("Voice cho kịch bản này chưa sẵn sàng. Vui lòng chờ hoặc kiểm tra lại.");
+            }
             payloadData = {
               ...commonPayload,
-              script: selectedScript.script_content,
+              audioUrl: selectedScript.audio_url,
               videoScriptId: selectedScript.id,
               kocId: values.kocId,
             };
@@ -199,127 +211,130 @@ export const EditTaskDialog = ({ isOpen, onOpenChange, task, projectId }: EditTa
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader><DialogTitle>Chỉnh sửa bước</DialogTitle></DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="name" render={({ field }) => (
-              <FormItem><FormLabel>Tên bước</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="type" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Loại hành động</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="NAVIGATE_TO_URL">Điều hướng đến URL</SelectItem>
-                    <SelectItem value="CLICK_ELEMENT">Bấm vào phần tử</SelectItem>
-                    <SelectItem value="DOWNLOAD_FILE">Tải xuống tệp và lưu</SelectItem>
-                    <SelectItem value="UPLOAD_FILE">Tải lên tệp</SelectItem>
-                    <SelectItem value="DELAY">Chờ (Delay)</SelectItem>
-                    <SelectItem value="PASTE_TEXT">Dán văn bản</SelectItem>
-                    <SelectItem value="CREATE_AND_AWAIT_VIDEO">Tạo và Chờ Video từ Web</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-
-            {selectedType === "NAVIGATE_TO_URL" && (
-              <FormField control={form.control} name="url" render={({ field }) => (
-                <FormItem><FormLabel>URL Đích</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-            )}
-            {(selectedType === "CLICK_ELEMENT" || selectedType === "DOWNLOAD_FILE") && (
-              <FormField control={form.control} name="selector" render={({ field }) => (
-                <FormItem><FormLabel>CSS Selector của phần tử</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-            )}
-            {selectedType === "UPLOAD_FILE" && (
-              <div className="pt-2 space-y-4">
-                <div>
-                  {activeFileName && (
-                    <div className="text-sm text-muted-foreground mb-2">
-                      Tệp hiện tại: <Badge variant="secondary">{activeFileName}</Badge>
-                    </div>
-                  )}
-                  <KocFileSelector
-                    onFileSelect={setSelectedKocFile}
-                  />
-                   <FormDescription className="mt-2">
-                      Chọn một tệp mới để thay thế tệp hiện tại.
-                    </FormDescription>
-                </div>
-                <FormField control={form.control} name="selector" render={({ field }) => (
-                  <FormItem><FormLabel>3. CSS Selector của ô nhập tệp</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-              </div>
-            )}
-            {selectedType === "DELAY" && (
-              <FormField control={form.control} name="delayDuration" render={({ field }) => (
-                <FormItem><FormLabel>Thời gian chờ (mili giây)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormDescription>1000 mili giây = 1 giây</FormDescription><FormMessage /></FormItem>
-              )} />
-            )}
-            {selectedType === "PASTE_TEXT" && (
-              <>
-                <FormField control={form.control} name="pasteText" render={({ field }) => (
-                  <FormItem><FormLabel>Nội dung cần dán</FormLabel><FormControl><Textarea className="resize-y" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="selector" render={({ field }) => (
-                  <FormItem><FormLabel>CSS Selector của ô nhập liệu</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-              </>
-            )}
-            {selectedType === "CREATE_AND_AWAIT_VIDEO" && (
+          <form onSubmit={form.handleSubmit(onSubmit)}>
+            <ScrollArea className="h-[65vh] pr-6">
               <div className="space-y-4">
-                {task?.payload?.videoScriptId ? (
-                  <>
-                    <FormField control={form.control} name="kocId" render={({ field }) => (
-                      <FormItem><FormLabel>Chọn KOC</FormLabel>
-                        {isLoadingKocs ? <Skeleton className="h-10 w-full" /> : (
-                          <Select onValueChange={(value) => { field.onChange(value); form.setValue("videoScriptId", ""); }} value={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Chọn một KOC" /></SelectTrigger></FormControl>
-                            <SelectContent>{kocs?.map(koc => <SelectItem key={koc.id} value={koc.id}>{koc.name}</SelectItem>)}</SelectContent>
-                          </Select>
-                        )}
-                      <FormMessage /></FormItem>
-                    )} />
-                    <FormField control={form.control} name="videoScriptId" render={({ field }) => (
-                      <FormItem><FormLabel>Chọn kịch bản (voice)</FormLabel>
-                        {isLoadingScripts ? <Skeleton className="h-10 w-full" /> : (
-                          <Select onValueChange={field.onChange} value={field.value} disabled={!selectedKocId || filteredScripts.length === 0}>
-                            <FormControl><SelectTrigger><SelectValue placeholder={!selectedKocId ? "Vui lòng chọn KOC trước" : "Chọn một kịch bản"} /></SelectTrigger></FormControl>
-                            <SelectContent>{filteredScripts.map(script => <SelectItem key={script.id} value={script.id}>{script.name}</SelectItem>)}</SelectContent>
-                          </Select>
-                        )}
-                      <FormMessage /></FormItem>
-                    )} />
-                  </>
-                ) : (
-                  <FormField control={form.control} name="script" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Kịch bản Video (cũ)</FormLabel>
-                      <FormControl><Textarea {...field} disabled /></FormControl>
-                      <FormDescription>Tác vụ này được tạo theo định dạng cũ. Để thay đổi kịch bản, vui lòng tạo một bước mới.</FormDescription>
-                    </FormItem>
+                <FormField control={form.control} name="name" render={({ field }) => (
+                  <FormItem><FormLabel>Tên bước</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="type" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Loại hành động</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="NAVIGATE_TO_URL">Điều hướng đến URL</SelectItem>
+                        <SelectItem value="CLICK_ELEMENT">Bấm vào phần tử</SelectItem>
+                        <SelectItem value="DOWNLOAD_FILE">Tải xuống tệp và lưu</SelectItem>
+                        <SelectItem value="UPLOAD_FILE">Tải lên tệp</SelectItem>
+                        <SelectItem value="DELAY">Chờ (Delay)</SelectItem>
+                        <SelectItem value="PASTE_TEXT">Dán văn bản</SelectItem>
+                        <SelectItem value="CREATE_AND_AWAIT_VIDEO">Tạo và Chờ Video từ Web</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                {selectedType === "NAVIGATE_TO_URL" && (
+                  <FormField control={form.control} name="url" render={({ field }) => (
+                    <FormItem><FormLabel>URL Đích</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                 )}
-                <FormField control={form.control} name="inputSelector" render={({ field }) => (
-                  <FormItem><FormLabel>Selector ô nhập kịch bản</FormLabel><FormControl><Input placeholder="Selector của ô nhập kịch bản" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="submitButtonSelector" render={({ field }) => (
-                  <FormItem><FormLabel>Selector của nút tạo video</FormLabel><FormControl><Input placeholder="Selector của nút tạo video" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="resultIdentifierSelector" render={({ field }) => (
-                  <FormItem><FormLabel>Selector để lấy ID/tên video</FormLabel><FormControl><Input placeholder="Selector để lấy ID/tên video" {...field} /></FormControl><FormDescription className="text-xs">Selector để tìm định danh duy nhất (tên file, ID) của video sau khi bắt đầu tạo.</FormDescription><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="resultDownloadSelector" render={({ field }) => (
-                  <FormItem><FormLabel>Selector của nút tải xuống</FormLabel><FormControl><Input placeholder="Selector của nút tải xuống" {...field} /></FormControl><FormDescription className="text-xs">Selector của nút 'Tải xuống' tương ứng với video đã hoàn thành.</FormDescription><FormMessage /></FormItem>
-                )} />
+                {(selectedType === "CLICK_ELEMENT" || selectedType === "DOWNLOAD_FILE") && (
+                  <FormField control={form.control} name="selector" render={({ field }) => (
+                    <FormItem><FormLabel>CSS Selector của phần tử</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                )}
+                {selectedType === "UPLOAD_FILE" && (
+                  <div className="pt-2 space-y-4">
+                    <div>
+                      {activeFileName && (
+                        <div className="text-sm text-muted-foreground mb-2">
+                          Tệp hiện tại: <Badge variant="secondary">{activeFileName}</Badge>
+                        </div>
+                      )}
+                      <KocFileSelector
+                        onFileSelect={setSelectedKocFile}
+                      />
+                      <FormDescription className="mt-2">
+                          Chọn một tệp mới để thay thế tệp hiện tại.
+                        </FormDescription>
+                    </div>
+                    <FormField control={form.control} name="selector" render={({ field }) => (
+                      <FormItem><FormLabel>3. CSS Selector của ô nhập tệp</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                  </div>
+                )}
+                {selectedType === "DELAY" && (
+                  <FormField control={form.control} name="delayDuration" render={({ field }) => (
+                    <FormItem><FormLabel>Thời gian chờ (mili giây)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormDescription>1000 mili giây = 1 giây</FormDescription><FormMessage /></FormItem>
+                  )} />
+                )}
+                {selectedType === "PASTE_TEXT" && (
+                  <>
+                    <FormField control={form.control} name="pasteText" render={({ field }) => (
+                      <FormItem><FormLabel>Nội dung cần dán</FormLabel><FormControl><Textarea className="resize-y" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="selector" render={({ field }) => (
+                      <FormItem><FormLabel>CSS Selector của ô nhập liệu</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                  </>
+                )}
+                {selectedType === "CREATE_AND_AWAIT_VIDEO" && (
+                  <div className="space-y-4">
+                    {task?.payload?.videoScriptId ? (
+                      <>
+                        <FormField control={form.control} name="kocId" render={({ field }) => (
+                          <FormItem><FormLabel>Chọn KOC</FormLabel>
+                            {isLoadingKocs ? <Skeleton className="h-10 w-full" /> : (
+                              <Select onValueChange={(value) => { field.onChange(value); form.setValue("videoScriptId", ""); }} value={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Chọn một KOC" /></SelectTrigger></FormControl>
+                                <SelectContent>{kocs?.map(koc => <SelectItem key={koc.id} value={koc.id}>{koc.name}</SelectItem>)}</SelectContent>
+                              </Select>
+                            )}
+                          <FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="videoScriptId" render={({ field }) => (
+                          <FormItem><FormLabel>Chọn kịch bản (voice)</FormLabel>
+                            {isLoadingScripts ? <Skeleton className="h-10 w-full" /> : (
+                              <Select onValueChange={field.onChange} value={field.value} disabled={!selectedKocId || filteredScripts.length === 0}>
+                                <FormControl><SelectTrigger><SelectValue placeholder={!selectedKocId ? "Vui lòng chọn KOC trước" : "Chọn một kịch bản"} /></SelectTrigger></FormControl>
+                                <SelectContent>{filteredScripts.map(script => <SelectItem key={script.id} value={script.id} disabled={script.voice_status !== 'done' || !script.audio_url}>{script.name} {script.voice_status !== 'done' && '(Đang xử lý voice)'}</SelectItem>)}</SelectContent>
+                              </Select>
+                            )}
+                          <FormMessage /></FormItem>
+                        )} />
+                      </>
+                    ) : (
+                      <FormField control={form.control} name="script" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Kịch bản Video (cũ)</FormLabel>
+                          <FormControl><Textarea {...field} disabled /></FormControl>
+                          <FormDescription>Tác vụ này được tạo theo định dạng cũ. Để thay đổi kịch bản, vui lòng tạo một bước mới.</FormDescription>
+                        </FormItem>
+                      )} />
+                    )}
+                    <FormField control={form.control} name="inputSelector" render={({ field }) => (
+                      <FormItem><FormLabel>Selector ô nhập kịch bản</FormLabel><FormControl><Input placeholder="Selector của ô nhập kịch bản" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="submitButtonSelector" render={({ field }) => (
+                      <FormItem><FormLabel>Selector của nút tạo video</FormLabel><FormControl><Input placeholder="Selector của nút tạo video" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="resultIdentifierSelector" render={({ field }) => (
+                      <FormItem><FormLabel>Selector để lấy ID/tên video</FormLabel><FormControl><Input placeholder="Selector để lấy ID/tên video" {...field} /></FormControl><FormDescription className="text-xs">Selector để tìm định danh duy nhất (tên file, ID) của video sau khi bắt đầu tạo.</FormDescription><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="resultDownloadSelector" render={({ field }) => (
+                      <FormItem><FormLabel>Selector của nút tải xuống</FormLabel><FormControl><Input placeholder="Selector của nút tải xuống" {...field} /></FormControl><FormDescription className="text-xs">Selector của nút 'Tải xuống' tương ứng với video đã hoàn thành.</FormDescription><FormMessage /></FormItem>
+                    )} />
+                  </div>
+                )}
               </div>
-            )}
-
-            <DialogFooter>
+            </ScrollArea>
+            <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
               <Button type="submit" disabled={editTaskMutation.isPending}>
                 {editTaskMutation.isPending ? "Đang lưu..." : "Lưu thay đổi"}
