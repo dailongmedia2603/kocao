@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
-import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
+import { showSuccess, showError } from "@/utils/toast";
 
 import {
   Dialog,
@@ -35,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { KocFileSelector, KocFile } from "./KocFileSelector";
+import { Skeleton } from "../ui/skeleton";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên bước không được để trống"),
@@ -44,12 +45,16 @@ const formSchema = z.object({
   delayDuration: z.coerce.number().optional(),
   pasteText: z.string().optional(),
   // Fields for CREATE_AND_AWAIT_VIDEO
-  script: z.string().optional(),
+  kocId: z.string().optional(),
+  videoScriptId: z.string().optional(),
   inputSelector: z.string().optional(),
   submitButtonSelector: z.string().optional(),
   resultIdentifierSelector: z.string().optional(),
   resultDownloadSelector: z.string().optional(),
 });
+
+type Koc = { id: string; name: string; };
+type VideoScript = { id: string; name: string; koc_id: string; script_content: string | null; };
 
 type CreateTaskDialogProps = {
   isOpen: boolean;
@@ -69,12 +74,40 @@ export const CreateTaskDialog = ({
   const queryClient = useQueryClient();
   const { user } = useSession();
   const [selectedKocFile, setSelectedKocFile] = useState<KocFile | null>(null);
-  const loadingToastId = useRef<string | number | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { name: "", type: "" },
   });
+
+  const { data: kocs, isLoading: isLoadingKocs } = useQuery<Koc[]>({
+    queryKey: ['kocs_for_script', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from('kocs').select('id, name').eq('user_id', user.id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user && isOpen,
+  });
+
+  const { data: videoScripts, isLoading: isLoadingScripts } = useQuery<VideoScript[]>({
+    queryKey: ['video_scripts_for_task', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase.from('video_scripts').select('id, name, koc_id, script_content').eq('user_id', user.id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user && isOpen,
+  });
+
+  const selectedKocId = form.watch("kocId");
+
+  const filteredScripts = useMemo(() => {
+    if (!selectedKocId || !videoScripts) return [];
+    return videoScripts.filter(script => script.koc_id === selectedKocId);
+  }, [selectedKocId, videoScripts]);
 
   useEffect(() => {
     if (isOpen) {
@@ -85,7 +118,8 @@ export const CreateTaskDialog = ({
         selector: "",
         delayDuration: undefined,
         pasteText: "",
-        script: "",
+        kocId: "",
+        videoScriptId: "",
         inputSelector: "",
         submitButtonSelector: "",
         resultIdentifierSelector: "",
@@ -130,11 +164,15 @@ export const CreateTaskDialog = ({
           payloadData = { selector: values.selector, text: values.pasteText };
           break;
         case "CREATE_AND_AWAIT_VIDEO":
-          if (!values.script || !values.inputSelector || !values.submitButtonSelector || !values.resultIdentifierSelector || !values.resultDownloadSelector) {
-            throw new Error("Vui lòng điền đầy đủ các trường cho việc tạo video.");
+          const selectedScript = videoScripts?.find(s => s.id === values.videoScriptId);
+          if (!selectedScript) throw new Error("Vui lòng chọn một kịch bản hợp lệ.");
+          if (!values.inputSelector || !values.submitButtonSelector || !values.resultIdentifierSelector || !values.resultDownloadSelector) {
+            throw new Error("Vui lòng điền đầy đủ các trường selector.");
           }
           payloadData = {
-            script: values.script,
+            script: selectedScript.script_content,
+            videoScriptId: selectedScript.id,
+            kocId: values.kocId,
             inputSelector: values.inputSelector,
             submitButtonSelector: values.submitButtonSelector,
             resultIdentifierSelector: values.resultIdentifierSelector,
@@ -161,19 +199,11 @@ export const CreateTaskDialog = ({
       return data;
     },
     onSuccess: () => {
-      if (loadingToastId.current) {
-        dismissToast(loadingToastId.current);
-        loadingToastId.current = null;
-      }
       showSuccess("Thêm bước thành công!");
       queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       onOpenChange(false);
     },
     onError: (error) => {
-      if (loadingToastId.current) {
-        dismissToast(loadingToastId.current);
-        loadingToastId.current = null;
-      }
       showError(`Lỗi: ${error.message}`);
     },
   });
@@ -260,20 +290,37 @@ export const CreateTaskDialog = ({
             )}
             {selectedType === "CREATE_AND_AWAIT_VIDEO" && (
               <div className="space-y-4">
-                <FormField control={form.control} name="script" render={({ field }) => (
-                  <FormItem><FormLabel>Kịch bản Video</FormLabel><FormControl><Textarea placeholder="Dán nội dung kịch bản vào đây..." className="min-h-[100px]" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormField control={form.control} name="kocId" render={({ field }) => (
+                  <FormItem><FormLabel>Chọn KOC</FormLabel>
+                    {isLoadingKocs ? <Skeleton className="h-10 w-full" /> : (
+                      <Select onValueChange={(value) => { field.onChange(value); form.setValue("videoScriptId", ""); }} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Chọn một KOC" /></SelectTrigger></FormControl>
+                        <SelectContent>{kocs?.map(koc => <SelectItem key={koc.id} value={koc.id}>{koc.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    )}
+                  <FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="videoScriptId" render={({ field }) => (
+                  <FormItem><FormLabel>Chọn kịch bản (voice)</FormLabel>
+                    {isLoadingScripts ? <Skeleton className="h-10 w-full" /> : (
+                      <Select onValueChange={field.onChange} value={field.value} disabled={!selectedKocId || filteredScripts.length === 0}>
+                        <FormControl><SelectTrigger><SelectValue placeholder={!selectedKocId ? "Vui lòng chọn KOC trước" : "Chọn một kịch bản"} /></SelectTrigger></FormControl>
+                        <SelectContent>{filteredScripts.map(script => <SelectItem key={script.id} value={script.id}>{script.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                    )}
+                  <FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="inputSelector" render={({ field }) => (
-                  <FormItem><FormLabel>Input Selector</FormLabel><FormControl><Input placeholder="Selector của ô nhập kịch bản" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Selector ô nhập kịch bản</FormLabel><FormControl><Input placeholder="Selector của ô nhập kịch bản" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="submitButtonSelector" render={({ field }) => (
-                  <FormItem><FormLabel>Submit Button Selector</FormLabel><FormControl><Input placeholder="Selector của nút tạo video" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Selector của nút tạo video</FormLabel><FormControl><Input placeholder="Selector của nút tạo video" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="resultIdentifierSelector" render={({ field }) => (
-                  <FormItem><FormLabel>Result Identifier Selector</FormLabel><FormControl><Input placeholder="Selector để lấy ID/tên video" {...field} /></FormControl><FormDescription className="text-xs">Selector để tìm định danh duy nhất (tên file, ID) của video sau khi bắt đầu tạo.</FormDescription><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Selector để lấy ID/tên video</FormLabel><FormControl><Input placeholder="Selector để lấy ID/tên video" {...field} /></FormControl><FormDescription className="text-xs">Selector để tìm định danh duy nhất (tên file, ID) của video sau khi bắt đầu tạo.</FormDescription><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="resultDownloadSelector" render={({ field }) => (
-                  <FormItem><FormLabel>Result Download Selector</FormLabel><FormControl><Input placeholder="Selector của nút tải xuống" {...field} /></FormControl><FormDescription className="text-xs">Selector của nút 'Tải xuống' tương ứng với video đã hoàn thành.</FormDescription><FormMessage /></FormItem>
+                  <FormItem><FormLabel>Selector của nút tải xuống</FormLabel><FormControl><Input placeholder="Selector của nút tải xuống" {...field} /></FormControl><FormDescription className="text-xs">Selector của nút 'Tải xuống' tương ứng với video đã hoàn thành.</FormDescription><FormMessage /></FormItem>
                 )} />
               </div>
             )}
