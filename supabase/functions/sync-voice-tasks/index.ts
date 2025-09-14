@@ -7,18 +7,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper function được nâng cấp để hiểu định dạng trả về mới
+// Helper function to call the voice API proxy with improved error handling
 const callVoiceApi = async (supabaseAdmin, { path, method, body = {}, userId }) => {
   const { data, error } = await supabaseAdmin.functions.invoke("voice-api-proxy", {
     body: { path, method, body, userId },
   });
 
   if (error) {
-    // Lỗi này chỉ xảy ra nếu function bị sập hoàn toàn, rất hiếm
-    throw new Error(`Lỗi gọi function: ${error.message}`);
+    // Try to get the specific error message from the response data if it exists
+    const errorMessage = data?.error || error.message;
+    throw new Error(errorMessage); // Throw a cleaner error message
   }
 
-  // Kiểm tra cờ success trong nội dung trả về
   if (data.success === false) {
     throw new Error(data.error || "API báo lỗi nhưng không có thông báo chi tiết.");
   }
@@ -37,21 +37,26 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
+    // **THE FIX IS HERE: Only fetch a small batch of tasks at a time**
     const { data: pendingTasks, error: fetchError } = await supabaseAdmin
       .from('voice_tasks')
       .select('id, user_id')
-      .eq('status', 'doing');
+      .eq('status', 'doing')
+      .order('created_at', { ascending: true }) // Process oldest tasks first
+      .limit(10); // Limit to 10 tasks per run to avoid rate limiting
 
     if (fetchError) {
-      throw new Error(`Lỗi lấy task đang xử lý: ${fetchError.message}`);
+      throw new Error(`Error fetching pending tasks: ${fetchError.message}`);
     }
 
     if (!pendingTasks || pendingTasks.length === 0) {
-      return new Response(JSON.stringify({ message: "Không có task nào đang xử lý để đồng bộ." }), {
+      return new Response(JSON.stringify({ message: "No pending tasks to sync." }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    console.log(`Found ${pendingTasks.length} tasks to sync in this batch.`);
 
     let successCount = 0;
     let errorCount = 0;
@@ -82,37 +87,43 @@ serve(async (req) => {
               .eq('id', task.id);
 
             if (updateError) {
-              console.error(`Lỗi cập nhật task ${task.id} trong DB:`, updateError.message);
+              console.error(`Failed to update task ${task.id} in DB:`, updateError.message);
               errorCount++;
             } else {
+              console.log(`Synced task ${task.id} to status: ${status}`);
               successCount++;
             }
           }
         }
       } catch (syncError) {
-        console.error(`Lỗi đồng bộ task ${task.id}:`, syncError.message);
+        console.error(`Error syncing task ${task.id}:`, syncError.message);
         errorCount++;
         
-        // Cập nhật trạng thái lỗi và ghi lại thông báo lỗi chi tiết
-        await supabaseAdmin
+        // Mark the task as failed in the database so it doesn't get picked up again
+        const { error: updateError } = await supabaseAdmin
           .from('voice_tasks')
           .update({
             status: 'error',
-            error_message: `Lỗi đồng bộ: ${syncError.message}`
+            error_message: `Sync failed: ${syncError.message}`
           })
           .eq('id', task.id);
+        
+        if (updateError) {
+          console.error(`Failed to mark task ${task.id} as failed:`, updateError.message);
+        }
       }
     }
 
-    const summary = `Đồng bộ hoàn tất. Cập nhật thành công: ${successCount}. Thất bại: ${errorCount}.`;
+    const summary = `Sync complete. Successfully updated: ${successCount}. Failed: ${errorCount}.`;
     return new Response(JSON.stringify({ message: summary }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (error) {
+    console.error("Critical error in sync-voice-tasks function:", error);
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 200, // Trả về 200 để cron job không báo lỗi
+      status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
