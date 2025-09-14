@@ -7,13 +7,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper function to call the voice API proxy
+// Helper function to call the voice API proxy with improved error handling
 const callVoiceApi = async (supabaseAdmin, { path, method, body = {}, userId }) => {
   const { data, error } = await supabaseAdmin.functions.invoke("voice-api-proxy", {
     body: { path, method, body, userId },
   });
-  if (error) throw new Error(`Edge Function invoke error: ${error.message}`);
-  if (data.error) throw new Error(`API Error: ${data.error}`);
+
+  if (error) {
+    // Try to get the specific error message from the response data if it exists
+    const errorMessage = data?.error || error.message;
+    throw new Error(errorMessage); // Throw a cleaner error message
+  }
+
+  if (data.error) {
+    throw new Error(data.error);
+  }
+  
   return data;
 };
 
@@ -28,7 +37,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Find all tasks in our DB that are currently 'doing', and get their user_id
     const { data: pendingTasks, error: fetchError } = await supabaseAdmin
       .from('voice_tasks')
       .select('id, user_id')
@@ -50,10 +58,8 @@ serve(async (req) => {
     let successCount = 0;
     let errorCount = 0;
 
-    // 2. For each task, check its status from the external API
     for (const task of pendingTasks) {
       try {
-        // Pass the userId for authentication in the proxy
         const apiTaskDetails = await callVoiceApi(supabaseAdmin, {
           path: `v1/task/${task.id}`,
           method: "GET",
@@ -63,7 +69,6 @@ serve(async (req) => {
         if (apiTaskDetails && apiTaskDetails.data) {
           const { status, error_message, metadata } = apiTaskDetails.data;
           
-          // 3. If the status has changed, update our DB
           if (status !== 'doing') {
             const updatePayload = {
               status: status,
@@ -90,6 +95,19 @@ serve(async (req) => {
       } catch (syncError) {
         console.error(`Error syncing task ${task.id}:`, syncError.message);
         errorCount++;
+        
+        // Mark the task as failed in the database so it doesn't get picked up again
+        const { error: updateError } = await supabaseAdmin
+          .from('voice_tasks')
+          .update({
+            status: 'error',
+            error_message: `Sync failed: ${syncError.message}`
+          })
+          .eq('id', task.id);
+        
+        if (updateError) {
+          console.error(`Failed to mark task ${task.id} as failed:`, updateError.message);
+        }
       }
     }
 
