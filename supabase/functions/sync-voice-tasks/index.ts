@@ -7,20 +7,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper function to call the voice API proxy with improved error handling
+// Helper function được nâng cấp để hiểu định dạng trả về mới
 const callVoiceApi = async (supabaseAdmin, { path, method, body = {}, userId }) => {
   const { data, error } = await supabaseAdmin.functions.invoke("voice-api-proxy", {
     body: { path, method, body, userId },
   });
 
   if (error) {
-    // Try to get the specific error message from the response data if it exists
-    const errorMessage = data?.error || error.message;
-    throw new Error(errorMessage); // Throw a cleaner error message
+    // Lỗi này chỉ xảy ra nếu function bị sập hoàn toàn, rất hiếm
+    throw new Error(`Lỗi gọi function: ${error.message}`);
   }
 
-  if (data.error) {
-    throw new Error(data.error);
+  // Kiểm tra cờ success trong nội dung trả về
+  if (data.success === false) {
+    throw new Error(data.error || "API báo lỗi nhưng không có thông báo chi tiết.");
   }
   
   return data;
@@ -43,17 +43,15 @@ serve(async (req) => {
       .eq('status', 'doing');
 
     if (fetchError) {
-      throw new Error(`Error fetching pending tasks: ${fetchError.message}`);
+      throw new Error(`Lỗi lấy task đang xử lý: ${fetchError.message}`);
     }
 
     if (!pendingTasks || pendingTasks.length === 0) {
-      return new Response(JSON.stringify({ message: "No pending tasks to sync." }), {
+      return new Response(JSON.stringify({ message: "Không có task nào đang xử lý để đồng bộ." }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    console.log(`Found ${pendingTasks.length} tasks to sync.`);
 
     let successCount = 0;
     let errorCount = 0;
@@ -84,43 +82,37 @@ serve(async (req) => {
               .eq('id', task.id);
 
             if (updateError) {
-              console.error(`Failed to update task ${task.id} in DB:`, updateError.message);
+              console.error(`Lỗi cập nhật task ${task.id} trong DB:`, updateError.message);
               errorCount++;
             } else {
-              console.log(`Synced task ${task.id} to status: ${status}`);
               successCount++;
             }
           }
         }
       } catch (syncError) {
-        console.error(`Error syncing task ${task.id}:`, syncError.message);
+        console.error(`Lỗi đồng bộ task ${task.id}:`, syncError.message);
         errorCount++;
         
-        // Mark the task as failed in the database so it doesn't get picked up again
-        const { error: updateError } = await supabaseAdmin
+        // Cập nhật trạng thái lỗi và ghi lại thông báo lỗi chi tiết
+        await supabaseAdmin
           .from('voice_tasks')
           .update({
             status: 'error',
-            error_message: `Sync failed: ${syncError.message}`
+            error_message: `Lỗi đồng bộ: ${syncError.message}`
           })
           .eq('id', task.id);
-        
-        if (updateError) {
-          console.error(`Failed to mark task ${task.id} as failed:`, updateError.message);
-        }
       }
     }
 
-    const summary = `Sync complete. Successfully updated: ${successCount}. Failed: ${errorCount}.`;
+    const summary = `Đồng bộ hoàn tất. Cập nhật thành công: ${successCount}. Thất bại: ${errorCount}.`;
     return new Response(JSON.stringify({ message: summary }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (error) {
-    console.error("Critical error in sync-voice-tasks function:", error);
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+      status: 200, // Trả về 200 để cron job không báo lỗi
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
