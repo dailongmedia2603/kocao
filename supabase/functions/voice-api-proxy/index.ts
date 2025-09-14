@@ -19,36 +19,50 @@ serve(async (req) => {
   );
   
   try {
-    const { path, method, body, userId } = await req.json();
+    const { path, method, body, userId: providedUserId } = await req.json();
     let user;
+    let userId;
 
-    // **LOGIC XÁC THỰC ĐƯỢC NÂNG CẤP**
-    if (userId) {
-      // Trường hợp 1: Gọi từ server-side (ví dụ: auto-tao-voice, sync-voice-tasks)
-      // Tin tưởng userId được gửi từ function đáng tin cậy
-      user = { id: userId };
+    if (providedUserId) {
+      // Case 1: Called from a server-side function, trust the provided userId
+      userId = providedUserId;
     } else {
-      // Trường hợp 2: Gọi từ client-side (UI)
+      // Case 2: Called from the client-side UI, get user from token
       const authHeader = req.headers.get("Authorization");
       if (!authHeader) throw new Error("Missing Authorization header");
       
       const { data: { user: authUser }, error: userError } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
       if (userError || !authUser) throw new Error("Invalid or expired token.");
-      user = authUser;
+      userId = authUser.id;
     }
 
-    // **SỬA LỖI: Lấy API key của đúng người dùng**
-    const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
+    // **NEW LOGIC: Find a valid API key**
+    let apiKey;
+    // First, try to get the specific user's key
+    const { data: userApiKeyData } = await supabaseAdmin
       .from("user_voice_api_keys")
       .select("api_key")
-      .eq("user_id", user.id) // Lọc theo user_id
+      .eq("user_id", userId)
       .limit(1)
       .single();
 
-    if (apiKeyError || !apiKeyData) {
-      throw new Error(`Chưa có API Key Voice nào được cấu hình cho người dùng này (ID: ${user.id}). Vui lòng kiểm tra cài đặt.`);
+    if (userApiKeyData) {
+      apiKey = userApiKeyData.api_key;
+    } else {
+      // If user has no key, fall back to ANY available key in the system (system-wide key)
+      const { data: systemApiKeyData } = await supabaseAdmin
+        .from("user_voice_api_keys")
+        .select("api_key")
+        .limit(1)
+        .single();
+      
+      if (systemApiKeyData) {
+        apiKey = systemApiKeyData.api_key;
+      } else {
+        // Only fail if there are absolutely no keys in the system
+        throw new Error("Chưa có bất kỳ API Key Voice nào được cấu hình trong toàn bộ hệ thống. Vui lòng thêm ít nhất một key trong phần Cài đặt.");
+      }
     }
-    const apiKey = apiKeyData.api_key;
 
     const voice_name = body?.voice_name;
     const { voice_name: _removed, ...apiBody } = body || {};
@@ -68,12 +82,12 @@ serve(async (req) => {
 
     if (path === "v1m/task/text-to-speech" && method === "POST") {
       const taskId = responseData?.task_id;
-      const logPayload = { user_id: user.id, task_id: taskId || null, request_payload: body, response_body: responseData, status_code: apiResponse.status };
+      const logPayload = { user_id: userId, task_id: taskId || null, request_payload: body, response_body: responseData, status_code: apiResponse.status };
       const { error: logError } = await supabaseAdmin.from("tts_logs").insert(logPayload);
       if (logError) console.error("Failed to write to tts_logs:", logError);
 
       if (taskId && apiResponse.ok) {
-        const { error: dbError } = await supabaseAdmin.from("voice_tasks").insert({ id: taskId, user_id: user.id, voice_name: voice_name, status: 'doing', task_type: 'minimax_tts' });
+        const { error: dbError } = await supabaseAdmin.from("voice_tasks").insert({ id: taskId, user_id: userId, voice_name: voice_name, status: 'doing', task_type: 'minimax_tts' });
         if (dbError) console.error("Failed to insert into voice_tasks:", dbError);
       }
     }
