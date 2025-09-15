@@ -69,13 +69,21 @@ serve(async (req) => {
     const apiResponse = await fetch(apiUrl, fetchOptions);
     const responseData = await apiResponse.json();
 
+    // Ghi log cho tất cả các yêu cầu TTS
     if (path === "v1m/task/text-to-speech" && method === "POST") {
       const taskId = responseData?.task_id;
       const logPayload = { user_id: userId, task_id: taskId || null, request_payload: body, response_body: responseData, status_code: apiResponse.status };
       await supabaseAdmin.from("tts_logs").insert(logPayload);
 
+      // **THE FIX IS HERE: Insert into the new table with the correct data**
       if (taskId && apiResponse.ok) {
-        await supabaseAdmin.from("voice_tasks").insert({ id: taskId, user_id: userId, voice_name: voice_name, status: 'doing', task_type: 'minimax_tts' });
+        await supabaseAdmin.from("voice_tasks").insert({ 
+          id: taskId, // Use the real task_id from the API
+          user_id: userId, 
+          voice_name: voice_name, 
+          status: 'doing', 
+          task_type: 'minimax_tts' 
+        });
       }
     }
 
