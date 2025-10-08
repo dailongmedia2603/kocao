@@ -82,7 +82,8 @@ serve(async (req) => {
         dreamfaceFormData.append('audio', audioFile);
         
         fetchOptions.body = dreamfaceFormData;
-        console.log("FormData prepared with auth params and files.");
+        // Log all keys in the FormData object to verify
+        console.log("FormData keys being sent:", Array.from(dreamfaceFormData.keys()));
     } else {
         const params = new URLSearchParams({
             accountId: apiKeyData.account_id,
@@ -105,23 +106,21 @@ serve(async (req) => {
     const apiResponse = await fetch(finalUrl, fetchOptions);
     console.log(`Step 6: Received response from Dreamface with status: ${apiResponse.status}`);
 
-    const responseContentType = apiResponse.headers.get("content-type");
+    const responseText = await apiResponse.text();
+    console.log("Full response body from Dreamface:", responseText);
 
     if (!apiResponse.ok) {
-        if (responseContentType && responseContentType.includes("text/html")) {
-            throw new Error(`Lỗi từ máy chủ Dreamface (Mã lỗi: ${apiResponse.status}). Vui lòng thử lại sau hoặc liên hệ nhà cung cấp dịch vụ.`);
+        if (responseText.includes("Error code 520")) {
+            throw new Error("Lỗi từ máy chủ Dreamface (Mã lỗi: 520). Dịch vụ có thể đang gặp sự cố. Vui lòng thử lại sau hoặc liên hệ nhà cung cấp.");
         }
-        const errorText = await apiResponse.text();
-        console.log("Full error response body from Dreamface:", errorText);
-        throw new Error(`API Error ${apiResponse.status}: ${errorText}`);
+        throw new Error(`API Error ${apiResponse.status}: ${responseText}`);
     }
 
-    if (responseContentType && responseContentType.includes("application/json")) {
-        const responseData = await apiResponse.json();
+    try {
+        const responseData = JSON.parse(responseText);
         return new Response(JSON.stringify({ success: true, data: responseData }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    } else {
-        const responseBody = await apiResponse.blob();
-        return new Response(responseBody, { status: 200, headers: { ...corsHeaders, 'Content-Type': responseContentType || 'application/octet-stream' } });
+    } catch (e) {
+        return new Response(responseText, { status: 200, headers: { ...corsHeaders, 'Content-Type': apiResponse.headers.get('content-type') || 'application/octet-stream' } });
     }
 
   } catch (err) {
