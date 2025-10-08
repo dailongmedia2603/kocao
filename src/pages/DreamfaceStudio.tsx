@@ -14,8 +14,7 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 const DreamfaceStudio = () => {
-  const [avatarId, setAvatarId] = useState('');
-  const [avatarPath, setAvatarPath] = useState('');
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
 
@@ -43,30 +42,28 @@ const DreamfaceStudio = () => {
 
   const createVideoMutation = useMutation({
     mutationFn: async () => {
+      if (!videoFile) throw new Error("Vui lòng chọn một file video mẫu.");
       if (!audioFile) throw new Error("Vui lòng chọn một file âm thanh.");
-      // Note: The actual API expects a file upload, but the proxy is simplified.
-      // This part needs a more complex proxy or direct client-side handling if security allows.
-      // For now, we simulate the `upload-voice` which is urlencoded.
+
+      const formData = new FormData();
+      formData.append('path', 'upload-video');
+      formData.append('method', 'POST');
+      formData.append('videoFile', videoFile);
+      formData.append('audioFile', audioFile);
+      
       const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", {
-        body: { 
-          path: "upload-voice", 
-          method: "POST",
-          isUrlEncoded: true,
-          body: {
-            avatarId,
-            avatarPath,
-            // The audio file needs to be handled, likely by uploading to storage first
-            // and passing the URL, but the API doc is unclear.
-            // This is a placeholder for the functionality.
-          }
-        }
+        body: formData,
       });
+
       if (error || data.error) throw new Error(error?.message || data.error);
       return data;
     },
     onSuccess: () => {
       showSuccess("Yêu cầu tạo video đã được gửi! Video sẽ sớm xuất hiện trong danh sách.");
       queryClient.invalidateQueries({ queryKey: ['dreamface_videos'] });
+      setVideoFile(null);
+      setAudioFile(null);
+      // You might want to reset the file input fields here if you have a form wrapper
     },
     onError: (error: Error) => {
       showError(`Lỗi: ${error.message}`);
@@ -75,8 +72,7 @@ const DreamfaceStudio = () => {
 
   const handleCreateVideo = (e: React.FormEvent) => {
     e.preventDefault();
-    showError("Chức năng tải lên file âm thanh chưa được hỗ trợ đầy đủ trong proxy. Đây là phần giữ chỗ.");
-    // createVideoMutation.mutate();
+    createVideoMutation.mutate();
   };
 
   return (
@@ -113,18 +109,14 @@ const DreamfaceStudio = () => {
             <div className="md:col-span-2">
               <Card>
                 <CardHeader>
-                  <CardTitle>Tạo video từ âm thanh</CardTitle>
-                  <CardDescription>Tải lên file âm thanh và chọn avatar để tạo video mới.</CardDescription>
+                  <CardTitle>Tạo video từ video mẫu và âm thanh</CardTitle>
+                  <CardDescription>Tải lên video mẫu và file âm thanh để tạo video mới.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleCreateVideo} className="space-y-4">
                     <div>
-                      <label className="text-sm font-medium">Avatar ID</label>
-                      <Input value={avatarId} onChange={(e) => setAvatarId(e.target.value)} placeholder="Nhập Avatar ID" required />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">Avatar Path (URL)</label>
-                      <Input value={avatarPath} onChange={(e) => setAvatarPath(e.target.value)} placeholder="Nhập URL của Avatar" required />
+                      <label className="text-sm font-medium">File video mẫu</label>
+                      <Input type="file" onChange={(e) => setVideoFile(e.target.files ? e.target.files[0] : null)} accept="video/*" required />
                     </div>
                     <div>
                       <label className="text-sm font-medium">File âm thanh</label>
@@ -166,7 +158,7 @@ const DreamfaceStudio = () => {
                   {isLoadingVideos ? (
                     <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></TableCell></TableRow>
                   ) : videoList && videoList.length > 0 ? (
-                    videoList.map((video) => (
+                    videoList.map((video: any) => (
                       <TableRow key={video._id}>
                         <TableCell><img src={video.coverUrl} alt={video.title} className="h-16 w-16 object-cover rounded-md" /></TableCell>
                         <TableCell className="font-medium">{video.title || 'Không có tiêu đề'}</TableCell>

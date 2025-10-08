@@ -35,8 +35,24 @@ serve(async (req) => {
       throw new Error("Chưa có API Key Dreamface nào được cấu hình. Vui lòng thêm trong phần Cài đặt.");
     }
 
-    const { path, method, body, isUrlEncoded } = await req.json();
-    
+    const contentType = req.headers.get("content-type");
+    let path: string, method: string, body: any, isUrlEncoded: boolean | undefined;
+    let videoFile: File | null = null, audioFile: File | null = null;
+
+    if (contentType && contentType.includes("multipart/form-data")) {
+        const formData = await req.formData();
+        path = formData.get('path') as string;
+        method = formData.get('method') as string;
+        videoFile = formData.get('videoFile') as File;
+        audioFile = formData.get('audioFile') as File;
+    } else {
+        ({ path, method, body, isUrlEncoded } = await req.json());
+    }
+
+    if (!path || !method) {
+        throw new Error("Path and method are required.");
+    }
+
     const params = new URLSearchParams({
       accountId: apiKeyData.account_id,
       userId: apiKeyData.user_id_dreamface,
@@ -44,19 +60,22 @@ serve(async (req) => {
       clientId: apiKeyData.client_id,
     });
 
-    // Append additional params from body for GET requests
-    if (method === 'GET' && body) {
-        for (const key in body) {
-            params.append(key, body[key]);
-        }
-    }
+    let apiUrl = `https://dapi.qcv.vn/${path}`;
+    let fetchBody: any;
+    const headers: Record<string, string> = {};
+    let finalUrl = apiUrl;
 
-    const apiUrl = `https://dapi.qcv.vn/${path}?${params.toString()}`;
-    
-    let fetchBody;
-    const headers = {};
-
-    if (method === 'POST') {
+    if (method === 'POST' && path === 'upload-video') {
+        finalUrl = `${apiUrl}?${params.toString()}`;
+        
+        const dreamfaceFormData = new FormData();
+        if (videoFile) dreamfaceFormData.append('file', videoFile);
+        if (audioFile) dreamfaceFormData.append('audio', audioFile);
+        
+        fetchBody = dreamfaceFormData;
+        // Do not set Content-Type for FormData, fetch does it.
+    } else if (method === 'POST') {
+        finalUrl = `${apiUrl}?${params.toString()}`;
         if (isUrlEncoded) {
             headers['Content-Type'] = 'application/x-www-form-urlencoded';
             const urlEncodedBody = new URLSearchParams();
@@ -65,10 +84,16 @@ serve(async (req) => {
             }
             fetchBody = urlEncodedBody;
         } else {
-            // Default to JSON if not specified
             headers['Content-Type'] = 'application/json';
             fetchBody = JSON.stringify(body);
         }
+    } else { // GET
+        if (body) {
+            for (const key in body) {
+                params.append(key, body[key]);
+            }
+        }
+        finalUrl = `${apiUrl}?${params.toString()}`;
     }
 
     const fetchOptions = {
@@ -77,12 +102,10 @@ serve(async (req) => {
       body: fetchBody,
     };
 
-    const apiResponse = await fetch(apiUrl, fetchOptions);
+    const apiResponse = await fetch(finalUrl, fetchOptions);
     
-    // Dreamface API might return non-JSON responses on success (e.g., file downloads)
-    // or error messages as plain text.
-    const contentType = apiResponse.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
+    const responseContentType = apiResponse.headers.get("content-type");
+    if (responseContentType && responseContentType.includes("application/json")) {
         const responseData = await apiResponse.json();
         if (!apiResponse.ok) {
             throw new Error(responseData.message || JSON.stringify(responseData));
@@ -93,9 +116,8 @@ serve(async (req) => {
             const errorText = await apiResponse.text();
             throw new Error(`API Error ${apiResponse.status}: ${errorText}`);
         }
-        // For file downloads or other non-JSON success responses
         const responseBody = await apiResponse.blob();
-        return new Response(responseBody, { status: 200, headers: { ...corsHeaders, 'Content-Type': contentType || 'application/octet-stream' } });
+        return new Response(responseBody, { status: 200, headers: { ...corsHeaders, 'Content-Type': responseContentType || 'application/octet-stream' } });
     }
 
   } catch (err) {
