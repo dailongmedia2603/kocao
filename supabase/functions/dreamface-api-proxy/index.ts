@@ -53,41 +53,51 @@ serve(async (req) => {
         throw new Error("Path and method are required.");
     }
 
-    const params = new URLSearchParams({
-      accountId: apiKeyData.account_id,
-      userId: apiKeyData.user_id_dreamface,
-      tokenId: apiKeyData.token_id,
-      clientId: apiKeyData.client_id,
-    });
-
-    let apiUrl = `https://dapi.qcv.vn/${path}`;
+    const apiUrl = `https://dapi.qcv.vn/${path}`;
     let fetchBody: any;
     const headers: Record<string, string> = {};
     let finalUrl = apiUrl;
 
-    if (method === 'POST' && path === 'upload-video') {
-        finalUrl = `${apiUrl}?${params.toString()}`;
-        
-        const dreamfaceFormData = new FormData();
-        if (videoFile) dreamfaceFormData.append('file', videoFile);
-        if (audioFile) dreamfaceFormData.append('audio', audioFile);
-        
-        fetchBody = dreamfaceFormData;
-        // Do not set Content-Type for FormData, fetch does it.
-    } else if (method === 'POST') {
-        finalUrl = `${apiUrl}?${params.toString()}`;
-        if (isUrlEncoded) {
+    if (method === 'POST') {
+        if (path === 'upload-video') {
+            const dreamfaceFormData = new FormData();
+            dreamfaceFormData.append('accountId', apiKeyData.account_id);
+            dreamfaceFormData.append('userId', apiKeyData.user_id_dreamface);
+            dreamfaceFormData.append('tokenId', apiKeyData.token_id);
+            dreamfaceFormData.append('clientId', apiKeyData.client_id);
+            if (videoFile) dreamfaceFormData.append('file', videoFile);
+            if (audioFile) dreamfaceFormData.append('audio', audioFile);
+            fetchBody = dreamfaceFormData;
+            // Do not set Content-Type for FormData, fetch handles it.
+        } else if (isUrlEncoded) {
             headers['Content-Type'] = 'application/x-www-form-urlencoded';
             const urlEncodedBody = new URLSearchParams();
+            urlEncodedBody.append('accountId', apiKeyData.account_id);
+            urlEncodedBody.append('userId', apiKeyData.user_id_dreamface);
+            urlEncodedBody.append('tokenId', apiKeyData.token_id);
+            urlEncodedBody.append('clientId', apiKeyData.client_id);
             for (const key in body) {
                 urlEncodedBody.append(key, body[key]);
             }
             fetchBody = urlEncodedBody;
-        } else {
+        } else { // Default to JSON POST
             headers['Content-Type'] = 'application/json';
-            fetchBody = JSON.stringify(body);
+            const jsonBody = {
+                ...body,
+                accountId: apiKeyData.account_id,
+                userId: apiKeyData.user_id_dreamface,
+                tokenId: apiKeyData.token_id,
+                clientId: apiKeyData.client_id,
+            };
+            fetchBody = JSON.stringify(jsonBody);
         }
     } else { // GET
+        const params = new URLSearchParams({
+            accountId: apiKeyData.account_id,
+            userId: apiKeyData.user_id_dreamface,
+            tokenId: apiKeyData.token_id,
+            clientId: apiKeyData.client_id,
+        });
         if (body) {
             for (const key in body) {
                 params.append(key, body[key]);
