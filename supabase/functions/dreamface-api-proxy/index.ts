@@ -84,7 +84,6 @@ serve(async (req) => {
         fetchOptions.body = dreamfaceFormData;
         console.log("FormData prepared with auth params and files.");
     } else {
-        // Handle other GET or POST requests
         const params = new URLSearchParams({
             accountId: apiKeyData.account_id,
             userId: apiKeyData.user_id_dreamface,
@@ -106,19 +105,23 @@ serve(async (req) => {
     const apiResponse = await fetch(finalUrl, fetchOptions);
     console.log(`Step 6: Received response from Dreamface with status: ${apiResponse.status}`);
 
-    const responseText = await apiResponse.text();
-    console.log("Full response body from Dreamface:", responseText);
+    const responseContentType = apiResponse.headers.get("content-type");
 
     if (!apiResponse.ok) {
-        throw new Error(`API Error ${apiResponse.status}: ${responseText}`);
+        if (responseContentType && responseContentType.includes("text/html")) {
+            throw new Error(`Lỗi từ máy chủ Dreamface (Mã lỗi: ${apiResponse.status}). Vui lòng thử lại sau hoặc liên hệ nhà cung cấp dịch vụ.`);
+        }
+        const errorText = await apiResponse.text();
+        console.log("Full error response body from Dreamface:", errorText);
+        throw new Error(`API Error ${apiResponse.status}: ${errorText}`);
     }
 
-    try {
-        const responseData = JSON.parse(responseText);
+    if (responseContentType && responseContentType.includes("application/json")) {
+        const responseData = await apiResponse.json();
         return new Response(JSON.stringify({ success: true, data: responseData }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    } catch (e) {
-        // If response is not JSON (like a file download), handle it here
-        return new Response(responseText, { status: 200, headers: { ...corsHeaders, 'Content-Type': apiResponse.headers.get('content-type') || 'application/octet-stream' } });
+    } else {
+        const responseBody = await apiResponse.blob();
+        return new Response(responseBody, { status: 200, headers: { ...corsHeaders, 'Content-Type': responseContentType || 'application/octet-stream' } });
     }
 
   } catch (err) {
