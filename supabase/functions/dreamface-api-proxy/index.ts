@@ -36,7 +36,7 @@ serve(async (req) => {
     }
 
     const contentType = req.headers.get("content-type");
-    let path: string, method: string, body: any, isUrlEncoded: boolean | undefined;
+    let path: string, method: string, body: any;
     let videoFile: File | null = null, audioFile: File | null = null;
 
     if (contentType && contentType.includes("multipart/form-data")) {
@@ -45,8 +45,9 @@ serve(async (req) => {
         method = formData.get('method') as string;
         videoFile = formData.get('videoFile') as File;
         audioFile = formData.get('audioFile') as File;
+        body = {};
     } else {
-        ({ path, method, body, isUrlEncoded } = await req.json());
+        ({ path, method, body } = await req.json());
     }
 
     if (!path || !method) {
@@ -54,63 +55,46 @@ serve(async (req) => {
     }
 
     const apiUrl = `https://dapi.qcv.vn/${path}`;
-    let fetchBody: any;
-    const headers: Record<string, string> = {};
+    let fetchOptions: RequestInit = { method };
     let finalUrl = apiUrl;
 
-    if (method === 'POST') {
+    if (method === 'GET') {
+        const params = new URLSearchParams({
+            accountId: apiKeyData.account_id,
+            userId: apiKeyData.user_id_dreamface,
+            tokenId: apiKeyData.token_id,
+            clientId: apiKeyData.client_id,
+            ...(body || {}),
+        });
+        finalUrl = `${apiUrl}?${params.toString()}`;
+    } else if (method === 'POST') {
         if (path === 'upload-video') {
             const dreamfaceFormData = new FormData();
             dreamfaceFormData.append('accountId', apiKeyData.account_id);
             dreamfaceFormData.append('userId', apiKeyData.user_id_dreamface);
             dreamfaceFormData.append('tokenId', apiKeyData.token_id);
             dreamfaceFormData.append('clientId', apiKeyData.client_id);
-            if (videoFile) dreamfaceFormData.append('file', videoFile);
-            if (audioFile) dreamfaceFormData.append('audio', audioFile);
-            fetchBody = dreamfaceFormData;
-            // Do not set Content-Type for FormData, fetch handles it.
-        } else if (isUrlEncoded) {
-            headers['Content-Type'] = 'application/x-www-form-urlencoded';
-            const urlEncodedBody = new URLSearchParams();
-            urlEncodedBody.append('accountId', apiKeyData.account_id);
-            urlEncodedBody.append('userId', apiKeyData.user_id_dreamface);
-            urlEncodedBody.append('tokenId', apiKeyData.token_id);
-            urlEncodedBody.append('clientId', apiKeyData.client_id);
-            for (const key in body) {
-                urlEncodedBody.append(key, body[key]);
-            }
-            fetchBody = urlEncodedBody;
-        } else { // Default to JSON POST
-            headers['Content-Type'] = 'application/json';
-            const jsonBody = {
-                ...body,
+            if (!videoFile) throw new Error("Video file is required for upload-video.");
+            if (!audioFile) throw new Error("Audio file is required for upload-video.");
+            dreamfaceFormData.append('file', videoFile);
+            dreamfaceFormData.append('audio', audioFile);
+            
+            fetchOptions.body = dreamfaceFormData;
+        } else {
+            const params = new URLSearchParams({
                 accountId: apiKeyData.account_id,
                 userId: apiKeyData.user_id_dreamface,
                 tokenId: apiKeyData.token_id,
                 clientId: apiKeyData.client_id,
-            };
-            fetchBody = JSON.stringify(jsonBody);
-        }
-    } else { // GET
-        const params = new URLSearchParams({
-            accountId: apiKeyData.account_id,
-            userId: apiKeyData.user_id_dreamface,
-            tokenId: apiKeyData.token_id,
-            clientId: apiKeyData.client_id,
-        });
-        if (body) {
-            for (const key in body) {
-                params.append(key, body[key]);
+            });
+            finalUrl = `${apiUrl}?${params.toString()}`;
+            
+            if (body && Object.keys(body).length > 0) {
+                fetchOptions.headers = { 'Content-Type': 'application/json' };
+                fetchOptions.body = JSON.stringify(body);
             }
         }
-        finalUrl = `${apiUrl}?${params.toString()}`;
     }
-
-    const fetchOptions = {
-      method: method,
-      headers: headers,
-      body: fetchBody,
-    };
 
     const apiResponse = await fetch(finalUrl, fetchOptions);
     
