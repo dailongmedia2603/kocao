@@ -17,6 +17,7 @@ import Reports from "./pages/Reports";
 import CreateVoicePage from "./pages/CreateVoice";
 import TaoContent from "./pages/TaoContent";
 import Automation from "./pages/Automation";
+import DreamfaceStudio from "./pages/DreamfaceStudio";
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
               <Route path="/extensions" element={<Extensions />} />
               <Route path="/automation" element={<Automation />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/dreamface-studio" element={<DreamfaceStudio />} />
             </Route>
             <Route element={<KocLayout />}>
               <Route path="/projects" element={<ProjectsList />} />
