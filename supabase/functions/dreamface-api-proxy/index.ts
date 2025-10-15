@@ -134,7 +134,6 @@ serve(async (req) => {
           throw new Error("create-video action requires FormData with videoFile and audioFile.");
         }
 
-        // Upload originals to R2 for our records
         const [originalVideoUrl, originalAudioUrl] = await Promise.all([
           uploadToR2AndGetUrl(videoFile, 'video', user.id),
           uploadToR2AndGetUrl(audioFile, 'audio', user.id)
@@ -152,41 +151,42 @@ serve(async (req) => {
         if (insertError) throw new Error(`Lỗi tạo task tạm: ${insertError.message}`);
 
         try {
-          // 1. Upload video directly to Dreamface
           const formVideo = new FormData();
           formVideo.append("accountId", creds.accountId);
           formVideo.append("userId", creds.userId);
           formVideo.append("tokenId", creds.tokenId);
           formVideo.append("clientId", creds.clientId);
-          formVideo.append("file", videoFile, "video.mp4"); // Use a generic filename
+          formVideo.append("file", videoFile, "video.mp4");
           const uploadVideoRes = await fetch(`${API_BASE_URL}/upload-video`, { method: 'POST', body: formVideo });
           if (!uploadVideoRes.ok) await handleApiError(uploadVideoRes, 'upload-video');
           const videoData = await uploadVideoRes.json();
-          const uploadedVideoUrl = videoData.file_url; // Get URL from root
+          const uploadedVideoUrl = videoData.file_url;
           if (!uploadedVideoUrl) throw new Error("Không nhận được file_url từ upload video");
 
-          // 2. Find avatarId
-          const avatarListRes = await fetch(`${API_BASE_URL}/avatar-list?${new URLSearchParams(creds).toString()}`);
+          const avatarListRes = await fetch(`${API_BASE_URL}/avatar-list?${new URLSearchParams({...creds, page_size: 20}).toString()}`);
           if (!avatarListRes.ok) await handleApiError(avatarListRes, 'avatar-list');
           const avatarListData = await avatarListRes.json();
-          const matchedAvatar = avatarListData.data.list.find((a) => a.path === uploadedVideoUrl);
+          if (!avatarListData.success || !avatarListData.data?.avatars) throw new Error("Không lấy được danh sách avatars từ API Dreamface");
+          const matchedAvatar = avatarListData.data.avatars.find((a) => a.path === uploadedVideoUrl);
           if (!matchedAvatar) throw new Error("Không tìm thấy avatar trùng với video đã upload");
-          const { _id: avatarId, path: avatarPath } = matchedAvatar;
+          const { id: avatarId, path: avatarPath } = matchedAvatar;
 
-          // 3. Upload audio and create task
-          const uploadVoiceBody = new URLSearchParams({ ...creds, url: originalAudioUrl, avatarId, avatarPath });
-          const uploadVoiceRes = await fetch(`${API_BASE_URL}/upload-voice`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: uploadVoiceBody.toString(),
-          });
-          if (!uploadVoiceRes.ok) await handleApiError(uploadVoiceRes, 'upload-voice');
-          const audioData = await uploadVoiceRes.json();
-          if (audioData.code !== 0) throw new Error(`Upload audio thất bại: ${audioData.message}`);
-          const animateId = audioData.data?.animate_id;
-          if (!animateId) throw new Error("Phản hồi upload audio không chứa animate_id");
+          const audioFileName = audioFile.name || 'audio.mp3';
+          const formAudio = new FormData();
+          formAudio.append("accountId", creds.accountId);
+          formAudio.append("userId", creds.userId);
+          formAudio.append("tokenId", creds.tokenId);
+          formAudio.append("clientId", creds.clientId);
+          formAudio.append("avatarId", avatarId);
+          formAudio.append("avatarPath", avatarPath);
+          formAudio.append("file", audioFile, audioFileName);
+          const uploadAudioRes = await fetch(`${API_BASE_URL}/upload-voice`, { method: 'POST', body: formAudio });
+          if (!uploadAudioRes.ok) await handleApiError(uploadAudioRes, 'upload-voice');
+          const audioData = await uploadAudioRes.json();
+          if (!audioData.success) throw new Error(`Upload audio thất bại: ${JSON.stringify(audioData)}`);
+          const animateId = audioData.video_data?.animate_id || audioData.video_data?.animate_image_id;
+          if (!animateId) throw new Error(`Phản hồi upload audio không chứa animate_id: ${JSON.stringify(audioData)}`);
 
-          // 4. Update our task with animate_id
           await supabaseAdmin.from('dreamface_tasks').update({ animate_id: animateId }).eq('id', tempTask.id);
           
           return new Response(JSON.stringify({ success: true, message: "Task created." }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
