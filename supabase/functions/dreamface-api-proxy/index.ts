@@ -9,7 +9,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// --- Helper: Upload file to R2 and get public URL ---
+const API_BASE_URL = "https://dapi.qcv.vn";
+
+// --- Helper: Upload file to R2 for archival and get public URL ---
 const uploadToR2AndGetUrl = async (file, type, userId) => {
   const R2_ACCOUNT_ID = Deno.env.get("R2_ACCOUNT_ID");
   const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID");
@@ -40,18 +42,25 @@ const uploadToR2AndGetUrl = async (file, type, userId) => {
   return `${R2_PUBLIC_URL}/${storagePath}`;
 };
 
+// --- Helper: Handle API Errors ---
+const handleApiError = async (response, context) => {
+  const errorText = await response.text();
+  let errorMessage = `Dreamface API Error (${context}): Status ${response.status}.`;
+  try {
+    const errorJson = JSON.parse(errorText);
+    errorMessage += ` Message: ${errorJson.msg || errorJson.message || 'Unknown error'}`;
+  } catch (e) {
+    errorMessage += ` Response: ${errorText.slice(0, 500)}`;
+  }
+  throw new Error(errorMessage);
+};
+
 // --- Helper: Fetch and update final video URL ---
-const fetchAndUpdateVideoUrl = async (supabaseAdmin, task, apiKeyData) => {
+const fetchAndUpdateVideoUrl = async (supabaseAdmin, creds, task) => {
   if (!task.idPost) return;
 
-  const params = new URLSearchParams({
-    accountId: apiKeyData.account_id,
-    userId: apiKeyData.user_id_dreamface,
-    tokenId: apiKeyData.token_id,
-    clientId: apiKeyData.client_id,
-    id: task.idPost,
-  });
-  const downloadUrl = `https://dapi.qcv.vn/video-download?${params.toString()}`;
+  const params = new URLSearchParams({ ...creds, id: task.idPost });
+  const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
   
   const downloadRes = await fetch(downloadUrl);
   const downloadData = await downloadRes.json();
@@ -95,26 +104,37 @@ serve(async (req) => {
     if (apiKeyError || !apiKeyData) {
       throw new Error("Chưa có API Key Dreamface nào được cấu hình.");
     }
+    const creds = {
+      accountId: apiKeyData.account_id,
+      userId: apiKeyData.user_id_dreamface,
+      tokenId: apiKeyData.token_id,
+      clientId: apiKeyData.client_id,
+    };
 
     const contentType = req.headers.get("content-type");
-    let action, body, taskId, animateId;
+    let action, body;
     let videoFile, audioFile;
 
-    if (contentType && contentType.includes("multipart/form-data")) {
+    if (contentType?.includes('multipart/form-data')) {
         const formData = await req.formData();
-        action = formData.get('action') as string;
-        videoFile = formData.get('videoFile') as File;
-        audioFile = formData.get('audioFile') as File;
+        action = formData.get('action');
+        videoFile = formData.get('videoFile');
+        audioFile = formData.get('audioFile');
+        body = formData;
     } else {
-        ({ action, body } = await req.json());
-        taskId = body?.taskId;
-        animateId = body?.animateId;
+        body = await req.json();
+        action = body.action;
     }
+
+    if (!action) throw new Error("Hành động (action) là bắt buộc.");
 
     switch (action) {
       case 'create-video': {
-        if (!videoFile || !audioFile) throw new Error("Video and audio files are required.");
+        if (!(body instanceof FormData) || !videoFile || !audioFile) {
+          throw new Error("create-video action requires FormData with videoFile and audioFile.");
+        }
 
+        // Upload originals to R2 for our records
         const [originalVideoUrl, originalAudioUrl] = await Promise.all([
           uploadToR2AndGetUrl(videoFile, 'video', user.id),
           uploadToR2AndGetUrl(audioFile, 'audio', user.id)
@@ -129,64 +149,62 @@ serve(async (req) => {
             original_video_url: originalVideoUrl,
             original_audio_url: originalAudioUrl
           }).select().single();
-        if (insertError) throw insertError;
+        if (insertError) throw new Error(`Lỗi tạo task tạm: ${insertError.message}`);
 
-        // --- Chain of Dreamface API calls ---
-        // 1. Upload video to get file_url
-        const uploadVideoParams = new URLSearchParams({ accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id, url: originalVideoUrl });
-        const uploadVideoRes = await fetch(`https://dapi.qcv.vn/upload-video?${uploadVideoParams.toString()}`);
-        const uploadVideoData = await uploadVideoRes.json();
-        if (uploadVideoData.code !== 0) throw new Error(`Upload video failed: ${uploadVideoData.message}`);
-        const dreamfaceVideoUrl = uploadVideoData.data.file_url;
+        try {
+          // 1. Upload video directly to Dreamface
+          const formVideo = new FormData();
+          formVideo.append("accountId", creds.accountId);
+          formVideo.append("userId", creds.userId);
+          formVideo.append("tokenId", creds.tokenId);
+          formVideo.append("clientId", creds.clientId);
+          formVideo.append("file", videoFile);
+          const uploadVideoRes = await fetch(`${API_BASE_URL}/upload-video`, { method: 'POST', body: formVideo });
+          if (!uploadVideoRes.ok) await handleApiError(uploadVideoRes, 'upload-video');
+          const videoData = await uploadVideoRes.json();
+          const uploadedVideoUrl = videoData.data?.file_url;
+          if (!uploadedVideoUrl) throw new Error("Không nhận được file_url từ upload video");
 
-        // 2. Get avatarId from avatar-list
-        const avatarListParams = new URLSearchParams({ accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id, page: '1', limit: '20' });
-        const avatarListRes = await fetch(`https://dapi.qcv.vn/avatar-list?${avatarListParams.toString()}`);
-        const avatarListData = await avatarListRes.json();
-        const avatar = avatarListData.data.list.find(a => a.path === dreamfaceVideoUrl);
-        if (!avatar) throw new Error("Could not find matching avatarId after video upload.");
-        const avatarId = avatar._id;
+          // 2. Find avatarId
+          const avatarListRes = await fetch(`${API_BASE_URL}/avatar-list?${new URLSearchParams(creds).toString()}`);
+          if (!avatarListRes.ok) await handleApiError(avatarListRes, 'avatar-list');
+          const avatarListData = await avatarListRes.json();
+          const matchedAvatar = avatarListData.data.list.find((a) => a.path === uploadedVideoUrl);
+          if (!matchedAvatar) throw new Error("Không tìm thấy avatar trùng với video đã upload");
+          const { _id: avatarId, path: avatarPath } = matchedAvatar;
 
-        // 3. Upload audio to get animate_id (UPDATED TO POST with urlencoded)
-        const uploadVoiceBody = new URLSearchParams({
-          accountId: apiKeyData.account_id,
-          userId: apiKeyData.user_id_dreamface,
-          tokenId: apiKeyData.token_id,
-          clientId: apiKeyData.client_id,
-          url: originalAudioUrl,
-          avatarId: avatarId,
-          avatarPath: dreamfaceVideoUrl
-        });
+          // 3. Upload audio and create task
+          const uploadVoiceBody = new URLSearchParams({ ...creds, url: originalAudioUrl, avatarId, avatarPath });
+          const uploadVoiceRes = await fetch(`${API_BASE_URL}/upload-voice`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: uploadVoiceBody.toString(),
+          });
+          if (!uploadVoiceRes.ok) await handleApiError(uploadVoiceRes, 'upload-voice');
+          const audioData = await uploadVoiceRes.json();
+          if (audioData.code !== 0) throw new Error(`Upload audio thất bại: ${audioData.message}`);
+          const animateId = audioData.data?.animate_id;
+          if (!animateId) throw new Error("Phản hồi upload audio không chứa animate_id");
 
-        const uploadVoiceRes = await fetch('https://dapi.qcv.vn/upload-voice', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: uploadVoiceBody.toString(),
-        });
-        
-        const uploadVoiceData = await uploadVoiceRes.json();
-        if (uploadVoiceData.code !== 0) throw new Error(`Upload voice failed: ${uploadVoiceData.message}`);
-        const newAnimateId = uploadVoiceData.data.animate_id;
+          // 4. Update our task with animate_id
+          await supabaseAdmin.from('dreamface_tasks').update({ animate_id: animateId }).eq('id', tempTask.id);
+          
+          return new Response(JSON.stringify({ success: true, message: "Task created." }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-        // 4. Update task with animate_id
-        await supabaseAdmin.from('dreamface_tasks').update({ animate_id: newAnimateId }).eq('id', tempTask.id);
-
-        return new Response(JSON.stringify({ success: true, message: "Task created." }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        } catch (err) {
+          await supabaseAdmin.from('dreamface_tasks').update({ status: 'failed', error_message: err.message }).eq('id', tempTask.id);
+          throw err;
+        }
       }
 
       case 'get-tasks': {
         const { data: processingTasks, error: processingError } = await supabaseAdmin
-          .from('dreamface_tasks')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('status', 'processing');
+          .from('dreamface_tasks').select('*').eq('user_id', user.id).eq('status', 'processing');
         if (processingError) throw processingError;
 
         if (processingTasks.length > 0) {
-          const videoListParams = new URLSearchParams({ accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id, page: '1', limit: '20' });
-          const videoListRes = await fetch(`https://dapi.qcv.vn/video-list?${videoListParams.toString()}`);
+          const videoListRes = await fetch(`${API_BASE_URL}/video-list?${new URLSearchParams(creds).toString()}`);
+          if (!videoListRes.ok) await handleApiError(videoListRes, 'get-video-list');
           const videoListData = await videoListRes.json();
           const dreamfaceTasks = videoListData.data.list;
 
@@ -196,56 +214,58 @@ serve(async (req) => {
               const updatePayload = {};
               if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
               if (dfTask.id && !task.idPost) updatePayload.idPost = dfTask.id;
-              
               if (dfTask.status === 'error' || dfTask.status === 'nsfw') {
                 updatePayload.status = 'failed';
-                updatePayload.error_message = dfTask.error_message || 'Video marked as error/nsfw by provider.';
+                updatePayload.error_message = dfTask.error_message || `External API reported status: ${dfTask.status}`;
               }
-              
               if (Object.keys(updatePayload).length > 0) {
                 await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
               }
-
               if (dfTask.id) {
-                await fetchAndUpdateVideoUrl(supabaseAdmin, { ...task, ...updatePayload }, apiKeyData);
+                await fetchAndUpdateVideoUrl(supabaseAdmin, creds, { ...task, ...updatePayload });
               }
             }
           }
         }
 
         const { data: allTasks, error: allTasksError } = await supabaseAdmin
-          .from('dreamface_tasks')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+          .from('dreamface_tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
         if (allTasksError) throw allTasksError;
-
         return new Response(JSON.stringify({ success: true, data: allTasks }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       case 'get-video-url': {
+        const { taskId } = body.body;
         if (!taskId) throw new Error("Task ID is required.");
         const { data: task, error: taskError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('id', taskId).single();
         if (taskError || !task) throw new Error("Task not found.");
-
-        await fetchAndUpdateVideoUrl(supabaseAdmin, task, apiKeyData);
-        
+        await fetchAndUpdateVideoUrl(supabaseAdmin, creds, task);
         const { data: updatedTask } = await supabaseAdmin.from('dreamface_tasks').select('result_video_url').eq('id', taskId).single();
         return new Response(JSON.stringify({ success: true, data: updatedTask }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       case 'delete-task': {
+        const { taskId } = body.body;
         if (!taskId) throw new Error("Task ID is required.");
         const { error } = await supabaseAdmin.from('dreamface_tasks').delete().eq('id', taskId).eq('user_id', user.id);
         if (error) throw error;
         return new Response(JSON.stringify({ success: true, message: "Task deleted." }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
+      
+      case 'get-credit':
+      case 'remain-credit': { // Handle both for flexibility
+        const res = await fetch(`${API_BASE_URL}/remain-credit?${new URLSearchParams(creds).toString()}`);
+        if (!res.ok) await handleApiError(res, 'get-credit');
+        const creditData = await res.json();
+        if (creditData.code !== 0) throw new Error(`API trả lỗi: ${creditData.message || JSON.stringify(creditData)}`);
+        return new Response(JSON.stringify({ success: true, data: creditData.data }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
       default:
-        throw new Error("Invalid action specified.");
+        throw new Error(`Hành động không hợp lệ: ${action}`);
     }
-  } catch (err) {
-    console.error("--- Error in Dreamface Proxy Function ---", err);
-    return new Response(JSON.stringify({ success: false, error: err.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (error) {
+    console.error(`[dreamface-proxy] CRITICAL ERROR:`, error.message, error.stack);
+    return new Response(JSON.stringify({ success: false, error: error.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
