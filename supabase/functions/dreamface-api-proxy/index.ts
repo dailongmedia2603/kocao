@@ -158,11 +158,11 @@ serve(async (req) => {
           formVideo.append("userId", creds.userId);
           formVideo.append("tokenId", creds.tokenId);
           formVideo.append("clientId", creds.clientId);
-          formVideo.append("file", videoFile);
+          formVideo.append("file", videoFile, "video.mp4"); // Use a generic filename
           const uploadVideoRes = await fetch(`${API_BASE_URL}/upload-video`, { method: 'POST', body: formVideo });
           if (!uploadVideoRes.ok) await handleApiError(uploadVideoRes, 'upload-video');
           const videoData = await uploadVideoRes.json();
-          const uploadedVideoUrl = videoData.data?.file_url;
+          const uploadedVideoUrl = videoData.file_url; // Get URL from root
           if (!uploadedVideoUrl) throw new Error("Không nhận được file_url từ upload video");
 
           // 2. Find avatarId
