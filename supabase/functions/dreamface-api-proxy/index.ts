@@ -210,10 +210,19 @@ serve(async (req) => {
           if (!videoListRes.ok) await handleApiError(videoListRes, 'get-video-list');
           const videoListData = await videoListRes.json();
           
-          const dreamfaceTasks = videoListData?.data?.list;
-          if (!Array.isArray(dreamfaceTasks)) {
-            console.error("Không tìm thấy danh sách video hợp lệ trong phản hồi /video-list. Phản hồi:", JSON.stringify(videoListData));
-          } else {
+          // Robustly get the list of tasks
+          let dreamfaceTasks = [];
+          if (videoListData.success && videoListData.data) {
+            if (Array.isArray(videoListData.data.list)) {
+              dreamfaceTasks = videoListData.data.list;
+            } else if (Array.isArray(videoListData.data.videos)) {
+              dreamfaceTasks = videoListData.data.videos;
+            } else if (Array.isArray(videoListData.data)) {
+              dreamfaceTasks = videoListData.data;
+            }
+          }
+
+          if (dreamfaceTasks.length > 0) {
             for (const task of processingTasks) {
               const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
               if (dfTask) {
@@ -232,6 +241,8 @@ serve(async (req) => {
                 }
               }
             }
+          } else {
+            console.error("Không tìm thấy danh sách video hợp lệ trong phản hồi /video-list. Phản hồi:", JSON.stringify(videoListData));
           }
         }
 
