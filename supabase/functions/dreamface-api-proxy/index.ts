@@ -156,7 +156,8 @@ serve(async (req) => {
           formVideo.append("userId", creds.userId);
           formVideo.append("tokenId", creds.tokenId);
           formVideo.append("clientId", creds.clientId);
-          formVideo.append("file", videoFile, "video.mp4");
+          const videoFileName = videoFile.name || 'video.mp4';
+          formVideo.append("file", videoFile, videoFileName);
           const uploadVideoRes = await fetch(`${API_BASE_URL}/upload-video`, { method: 'POST', body: formVideo });
           if (!uploadVideoRes.ok) await handleApiError(uploadVideoRes, 'upload-video');
           const videoData = await uploadVideoRes.json();
