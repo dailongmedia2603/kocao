@@ -7,67 +7,71 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { showSuccess, showError } from "@/utils/toast";
-import { Film, Clapperboard, UserCircle, AlertCircle, Download, Loader2, RefreshCw } from "lucide-react";
+import { Film, Clapperboard, AlertCircle, Download, Loader2, RefreshCw, Trash2, Eye } from "lucide-react";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { VideoPopup } from "@/components/dreamface/VideoPopup";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const DreamfaceStudio = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [isVideoPopupOpen, setVideoPopupOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<any | null>(null);
   const queryClient = useQueryClient();
 
-  const { data: accountInfo, isLoading: isLoadingInfo } = useQuery({
-    queryKey: ['dreamface_account'],
+  const { data: tasks, isLoading: isLoadingTasks, refetch: refetchTasks } = useQuery({
+    queryKey: ['dreamface_tasks'],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", {
-        body: { path: "remain-credit", method: "GET" }
+        body: { action: 'get-tasks' }
       });
       if (error || data.error) throw new Error(error?.message || data.error);
       return data.data;
-    }
-  });
-
-  const { data: videoList, isLoading: isLoadingVideos, refetch: refetchVideos } = useQuery({
-    queryKey: ['dreamface_videos'],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", {
-        body: { path: "video-list", method: "GET" }
-      });
-      if (error || data.error) throw new Error(error?.message || data.error);
-      return data.data.list;
-    }
+    },
+    refetchInterval: query => query.state.data?.some((task: any) => task.status === 'processing') ? 5000 : false,
   });
 
   const createVideoMutation = useMutation({
     mutationFn: async () => {
-      if (!videoFile) throw new Error("Vui lòng chọn một file video mẫu.");
-      if (!audioFile) throw new Error("Vui lòng chọn một file âm thanh.");
-
+      if (!videoFile || !audioFile) throw new Error("Vui lòng chọn cả file video và audio.");
       const formData = new FormData();
-      formData.append('path', 'upload-video');
-      formData.append('method', 'POST');
+      formData.append('action', 'create-video');
       formData.append('videoFile', videoFile);
       formData.append('audioFile', audioFile);
       
-      const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", {
-        body: formData,
-      });
-
+      const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", { body: formData });
       if (error || data.error) throw new Error(error?.message || data.error);
       return data;
     },
     onSuccess: () => {
       showSuccess("Yêu cầu tạo video đã được gửi! Video sẽ sớm xuất hiện trong danh sách.");
-      queryClient.invalidateQueries({ queryKey: ['dreamface_videos'] });
+      queryClient.invalidateQueries({ queryKey: ['dreamface_tasks'] });
       setVideoFile(null);
       setAudioFile(null);
-      // You might want to reset the file input fields here if you have a form wrapper
+      // Reset file inputs if they are part of a form
+      const form = document.getElementById('create-video-form') as HTMLFormElement;
+      form?.reset();
     },
-    onError: (error: Error) => {
-      showError(`Lỗi: ${error.message}`);
-    }
+    onError: (error: Error) => showError(`Lỗi: ${error.message}`),
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", {
+        body: { action: 'delete-task', body: { taskId } }
+      });
+      if (error || data.error) throw new Error(error?.message || data.error);
+    },
+    onSuccess: () => {
+      showSuccess("Xóa tác vụ thành công!");
+      queryClient.invalidateQueries({ queryKey: ['dreamface_tasks'] });
+      setTaskToDelete(null);
+    },
+    onError: (error: Error) => showError(`Lỗi: ${error.message}`),
   });
 
   const handleCreateVideo = (e: React.FormEvent) => {
@@ -75,112 +79,130 @@ const DreamfaceStudio = () => {
     createVideoMutation.mutate();
   };
 
-  return (
-    <div className="p-6 lg:p-8">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold">Dreamface Studio</h1>
-        <p className="text-muted-foreground mt-1">Tạo video AI và quản lý thư viện của bạn.</p>
-      </header>
+  const handleViewVideo = (task: any) => {
+    setSelectedTask(task);
+    setVideoPopupOpen(true);
+  };
 
-      <Tabs defaultValue="create" className="w-full">
-        <TabsList>
-          <TabsTrigger value="create">Tạo Video</TabsTrigger>
-          <TabsTrigger value="library">Thư viện</TabsTrigger>
-        </TabsList>
-        <TabsContent value="create" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="md:col-span-1">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Thông tin tài khoản</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingInfo ? <Skeleton className="h-10 w-full" /> : accountInfo ? (
-                    <div>
-                      <p className="text-sm font-medium">Credits còn lại:</p>
-                      <p className="text-3xl font-bold text-red-600">{accountInfo.remainCredit}</p>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Không thể tải thông tin tài khoản.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-            <div className="md:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Tạo video từ video mẫu và âm thanh</CardTitle>
-                  <CardDescription>Tải lên video mẫu và file âm thanh để tạo video mới.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleCreateVideo} className="space-y-4">
-                    <div>
-                      <label className="text-sm font-medium">File video mẫu</label>
-                      <Input type="file" onChange={(e) => setVideoFile(e.target.files ? e.target.files[0] : null)} accept="video/*" required />
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium">File âm thanh</label>
-                      <Input type="file" onChange={(e) => setAudioFile(e.target.files ? e.target.files[0] : null)} accept="audio/*" required />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={createVideoMutation.isPending}>
-                      {createVideoMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Film className="mr-2 h-4 w-4" />}
-                      Tạo Video
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </TabsContent>
-        <TabsContent value="library" className="mt-6">
-          <Card>
-            <CardHeader className="flex flex-row justify-between items-center">
-              <div>
-                <CardTitle>Thư viện Video</CardTitle>
-                <CardDescription>Danh sách các video đã được tạo.</CardDescription>
-              </div>
-              <Button variant="outline" size="icon" onClick={() => refetchVideos()} disabled={isLoadingVideos}>
-                <RefreshCw className={`h-4 w-4 ${isLoadingVideos ? 'animate-spin' : ''}`} />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Thumbnail</TableHead>
-                    <TableHead>Tiêu đề</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Ngày tạo</TableHead>
-                    <TableHead className="text-right">Hành động</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoadingVideos ? (
-                    <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></TableCell></TableRow>
-                  ) : videoList && videoList.length > 0 ? (
-                    videoList.map((video: any) => (
-                      <TableRow key={video._id}>
-                        <TableCell><img src={video.coverUrl} alt={video.title} className="h-16 w-16 object-cover rounded-md" /></TableCell>
-                        <TableCell className="font-medium">{video.title || 'Không có tiêu đề'}</TableCell>
-                        <TableCell>{video.status === 2 ? 'Hoàn thành' : 'Đang xử lý'}</TableCell>
-                        <TableCell>{format(new Date(video.createTime), 'dd/MM/yyyy HH:mm', { locale: vi })}</TableCell>
-                        <TableCell className="text-right">
-                          <Button size="sm" disabled={video.status !== 2}>
-                            <Download className="mr-2 h-4 w-4" /> Tải xuống
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow><TableCell colSpan={5} className="h-24 text-center">Chưa có video nào.</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed': return <Badge className="bg-green-100 text-green-800">Hoàn thành</Badge>;
+      case 'processing': return <Badge variant="outline" className="text-blue-800 border-blue-200"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Đang xử lý</Badge>;
+      case 'failed': return <Badge variant="destructive">Thất bại</Badge>;
+      default: return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  return (
+    <>
+      <div className="p-6 lg:p-8">
+        <header className="mb-8">
+          <h1 className="text-3xl font-bold">Dreamface Studio</h1>
+          <p className="text-muted-foreground mt-1">Tạo video AI và quản lý thư viện của bạn.</p>
+        </header>
+
+        <Tabs defaultValue="library" className="w-full">
+          <TabsList>
+            <TabsTrigger value="library">Thư viện</TabsTrigger>
+            <TabsTrigger value="create">Tạo Video Mới</TabsTrigger>
+          </TabsList>
+          <TabsContent value="create" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Tạo video từ video mẫu và âm thanh</CardTitle>
+                <CardDescription>Tải lên video mẫu và file âm thanh để tạo video mới.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form id="create-video-form" onSubmit={handleCreateVideo} className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium">File video mẫu (.mp4)</label>
+                    <Input type="file" onChange={(e) => setVideoFile(e.target.files ? e.target.files[0] : null)} accept="video/mp4" required />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">File âm thanh (.mp3, .wav)</label>
+                    <Input type="file" onChange={(e) => setAudioFile(e.target.files ? e.target.files[0] : null)} accept="audio/*" required />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={createVideoMutation.isPending}>
+                    {createVideoMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Film className="mr-2 h-4 w-4" />}
+                    Tạo Video
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="library" className="mt-6">
+            <Card>
+              <CardHeader className="flex flex-row justify-between items-center">
+                <div>
+                  <CardTitle>Thư viện Video</CardTitle>
+                  <CardDescription>Danh sách các video đã được tạo.</CardDescription>
+                </div>
+                <Button variant="outline" size="icon" onClick={() => refetchTasks()} disabled={isLoadingTasks}>
+                  <RefreshCw className={`h-4 w-4 ${isLoadingTasks ? 'animate-spin' : ''}`} />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Thumbnail</TableHead>
+                      <TableHead>Tiêu đề</TableHead>
+                      <TableHead>Trạng thái</TableHead>
+                      <TableHead>Ngày tạo</TableHead>
+                      <TableHead className="text-right">Hành động</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoadingTasks ? (
+                      <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></TableCell></TableRow>
+                    ) : tasks && tasks.length > 0 ? (
+                      tasks.map((task: any) => (
+                        <TableRow key={task.id}>
+                          <TableCell>
+                            {task.thumbnail_url ? 
+                              <img src={task.thumbnail_url} alt={task.title} className="h-16 w-16 object-cover rounded-md bg-muted" /> :
+                              <div className="h-16 w-16 rounded-md bg-muted flex items-center justify-center"><Clapperboard className="h-6 w-6 text-muted-foreground" /></div>
+                            }
+                          </TableCell>
+                          <TableCell className="font-medium">{task.title || 'Không có tiêu đề'}</TableCell>
+                          <TableCell>{getStatusBadge(task.status)}</TableCell>
+                          <TableCell>{format(new Date(task.created_at), 'dd/MM/yyyy HH:mm', { locale: vi })}</TableCell>
+                          <TableCell className="text-right space-x-2">
+                            <Button size="sm" variant="outline" onClick={() => handleViewVideo(task)} disabled={task.status !== 'completed'}>
+                              <Eye className="mr-2 h-4 w-4" /> Xem
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => setTaskToDelete(task)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow><TableCell colSpan={5} className="h-24 text-center">Chưa có video nào.</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+      <VideoPopup isOpen={isVideoPopupOpen} onOpenChange={setVideoPopupOpen} task={selectedTask} />
+      <AlertDialog open={!!taskToDelete} onOpenChange={() => setTaskToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
+            <AlertDialogDescription>Hành động này sẽ xóa vĩnh viễn tác vụ "{taskToDelete?.title}".</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteTaskMutation.mutate(taskToDelete.id)} disabled={deleteTaskMutation.isPending}>
+              {deleteTaskMutation.isPending ? "Đang xóa..." : "Xóa"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
