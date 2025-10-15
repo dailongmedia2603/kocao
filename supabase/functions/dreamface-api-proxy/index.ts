@@ -210,19 +210,9 @@ serve(async (req) => {
           if (!videoListRes.ok) await handleApiError(videoListRes, 'get-video-list');
           const videoListData = await videoListRes.json();
           
-          // Robustly get the list of tasks
-          let dreamfaceTasks = [];
-          if (videoListData.success && videoListData.data) {
-            if (Array.isArray(videoListData.data.list)) {
-              dreamfaceTasks = videoListData.data.list;
-            } else if (Array.isArray(videoListData.data.videos)) {
-              dreamfaceTasks = videoListData.data.videos;
-            } else if (Array.isArray(videoListData.data)) {
-              dreamfaceTasks = videoListData.data;
-            }
-          }
+          const dreamfaceTasks = Array.isArray(videoListData.data) ? videoListData.data : videoListData.data?.videos;
 
-          if (dreamfaceTasks.length > 0) {
+          if (Array.isArray(dreamfaceTasks)) {
             for (const task of processingTasks) {
               const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
               if (dfTask) {
