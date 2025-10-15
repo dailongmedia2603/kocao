@@ -174,21 +174,20 @@ serve(async (req) => {
           if (!matchedAvatar) throw new Error("Không tìm thấy avatar trùng với video đã upload");
           const { id: avatarId, path: avatarPath } = matchedAvatar;
 
-          const uploadVoiceBody = new URLSearchParams({
-            ...creds,
-            url: originalAudioUrl,
-            avatarId,
-            avatarPath,
-          });
-          const uploadAudioRes = await fetch(`${API_BASE_URL}/upload-voice`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: uploadVoiceBody.toString(),
-          });
+          const audioFileName = audioFile.name || 'audio.mp3';
+          const formAudio = new FormData();
+          formAudio.append("accountId", creds.accountId);
+          formAudio.append("userId", creds.userId);
+          formAudio.append("tokenId", creds.tokenId);
+          formAudio.append("clientId", creds.clientId);
+          formAudio.append("avatarId", avatarId);
+          formAudio.append("avatarPath", avatarPath);
+          formAudio.append("file", audioFile, audioFileName);
+          const uploadAudioRes = await fetch(`${API_BASE_URL}/upload-voice`, { method: 'POST', body: formAudio });
           if (!uploadAudioRes.ok) await handleApiError(uploadAudioRes, 'upload-voice');
           const audioData = await uploadAudioRes.json();
-          if (audioData.code !== 0) throw new Error(`Upload audio thất bại: ${audioData.message}`);
-          const animateId = audioData.data?.animate_id;
+          if (!audioData.success) throw new Error(`Upload audio thất bại: ${JSON.stringify(audioData)}`);
+          const animateId = audioData.video_data?.animate_id || audioData.video_data?.animate_image_id;
           if (!animateId) throw new Error(`Phản hồi upload audio không chứa animate_id: ${JSON.stringify(audioData)}`);
 
           await supabaseAdmin.from('dreamface_tasks').update({ animate_id: animateId }).eq('id', tempTask.id);
