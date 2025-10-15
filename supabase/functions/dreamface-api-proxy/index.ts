@@ -166,8 +166,11 @@ serve(async (req) => {
           const avatarListRes = await fetch(`${API_BASE_URL}/avatar-list?${new URLSearchParams({...creds, page_size: 20}).toString()}`);
           if (!avatarListRes.ok) await handleApiError(avatarListRes, 'avatar-list');
           const avatarListData = await avatarListRes.json();
-          if (!avatarListData.success || !avatarListData.data?.avatars) throw new Error("Không lấy được danh sách avatars từ API Dreamface");
-          const matchedAvatar = avatarListData.data.avatars.find((a) => a.path === uploadedVideoUrl);
+          const avatars = avatarListData?.data?.avatars;
+          if (!avatarListData.success || !Array.isArray(avatars)) {
+            throw new Error(`Không lấy được danh sách avatars từ API Dreamface. Phản hồi: ${JSON.stringify(avatarListData)}`);
+          }
+          const matchedAvatar = avatars.find((a) => a.path === uploadedVideoUrl);
           if (!matchedAvatar) throw new Error("Không tìm thấy avatar trùng với video đã upload");
           const { id: avatarId, path: avatarPath } = matchedAvatar;
 
@@ -206,23 +209,27 @@ serve(async (req) => {
           const videoListRes = await fetch(`${API_BASE_URL}/video-list?${new URLSearchParams(creds).toString()}`);
           if (!videoListRes.ok) await handleApiError(videoListRes, 'get-video-list');
           const videoListData = await videoListRes.json();
-          const dreamfaceTasks = videoListData.data.list;
-
-          for (const task of processingTasks) {
-            const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
-            if (dfTask) {
-              const updatePayload = {};
-              if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
-              if (dfTask.id && !task.idPost) updatePayload.idPost = dfTask.id;
-              if (dfTask.status === 'error' || dfTask.status === 'nsfw') {
-                updatePayload.status = 'failed';
-                updatePayload.error_message = dfTask.error_message || `External API reported status: ${dfTask.status}`;
-              }
-              if (Object.keys(updatePayload).length > 0) {
-                await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
-              }
-              if (dfTask.id) {
-                await fetchAndUpdateVideoUrl(supabaseAdmin, creds, { ...task, ...updatePayload });
+          
+          const dreamfaceTasks = videoListData?.data?.list;
+          if (!Array.isArray(dreamfaceTasks)) {
+            console.error("Không tìm thấy danh sách video hợp lệ trong phản hồi /video-list. Phản hồi:", JSON.stringify(videoListData));
+          } else {
+            for (const task of processingTasks) {
+              const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
+              if (dfTask) {
+                const updatePayload = {};
+                if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
+                if (dfTask.id && !task.idPost) updatePayload.idPost = dfTask.id;
+                if (dfTask.status === 'error' || dfTask.status === 'nsfw') {
+                  updatePayload.status = 'failed';
+                  updatePayload.error_message = dfTask.error_message || `External API reported status: ${dfTask.status}`;
+                }
+                if (Object.keys(updatePayload).length > 0) {
+                  await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
+                }
+                if (dfTask.id) {
+                  await fetchAndUpdateVideoUrl(supabaseAdmin, creds, { ...task, ...updatePayload });
+                }
               }
             }
           }
