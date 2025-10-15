@@ -147,9 +147,25 @@ serve(async (req) => {
         if (!avatar) throw new Error("Could not find matching avatarId after video upload.");
         const avatarId = avatar._id;
 
-        // 3. Upload audio to get animate_id
-        const uploadVoiceParams = new URLSearchParams({ accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id, url: originalAudioUrl, avatarId: avatarId, avatarPath: dreamfaceVideoUrl });
-        const uploadVoiceRes = await fetch(`https://dapi.qcv.vn/upload-voice?${uploadVoiceParams.toString()}`);
+        // 3. Upload audio to get animate_id (UPDATED TO POST with urlencoded)
+        const uploadVoiceBody = new URLSearchParams({
+          accountId: apiKeyData.account_id,
+          userId: apiKeyData.user_id_dreamface,
+          tokenId: apiKeyData.token_id,
+          clientId: apiKeyData.client_id,
+          url: originalAudioUrl,
+          avatarId: avatarId,
+          avatarPath: dreamfaceVideoUrl
+        });
+
+        const uploadVoiceRes = await fetch('https://dapi.qcv.vn/upload-voice', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: uploadVoiceBody.toString(),
+        });
+        
         const uploadVoiceData = await uploadVoiceRes.json();
         if (uploadVoiceData.code !== 0) throw new Error(`Upload voice failed: ${uploadVoiceData.message}`);
         const newAnimateId = uploadVoiceData.data.animate_id;
