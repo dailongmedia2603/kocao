@@ -33,7 +33,7 @@ serve(async (req) => {
     const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
     const params = new URLSearchParams({ ...creds, idPost: idpost });
-    const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
+    const downloadUrl = `${API_BASE_URL}/video-dowload?${params.toString()}`;
     const downloadRes = await fetch(downloadUrl);
     const downloadData = await downloadRes.json();
     logPayload.response_body = downloadData;

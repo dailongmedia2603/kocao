@@ -15,12 +15,16 @@ export const VideoPopup = ({ isOpen, onOpenChange, task }: VideoPopupProps) => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   const fetchUrlMutation = useMutation({
-    mutationFn: async (taskId: string) => {
+    mutationFn: async (task: any) => {
       const { data, error } = await supabase.functions.invoke("dreamface-get-download-url", {
-        body: { taskId }
+        body: { 
+          taskId: task.id,
+          idpost: task.idpost,
+          userId: task.user_id,
+        }
       });
       if (error || data.error) throw new Error(error?.message || data.error);
-      return data.data.result_video_url;
+      return data.data.videoUrl;
     },
     onSuccess: (url) => {
       if (url) {
@@ -42,7 +46,7 @@ export const VideoPopup = ({ isOpen, onOpenChange, task }: VideoPopupProps) => {
         setVideoUrl(task.result_video_url);
       } else {
         setVideoUrl(null); // Reset while fetching
-        fetchUrlMutation.mutate(task.id);
+        fetchUrlMutation.mutate(task);
       }
     }
   }, [isOpen, task]);
