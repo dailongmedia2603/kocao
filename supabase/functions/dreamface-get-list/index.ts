@@ -46,6 +46,8 @@ serve(async (req) => {
         const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
         if (!dfTask || task.status === 'completed') continue;
 
+        let updatedTask = task;
+
         // Case 1: Dreamface API reports failure.
         if (dfTask.web_work_status < 0) {
           if (task.status !== 'failed') {
@@ -56,28 +58,38 @@ serve(async (req) => {
           }
           continue;
         }
-
-        // Case 2: Task is not failed. Check for new info to update.
-        const updatePayload = {};
-        if (dfTask.work_webp_path && !task.thumbnail_url) {
-          updatePayload.thumbnail_url = dfTask.work_webp_path;
-        }
-        if (dfTask.id && !task.idPost) {
-          updatePayload.idPost = dfTask.id;
-        }
-
-        let updatedTask = task;
-        if (Object.keys(updatePayload).length > 0) {
+        
+        // Case 2: Dreamface API reports success.
+        if (dfTask.web_work_status === 200 && task.status !== 'completed') {
+          const updatePayload = {
+            status: 'completed',
+            idpost: dfTask.id || task.idpost,
+            thumbnail_url: dfTask.work_webp_path || task.thumbnail_url,
+          };
           const { data, error } = await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id).select().single();
           if (error) {
-            console.error(`Failed to update task ${task.id} with new info:`, error.message);
+            console.error(`Failed to update task ${task.id} to completed:`, error.message);
             continue;
           }
           updatedTask = data;
+        } else {
+          // Case 3: Still processing, just update metadata if available.
+          const updatePayload = {};
+          if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
+          if (dfTask.id && !task.idpost) updatePayload.idpost = dfTask.id;
+
+          if (Object.keys(updatePayload).length > 0) {
+            const { data, error } = await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id).select().single();
+            if (error) {
+              console.error(`Failed to update task ${task.id} with new info:`, error.message);
+              continue;
+            }
+            updatedTask = data;
+          }
         }
 
-        // Case 3: If we have an idPost, try to get the download URL.
-        if (updatedTask.idPost) {
+        // Case 4: If we have an idpost, try to get the download URL regardless of status.
+        if (updatedTask.idpost && !updatedTask.result_video_url) {
           supabaseAdmin.functions.invoke('dreamface-get-download-url', {
             body: { taskId: updatedTask.id }
           }).catch(console.error);

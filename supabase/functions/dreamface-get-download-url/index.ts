@@ -28,7 +28,7 @@ serve(async (req) => {
 
     const { data: task, error: taskError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('id', taskId).single();
     if (taskError || !task) throw new Error(`Task not found for ID: ${taskId}`);
-    if (!task.idPost) throw new Error(`Task ${taskId} is not ready for download (missing idPost).`);
+    if (!task.idpost) throw new Error(`Task ${taskId} is not ready for download (missing idpost).`);
     
     logPayload.user_id = task.user_id;
 
@@ -36,7 +36,7 @@ serve(async (req) => {
     if (apiKeyError || !apiKeyData) throw new Error(`Chưa có API Key Dreamface nào được cấu hình cho user ${task.user_id}.`);
     const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
-    const params = new URLSearchParams({ ...creds, idPost: task.idPost });
+    const params = new URLSearchParams({ ...creds, idPost: task.idpost });
     const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
     const downloadRes = await fetch(downloadUrl);
     const downloadData = await downloadRes.json();
