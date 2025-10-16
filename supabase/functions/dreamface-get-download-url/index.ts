@@ -34,13 +34,13 @@ serve(async (req) => {
     const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
     const params = new URLSearchParams({ ...creds, idPost: idpost });
-    // Sửa lỗi: Sử dụng đúng endpoint 'video-dowload' theo tài liệu
-    const downloadUrl = `${API_BASE_URL}/video-dowload?${params.toString()}`;
+    // **THE FIX IS HERE: Revert to the 'video-download' endpoint name.**
+    const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
     const downloadRes = await fetch(downloadUrl);
     
     if (!downloadRes.ok) {
         const errorText = await downloadRes.text();
-        throw new Error(`Dreamface API Error (video-dowload): Status ${downloadRes.status}. Response: ${errorText}`);
+        throw new Error(`Dreamface API Error (video-download): Status ${downloadRes.status}. Response: ${errorText}`);
     }
 
     const downloadData = await downloadRes.json();
