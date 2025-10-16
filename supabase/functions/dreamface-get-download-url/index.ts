@@ -46,13 +46,13 @@ serve(async (req) => {
     logPayload.response_body = downloadData;
     logPayload.status_code = downloadRes.status;
 
-    // **THE FIX IS HERE: Handle the new API response structure**
-    if (downloadData.success === true && typeof downloadData.data === 'string') {
-      // Case 1: Success, URL is in `data` property
+    if (downloadData.success === true && typeof downloadData.data === 'string' && downloadData.data.startsWith('http')) {
+      // Case 1: Success, URL is valid and present in `data` property
       await supabaseAdmin.from('dreamface_tasks').update({ result_video_url: downloadData.data, status: 'completed' }).eq('id', taskId);
-    } else if (downloadData.code === 1) {
-      // Case 2: Still processing, do nothing. The poller will try again.
-      console.log(`Task ${taskId} is still processing (code 1).`);
+    } else if (downloadData.code === 1 || (downloadData.success === true && !downloadData.data)) {
+      // Case 2: Still processing (code: 1) OR ambiguous success (success: true but no URL).
+      // Do nothing and let the poller try again later.
+      console.log(`Task ${taskId} is still processing or API returned ambiguous success.`);
     } else {
       // Case 3: Failure or unexpected response
       const errorMessage = `Download failed: ${downloadData.message || JSON.stringify(downloadData)}`;
