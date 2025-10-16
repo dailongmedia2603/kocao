@@ -36,8 +36,8 @@ serve(async (req) => {
     logPayload.request_payload.credentials_used = creds;
 
     const params = new URLSearchParams({ ...creds, idPost: idpost });
-    // **THE FIX IS HERE: Use the correct 'video-dowload' endpoint as per the documentation.**
-    const downloadUrl = `${API_BASE_URL}/video-dowload?${params.toString()}`;
+    // **THE FIX IS HERE: Revert to the 'video-download' endpoint name as requested.**
+    const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
     
     logPayload.request_payload.final_url_sent = downloadUrl;
 
@@ -45,7 +45,7 @@ serve(async (req) => {
     
     if (!downloadRes.ok) {
         const errorText = await downloadRes.text();
-        throw new Error(`Dreamface API Error (video-dowload): Status ${downloadRes.status}. Response: ${errorText}`);
+        throw new Error(`Dreamface API Error (video-download): Status ${downloadRes.status}. Response: ${errorText}`);
     }
 
     const downloadData = await downloadRes.json();
