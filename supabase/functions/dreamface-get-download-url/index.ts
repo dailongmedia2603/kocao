@@ -36,7 +36,6 @@ serve(async (req) => {
     logPayload.request_payload.credentials_used = creds;
 
     const params = new URLSearchParams({ ...creds, idPost: idpost });
-    // **THE FIX IS HERE: Revert to the 'video-download' endpoint name as requested.**
     const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
     
     logPayload.request_payload.final_url_sent = downloadUrl;
@@ -53,6 +52,7 @@ serve(async (req) => {
     logPayload.status_code = downloadRes.status;
 
     if (downloadData.success === true && typeof downloadData.data === 'string' && downloadData.data.startsWith('http')) {
+      // **THE FIX IS HERE: Only update status to 'completed' AFTER getting the URL.**
       await supabaseAdmin.from('dreamface_tasks').update({ result_video_url: downloadData.data, status: 'completed' }).eq('id', taskId);
     } else if (downloadData.code === 1 || (downloadData.success === true && !downloadData.data)) {
       logPayload.status_code = 202;

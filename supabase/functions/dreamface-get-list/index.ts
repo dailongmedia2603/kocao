@@ -42,8 +42,6 @@ serve(async (req) => {
       const { data: ourTasks, error: ourTasksError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id);
       if (ourTasksError) throw ourTasksError;
 
-      const dreamfaceTaskAnimateIds = new Set(dreamfaceTasks.map(dft => dft.animate_id));
-
       for (const task of ourTasks) {
         const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
         
@@ -57,36 +55,33 @@ serve(async (req) => {
 
         if (!dfTask) continue;
 
-        let taskAfterUpdate = task;
         const updatePayload = {};
 
         if (dfTask.web_work_status < 0 && task.status !== 'failed') {
           updatePayload.status = 'failed';
           updatePayload.error_message = `External API reported error status: ${dfTask.web_work_status}`;
-        } else if (dfTask.web_work_status === 200 && task.status !== 'completed') {
-          updatePayload.status = 'completed';
         }
+        // **THE FIX IS HERE: Don't update status to 'completed' here.**
+        // We only update other metadata like idpost and thumbnail.
         if (dfTask.id && !task.idpost) updatePayload.idpost = dfTask.id;
         if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
 
         if (Object.keys(updatePayload).length > 0) {
-          const { data, error } = await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id).select().single();
+          const { error } = await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
           if (error) {
             console.error(`Failed to update task ${task.id}:`, error.message);
-          } else {
-            taskAfterUpdate = data;
           }
         }
 
-        // **THE FIX IS HERE: Only call get-download-url when the status is 200**
-        if (dfTask.web_work_status === 200 && taskAfterUpdate.idpost && !taskAfterUpdate.result_video_url) {
+        // If the API says the task is done and we don't have a URL yet, try to get it.
+        if (dfTask.web_work_status === 200 && dfTask.id && !task.result_video_url) {
           supabaseAdmin.functions.invoke('dreamface-get-download-url', {
             body: JSON.stringify({ 
-              taskId: taskAfterUpdate.id,
-              idpost: taskAfterUpdate.idpost,
-              userId: taskAfterUpdate.user_id
+              taskId: task.id,
+              idpost: dfTask.id, // Use the idpost we just got
+              userId: task.user_id
             })
-          }).catch(err => console.error(`Error invoking get-download-url for task ${taskAfterUpdate.id}:`, err.message));
+          }).catch(err => console.error(`Error invoking get-download-url for task ${task.id}:`, err.message));
         }
       }
     }
