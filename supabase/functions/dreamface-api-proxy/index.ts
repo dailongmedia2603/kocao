@@ -156,8 +156,7 @@ serve(async (req) => {
           formVideo.append("userId", creds.userId);
           formVideo.append("tokenId", creds.tokenId);
           formVideo.append("clientId", creds.clientId);
-          const videoFileName = videoFile.name || 'video.mp4';
-          formVideo.append("file", videoFile, videoFileName);
+          formVideo.append("file", videoFile, "video.mp4");
           const uploadVideoRes = await fetch(`${API_BASE_URL}/upload-video`, { method: 'POST', body: formVideo });
           if (!uploadVideoRes.ok) await handleApiError(uploadVideoRes, 'upload-video');
           const videoData = await uploadVideoRes.json();
@@ -175,21 +174,20 @@ serve(async (req) => {
           if (!matchedAvatar) throw new Error("Không tìm thấy avatar trùng với video đã upload");
           const { id: avatarId, path: avatarPath } = matchedAvatar;
 
-          const uploadVoiceBody = new URLSearchParams({
-            ...creds,
-            url: originalAudioUrl,
-            avatarId,
-            avatarPath,
-          });
-          const uploadAudioRes = await fetch(`${API_BASE_URL}/upload-voice`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: uploadVoiceBody.toString(),
-          });
+          const audioFileName = audioFile.name || 'audio.mp3';
+          const formAudio = new FormData();
+          formAudio.append("accountId", creds.accountId);
+          formAudio.append("userId", creds.userId);
+          formAudio.append("tokenId", creds.tokenId);
+          formAudio.append("clientId", creds.clientId);
+          formAudio.append("avatarId", avatarId);
+          formAudio.append("avatarPath", avatarPath);
+          formAudio.append("file", audioFile, audioFileName);
+          const uploadAudioRes = await fetch(`${API_BASE_URL}/upload-voice`, { method: 'POST', body: formAudio });
           if (!uploadAudioRes.ok) await handleApiError(uploadAudioRes, 'upload-voice');
           const audioData = await uploadAudioRes.json();
-          if (audioData.code !== 0) throw new Error(`Upload audio thất bại: ${audioData.message}`);
-          const animateId = audioData.data?.animate_id;
+          if (!audioData.success) throw new Error(`Upload audio thất bại: ${JSON.stringify(audioData)}`);
+          const animateId = audioData.video_data?.animate_id || audioData.video_data?.animate_image_id;
           if (!animateId) throw new Error(`Phản hồi upload audio không chứa animate_id: ${JSON.stringify(audioData)}`);
 
           await supabaseAdmin.from('dreamface_tasks').update({ animate_id: animateId }).eq('id', tempTask.id);
@@ -212,9 +210,10 @@ serve(async (req) => {
           if (!videoListRes.ok) await handleApiError(videoListRes, 'get-video-list');
           const videoListData = await videoListRes.json();
           
-          const dreamfaceTasks = Array.isArray(videoListData.data) ? videoListData.data : videoListData.data?.videos;
-
-          if (Array.isArray(dreamfaceTasks)) {
+          const dreamfaceTasks = videoListData?.data?.list;
+          if (!Array.isArray(dreamfaceTasks)) {
+            console.error("Không tìm thấy danh sách video hợp lệ trong phản hồi /video-list. Phản hồi:", JSON.stringify(videoListData));
+          } else {
             for (const task of processingTasks) {
               const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
               if (dfTask) {
@@ -233,8 +232,6 @@ serve(async (req) => {
                 }
               }
             }
-          } else {
-            console.error("Không tìm thấy danh sách video hợp lệ trong phản hồi /video-list. Phản hồi:", JSON.stringify(videoListData));
           }
         }
 
