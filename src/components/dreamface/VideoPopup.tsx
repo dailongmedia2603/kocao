@@ -16,8 +16,8 @@ export const VideoPopup = ({ isOpen, onOpenChange, task }: VideoPopupProps) => {
 
   const fetchUrlMutation = useMutation({
     mutationFn: async (taskId: string) => {
-      const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", {
-        body: { action: 'get-video-url', body: { taskId } }
+      const { data, error } = await supabase.functions.invoke("dreamface-get-download-url", {
+        body: { taskId }
       });
       if (error || data.error) throw new Error(error?.message || data.error);
       return data.data.result_video_url;

@@ -28,9 +28,7 @@ const DreamfaceStudio = () => {
   const { data: tasks, isLoading: isLoadingTasks, refetch: refetchTasks } = useQuery({
     queryKey: ['dreamface_tasks'],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", {
-        body: { action: 'get-tasks' }
-      });
+      const { data, error } = await supabase.functions.invoke("dreamface-get-list");
       if (error || data.error) throw new Error(error?.message || data.error);
       return data.data;
     },
@@ -54,7 +52,6 @@ const DreamfaceStudio = () => {
       queryClient.invalidateQueries({ queryKey: ['dreamface_tasks'] });
       setVideoFile(null);
       setAudioFile(null);
-      // Reset file inputs if they are part of a form
       const form = document.getElementById('create-video-form') as HTMLFormElement;
       form?.reset();
     },

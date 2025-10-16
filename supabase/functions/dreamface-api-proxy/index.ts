@@ -11,7 +11,6 @@ const corsHeaders = {
 
 const API_BASE_URL = "https://dapi.qcv.vn";
 
-// --- Helper functions (unchanged) ---
 const uploadToR2AndGetUrl = async (file, type, userId) => {
   const R2_ACCOUNT_ID = Deno.env.get("R2_ACCOUNT_ID");
   const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID");
@@ -25,6 +24,7 @@ const uploadToR2AndGetUrl = async (file, type, userId) => {
   await s3.send(new PutObjectCommand({ Bucket: R2_BUCKET_NAME, Key: storagePath, Body: fileBuffer, ContentType: file.type }));
   return `${R2_PUBLIC_URL}/${storagePath}`;
 };
+
 const handleApiError = async (response, context) => {
   const errorText = await response.text();
   let errorMessage = `Dreamface API Error (${context}): Status ${response.status}.`;
@@ -35,18 +35,6 @@ const handleApiError = async (response, context) => {
     errorMessage += ` Response: ${errorText.slice(0, 500)}`;
   }
   throw new Error(errorMessage);
-};
-const fetchAndUpdateVideoUrl = async (supabaseAdmin, creds, task) => {
-  if (!task.idPost) return;
-  const params = new URLSearchParams({ ...creds, id: task.idPost });
-  const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
-  const downloadRes = await fetch(downloadUrl);
-  const downloadData = await downloadRes.json();
-  if (downloadData.code === 0 && downloadData.data.videoUrl) {
-    await supabaseAdmin.from('dreamface_tasks').update({ result_video_url: downloadData.data.videoUrl, status: 'completed' }).eq('id', task.id);
-  } else if (downloadData.code !== 1) {
-    await supabaseAdmin.from('dreamface_tasks').update({ status: 'failed', error_message: `Download failed: ${downloadData.message || 'Unknown error'}` }).eq('id', task.id);
-  }
 };
 
 serve(async (req) => {
@@ -92,7 +80,6 @@ serve(async (req) => {
     logPayload.action = action;
     if (!action) throw new Error("Hành động (action) là bắt buộc.");
 
-    // --- Main Logic ---
     switch (action) {
       case 'create-video': {
         if (!(body instanceof FormData) || !videoFile || !audioFile) throw new Error("create-video action requires FormData with videoFile and audioFile.");
@@ -137,52 +124,10 @@ serve(async (req) => {
         }
         break;
       }
-      case 'get-tasks': {
-        const { data: processingTasks, error: processingError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id).eq('status', 'processing');
-        if (processingError) throw processingError;
-        if (processingTasks.length > 0) {
-          const videoListRes = await fetch(`${API_BASE_URL}/video-list?${new URLSearchParams(creds).toString()}`);
-          const videoListData = await videoListRes.json();
-          logPayload.response_body = videoListData;
-          if (!videoListRes.ok) await handleApiError(videoListRes, 'get-video-list');
-          
-          // THE FIX IS HERE: Correctly parse the response and add robust checks
-          const dreamfaceTasks = videoListData?.data;
-
-          if (!videoListData.success || !Array.isArray(dreamfaceTasks)) {
-            console.error("Không tìm thấy danh sách video hợp lệ trong phản hồi /video-list. Phản hồi:", JSON.stringify(videoListData));
-          } else {
-            for (const task of processingTasks) {
-              const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
-              if (dfTask) {
-                const updatePayload = {};
-                if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
-                if (dfTask.id && !task.idPost) updatePayload.idPost = dfTask.id;
-                if (dfTask.status === 'error' || dfTask.status === 'nsfw') { updatePayload.status = 'failed'; updatePayload.error_message = dfTask.error_message || `External API reported status: ${dfTask.status}`; }
-                if (Object.keys(updatePayload).length > 0) await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
-                if (dfTask.id) await fetchAndUpdateVideoUrl(supabaseAdmin, creds, { ...task, ...updatePayload });
-              }
-            }
-          }
-        }
-        const { data: allTasks, error: allTasksError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
-        if (allTasksError) throw allTasksError;
-        responseData = { success: true, data: allTasks };
-        break;
-      }
-      case 'get-video-url': {
-        const { taskId } = body.body;
-        if (!taskId) throw new Error("Task ID is required.");
-        const { data: task, error: taskError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('id', taskId).single();
-        if (taskError || !task) throw new Error("Task not found.");
-        await fetchAndUpdateVideoUrl(supabaseAdmin, creds, task);
-        const { data: updatedTask } = await supabaseAdmin.from('dreamface_tasks').select('result_video_url').eq('id', taskId).single();
-        responseData = { success: true, data: updatedTask };
-        break;
-      }
       case 'delete-task': {
         const { taskId } = body.body;
         if (!taskId) throw new Error("Task ID is required.");
+        logPayload.dreamface_task_id = taskId;
         const { error } = await supabaseAdmin.from('dreamface_tasks').delete().eq('id', taskId).eq('user_id', user.id);
         if (error) throw error;
         responseData = { success: true, message: "Task deleted." };
@@ -207,10 +152,6 @@ serve(async (req) => {
     logPayload.status_code = 500;
     return new Response(JSON.stringify({ success: false, error: error.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } finally {
-    // Always try to insert the log
-    const { error: logError } = await supabaseAdmin.from('dreamface_logs').insert(logPayload);
-    if (logError) {
-      console.error("Failed to write to dreamface_logs:", logError.message);
-    }
+    await supabaseAdmin.from('dreamface_logs').insert(logPayload);
   }
 });
