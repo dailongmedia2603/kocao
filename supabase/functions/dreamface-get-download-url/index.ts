@@ -21,7 +21,8 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { taskId, idpost, userId } = body;
-    logPayload.request_payload = body;
+    // Giữ lại request gốc và thêm URL cuối cùng để gỡ lỗi
+    logPayload.request_payload = { original_request: body };
 
     if (!taskId || !idpost || !userId) {
       throw new Error("taskId, idpost, and userId are required.");
@@ -34,8 +35,11 @@ serve(async (req) => {
     const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
     const params = new URLSearchParams({ ...creds, idPost: idpost });
-    // **THE FIX IS HERE: Revert to the 'video-download' endpoint name.**
     const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
+    
+    // Thêm URL cuối cùng vào nhật ký để dễ dàng kiểm tra
+    logPayload.request_payload.final_url_sent = downloadUrl;
+
     const downloadRes = await fetch(downloadUrl);
     
     if (!downloadRes.ok) {
