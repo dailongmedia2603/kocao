@@ -43,9 +43,8 @@ const ApiKeyRow = ({ apiKey }: { apiKey: DreamfaceApiKey }) => {
 
   const checkConnectionMutation = useMutation({
     mutationFn: async () => {
-      // We will use the proxy function to check the connection
       const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", { 
-        body: { path: "remain-credit", method: "GET" } 
+        body: { action: "get-credit" } 
       });
       if (error) throw new Error(error.message);
       if (data.error) throw new Error(data.error);
