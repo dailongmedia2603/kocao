@@ -34,13 +34,12 @@ serve(async (req) => {
     const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
     const params = new URLSearchParams({ ...creds, idPost: idpost });
-    const downloadUrl = `${API_BASE_URL}/video-dowload?${params.toString()}`;
+    const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
     const downloadRes = await fetch(downloadUrl);
     
-    // **THE FIX IS HERE: Check for non-OK response before parsing JSON**
     if (!downloadRes.ok) {
         const errorText = await downloadRes.text();
-        throw new Error(`Dreamface API Error (video-dowload): Status ${downloadRes.status}. Response: ${errorText}`);
+        throw new Error(`Dreamface API Error (video-download): Status ${downloadRes.status}. Response: ${errorText}`);
     }
 
     const downloadData = await downloadRes.json();
