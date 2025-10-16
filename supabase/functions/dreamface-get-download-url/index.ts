@@ -19,8 +19,9 @@ serve(async (req) => {
   const logPayload = { user_id: null, action: 'get-download-url', request_payload: null, response_body: null, status_code: 200, error_message: null };
 
   try {
-    const { taskId, idpost, userId } = await req.json();
-    logPayload.request_payload = { taskId, idpost, userId };
+    const body = await req.json();
+    const { taskId, idpost, userId } = body;
+    logPayload.request_payload = body;
 
     if (!taskId || !idpost || !userId) {
       throw new Error("taskId, idpost, and userId are required.");
@@ -35,8 +36,16 @@ serve(async (req) => {
     const params = new URLSearchParams({ ...creds, idPost: idpost });
     const downloadUrl = `${API_BASE_URL}/video-dowload?${params.toString()}`;
     const downloadRes = await fetch(downloadUrl);
+    
+    // **THE FIX IS HERE: Check for non-OK response before parsing JSON**
+    if (!downloadRes.ok) {
+        const errorText = await downloadRes.text();
+        throw new Error(`Dreamface API Error (video-dowload): Status ${downloadRes.status}. Response: ${errorText}`);
+    }
+
     const downloadData = await downloadRes.json();
     logPayload.response_body = downloadData;
+    logPayload.status_code = downloadRes.status;
 
     if (downloadData.code === 0 && downloadData.data.videoUrl) {
       await supabaseAdmin.from('dreamface_tasks').update({ result_video_url: downloadData.data.videoUrl, status: 'completed' }).eq('id', taskId);
