@@ -9,11 +9,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { showSuccess, showError } from "@/utils/toast";
-import { Film, Clapperboard, AlertCircle, Download, Loader2, RefreshCw, Trash2, Eye } from "lucide-react";
+import { Film, Clapperboard, AlertCircle, Download, Loader2, RefreshCw, Trash2, Eye, History } from "lucide-react";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { VideoPopup } from "@/components/dreamface/VideoPopup";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { DreamfaceLogDialog } from "@/components/dreamface/DreamfaceLogDialog";
 
 const DreamfaceStudio = () => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -21,6 +22,7 @@ const DreamfaceStudio = () => {
   const [isVideoPopupOpen, setVideoPopupOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<any | null>(null);
+  const [isLogOpen, setLogOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: tasks, isLoading: isLoadingTasks, refetch: refetchTasks } = useQuery({
@@ -137,9 +139,14 @@ const DreamfaceStudio = () => {
                   <CardTitle>Thư viện Video</CardTitle>
                   <CardDescription>Danh sách các video đã được tạo.</CardDescription>
                 </div>
-                <Button variant="outline" size="icon" onClick={() => refetchTasks()} disabled={isLoadingTasks}>
-                  <RefreshCw className={`h-4 w-4 ${isLoadingTasks ? 'animate-spin' : ''}`} />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="icon" onClick={() => setLogOpen(true)}>
+                    <History className="h-4 w-4" />
+                  </Button>
+                  <Button variant="outline" size="icon" onClick={() => refetchTasks()} disabled={isLoadingTasks}>
+                    <RefreshCw className={`h-4 w-4 ${isLoadingTasks ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -202,6 +209,7 @@ const DreamfaceStudio = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <DreamfaceLogDialog isOpen={isLogOpen} onOpenChange={setLogOpen} />
     </>
   );
 };
