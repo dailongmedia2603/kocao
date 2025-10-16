@@ -44,59 +44,44 @@ serve(async (req) => {
 
       for (const task of ourTasks) {
         const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
-        if (!dfTask || task.status === 'completed') continue;
+        if (!dfTask) continue;
 
-        let updatedTask = task;
+        let taskAfterUpdate = task;
+        const updatePayload = {};
 
-        // Case 1: Dreamface API reports failure.
-        if (dfTask.web_work_status < 0) {
-          if (task.status !== 'failed') {
-            await supabaseAdmin.from('dreamface_tasks').update({
-              status: 'failed',
-              error_message: `External API reported error status: ${dfTask.web_work_status}`
-            }).eq('id', task.id);
-          }
-          continue;
+        // Logic to determine if an update is needed
+        if (dfTask.web_work_status < 0 && task.status !== 'failed') {
+          updatePayload.status = 'failed';
+          updatePayload.error_message = `External API reported error status: ${dfTask.web_work_status}`;
+        } else if (dfTask.web_work_status === 200 && task.status !== 'completed') {
+          updatePayload.status = 'completed';
         }
-        
-        // Case 2: Dreamface API reports success.
-        if (dfTask.web_work_status === 200 && task.status !== 'completed') {
-          const updatePayload = {
-            status: 'completed',
-            idpost: dfTask.id || task.idpost,
-            thumbnail_url: dfTask.work_webp_path || task.thumbnail_url,
-          };
+        if (dfTask.id && !task.idpost) updatePayload.idpost = dfTask.id;
+        if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
+
+        // Apply updates if there are any
+        if (Object.keys(updatePayload).length > 0) {
           const { data, error } = await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id).select().single();
           if (error) {
-            console.error(`Failed to update task ${task.id} to completed:`, error.message);
-            continue;
-          }
-          updatedTask = data;
-        } else {
-          // Case 3: Still processing, just update metadata if available.
-          const updatePayload = {};
-          if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
-          if (dfTask.id && !task.idpost) updatePayload.idpost = dfTask.id;
-
-          if (Object.keys(updatePayload).length > 0) {
-            const { data, error } = await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id).select().single();
-            if (error) {
-              console.error(`Failed to update task ${task.id} with new info:`, error.message);
-              continue;
-            }
-            updatedTask = data;
+            console.error(`Failed to update task ${task.id}:`, error.message);
+          } else {
+            taskAfterUpdate = data; // Use the updated task data
           }
         }
 
-        // Case 4: If we have an idpost, try to get the download URL regardless of status.
-        if (updatedTask.idpost && !updatedTask.result_video_url) {
+        // **THE FIX IS HERE: Check if the task is ready and trigger download URL fetch**
+        // This check runs after potential updates, ensuring we have the latest info.
+        if (taskAfterUpdate.idpost && !taskAfterUpdate.result_video_url) {
+          // Invoke the function to get the download URL but don't wait for it.
+          // This allows the get-list function to return quickly.
           supabaseAdmin.functions.invoke('dreamface-get-download-url', {
-            body: { taskId: updatedTask.id }
-          }).catch(console.error);
+            body: { taskId: taskAfterUpdate.id }
+          }).catch(err => console.error(`Error invoking get-download-url for task ${taskAfterUpdate.id}:`, err.message));
         }
       }
     }
 
+    // Finally, fetch the latest state of all tasks to return to the client
     const { data: allTasks, error: allTasksError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
     if (allTasksError) throw allTasksError;
     
