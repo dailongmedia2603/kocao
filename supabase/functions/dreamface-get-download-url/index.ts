@@ -46,10 +46,16 @@ serve(async (req) => {
     logPayload.response_body = downloadData;
     logPayload.status_code = downloadRes.status;
 
-    if (downloadData.code === 0 && downloadData.data.videoUrl) {
-      await supabaseAdmin.from('dreamface_tasks').update({ result_video_url: downloadData.data.videoUrl, status: 'completed' }).eq('id', taskId);
-    } else if (downloadData.code !== 1) { // code: 1 means still processing, do nothing
-      const errorMessage = `Download failed: ${downloadData.message || 'Unknown error'}`;
+    // **THE FIX IS HERE: Handle the new API response structure**
+    if (downloadData.success === true && typeof downloadData.data === 'string') {
+      // Case 1: Success, URL is in `data` property
+      await supabaseAdmin.from('dreamface_tasks').update({ result_video_url: downloadData.data, status: 'completed' }).eq('id', taskId);
+    } else if (downloadData.code === 1) {
+      // Case 2: Still processing, do nothing. The poller will try again.
+      console.log(`Task ${taskId} is still processing (code 1).`);
+    } else {
+      // Case 3: Failure or unexpected response
+      const errorMessage = `Download failed: ${downloadData.message || JSON.stringify(downloadData)}`;
       await supabaseAdmin.from('dreamface_tasks').update({ status: 'failed', error_message: errorMessage }).eq('id', taskId);
     }
     
