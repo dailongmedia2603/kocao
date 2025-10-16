@@ -47,15 +47,20 @@ serve(async (req) => {
     logPayload.status_code = downloadRes.status;
 
     if (downloadData.success === true && typeof downloadData.data === 'string' && downloadData.data.startsWith('http')) {
-      // Case 1: Success, URL is valid and present in `data` property
+      // Case 1: True Success - URL is valid and present in `data` property
       await supabaseAdmin.from('dreamface_tasks').update({ result_video_url: downloadData.data, status: 'completed' }).eq('id', taskId);
+      // Log remains as successful
     } else if (downloadData.code === 1 || (downloadData.success === true && !downloadData.data)) {
-      // Case 2: Still processing (code: 1) OR ambiguous success (success: true but no URL).
-      // Do nothing and let the poller try again later.
+      // Case 2: Waiting - Still processing or ambiguous success.
+      // **THE FIX IS HERE: Update the log to reflect the "waiting" state**
+      logPayload.status_code = 202; // Use 202 Accepted to indicate it's not finished yet
+      logPayload.error_message = "Task is still processing. API did not provide a video URL yet. Will retry.";
       console.log(`Task ${taskId} is still processing or API returned ambiguous success.`);
     } else {
       // Case 3: Failure or unexpected response
       const errorMessage = `Download failed: ${downloadData.message || JSON.stringify(downloadData)}`;
+      logPayload.error_message = errorMessage;
+      logPayload.status_code = 400; // Bad Request or other client error
       await supabaseAdmin.from('dreamface_tasks').update({ status: 'failed', error_message: errorMessage }).eq('id', taskId);
     }
     
