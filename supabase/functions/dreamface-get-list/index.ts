@@ -38,52 +38,50 @@ serve(async (req) => {
     }
     
     const dreamfaceTasks = videoListData?.data;
-    if (!videoListData.success || !Array.isArray(dreamfaceTasks)) {
-      console.error("Không tìm thấy danh sách video hợp lệ trong phản hồi /video-list. Phản hồi:", JSON.stringify(videoListData));
-    } else {
+    if (videoListData.success && Array.isArray(dreamfaceTasks)) {
       const { data: ourTasks, error: ourTasksError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id);
       if (ourTasksError) throw ourTasksError;
 
       for (const task of ourTasks) {
         const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
-        if (!dfTask) continue;
+        if (!dfTask || task.status === 'completed') continue;
 
-        // THE FIX IS HERE: Prioritize the status from the Dreamface API
-        // Case 1: Dreamface says the task is DONE.
-        if (dfTask.web_work_status === 200) {
-          // We can now recover a previously failed task. Only skip if it's already fully completed.
-          if (task.status !== 'completed') {
-            const updatePayload = {};
-            
-            // **THIS IS WHERE THE UPDATE HAPPENS**
-            if (dfTask.work_webp_path && !task.thumbnail_url) {
-              updatePayload.thumbnail_url = dfTask.work_webp_path;
-            }
-            if (dfTask.id && !task.idPost) {
-              updatePayload.idPost = dfTask.id;
-            }
-
-            if (Object.keys(updatePayload).length > 0) {
-              await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
-            }
-
-            if (dfTask.id || task.idPost) {
-              supabaseAdmin.functions.invoke('dreamface-get-download-url', {
-                body: { taskId: task.id }
-              }).catch(console.error);
-            }
-          }
-        } 
-        // Case 2: Dreamface says the task FAILED.
-        else if (dfTask.web_work_status < 0) {
+        // Case 1: Dreamface API reports failure.
+        if (dfTask.web_work_status < 0) {
           if (task.status !== 'failed') {
             await supabaseAdmin.from('dreamface_tasks').update({
               status: 'failed',
               error_message: `External API reported error status: ${dfTask.web_work_status}`
             }).eq('id', task.id);
           }
+          continue;
         }
-        // Case 3: Still processing. Do nothing.
+
+        // Case 2: Task is not failed. Check for new info to update.
+        const updatePayload = {};
+        if (dfTask.work_webp_path && !task.thumbnail_url) {
+          updatePayload.thumbnail_url = dfTask.work_webp_path;
+        }
+        if (dfTask.id && !task.idPost) {
+          updatePayload.idPost = dfTask.id;
+        }
+
+        let updatedTask = task;
+        if (Object.keys(updatePayload).length > 0) {
+          const { data, error } = await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id).select().single();
+          if (error) {
+            console.error(`Failed to update task ${task.id} with new info:`, error.message);
+            continue;
+          }
+          updatedTask = data;
+        }
+
+        // Case 3: If we have an idPost, try to get the download URL.
+        if (updatedTask.idPost) {
+          supabaseAdmin.functions.invoke('dreamface-get-download-url', {
+            body: { taskId: updatedTask.id }
+          }).catch(console.error);
+        }
       }
     }
 
