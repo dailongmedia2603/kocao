@@ -32,8 +32,16 @@ const DreamfaceStudio = () => {
       if (error || data.error) throw new Error(error?.message || data.error);
       return data.data;
     },
-    refetchInterval: query => query.state.data?.some((task: any) => task.status === 'processing') ? 5000 : false,
-    refetchOnWindowFocus: false, // **THE FIX IS HERE: Disable refetching on window focus**
+    refetchInterval: query => {
+      const data = query.state.data as any[];
+      // Tiếp tục làm mới nếu có task đang xử lý, HOẶC có task đã hoàn thành nhưng chưa có link video
+      const shouldRefetch = data?.some(task => 
+        task.status === 'processing' || 
+        (task.status === 'completed' && !task.result_video_url)
+      );
+      return shouldRefetch ? 5000 : false;
+    },
+    refetchOnWindowFocus: false,
   });
 
   const createVideoMutation = useMutation({
