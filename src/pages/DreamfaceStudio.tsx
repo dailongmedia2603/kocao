@@ -39,7 +39,8 @@ const DreamfaceStudio = () => {
         task.status === 'processing' || 
         (task.status === 'completed' && !task.result_video_url)
       );
-      return shouldRefetch ? 5000 : false;
+      // **THE FIX IS HERE: Change refetch interval to 60 seconds (1 minute)**
+      return shouldRefetch ? 60000 : false;
     },
     refetchOnWindowFocus: false,
   });
