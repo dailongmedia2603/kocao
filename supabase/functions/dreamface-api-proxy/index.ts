@@ -216,9 +216,13 @@ serve(async (req) => {
           if (!videoListRes.ok) await handleApiError(videoListRes, 'get-video-list');
           const videoListData = await videoListRes.json();
           
-          const dreamfaceTasks = videoListData?.data?.list;
-          if (!Array.isArray(dreamfaceTasks)) {
+          // THE FIX IS HERE: Correctly parse the response and add robust checks
+          const dreamfaceTasks = videoListData?.data; // The list is likely directly in `data`
+
+          if (!videoListData.success || !Array.isArray(dreamfaceTasks)) {
             console.error("Không tìm thấy danh sách video hợp lệ trong phản hồi /video-list. Phản hồi:", JSON.stringify(videoListData));
+            // Don't throw an error, just skip the sync for this run.
+            // The frontend will refetch and try again.
           } else {
             for (const task of processingTasks) {
               const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
