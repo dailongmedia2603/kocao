@@ -78,8 +78,8 @@ serve(async (req) => {
           }
         }
 
-        if (taskAfterUpdate.idpost && !taskAfterUpdate.result_video_url) {
-          // **THE FIX IS HERE: Explicitly stringify the body to ensure it's valid JSON**
+        // **THE FIX IS HERE: Only call get-download-url when the status is 200**
+        if (dfTask.web_work_status === 200 && taskAfterUpdate.idpost && !taskAfterUpdate.result_video_url) {
           supabaseAdmin.functions.invoke('dreamface-get-download-url', {
             body: JSON.stringify({ 
               taskId: taskAfterUpdate.id,
