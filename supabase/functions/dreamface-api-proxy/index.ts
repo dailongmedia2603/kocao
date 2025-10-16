@@ -190,7 +190,13 @@ serve(async (req) => {
           const animateId = audioData.video_data?.animate_id || audioData.video_data?.animate_image_id;
           if (!animateId) throw new Error(`Phản hồi upload audio không chứa animate_id: ${JSON.stringify(audioData)}`);
 
-          await supabaseAdmin.from('dreamface_tasks').update({ animate_id: animateId }).eq('id', tempTask.id);
+          const updatePayload = { animate_id: animateId };
+          const thumbnailUrl = audioData.video_data?.work_webp_path;
+          if (thumbnailUrl) {
+            updatePayload.thumbnail_url = thumbnailUrl;
+          }
+
+          await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', tempTask.id);
           
           return new Response(JSON.stringify({ success: true, message: "Task created." }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
