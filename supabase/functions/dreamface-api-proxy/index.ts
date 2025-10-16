@@ -145,7 +145,10 @@ serve(async (req) => {
           const videoListData = await videoListRes.json();
           logPayload.response_body = videoListData;
           if (!videoListRes.ok) await handleApiError(videoListRes, 'get-video-list');
+          
+          // THE FIX IS HERE: Correctly parse the response and add robust checks
           const dreamfaceTasks = videoListData?.data;
+
           if (!videoListData.success || !Array.isArray(dreamfaceTasks)) {
             console.error("Không tìm thấy danh sách video hợp lệ trong phản hồi /video-list. Phản hồi:", JSON.stringify(videoListData));
           } else {
