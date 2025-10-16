@@ -10,21 +10,6 @@ const corsHeaders = {
 
 const API_BASE_URL = "https://dapi.qcv.vn";
 
-// Helper to fetch and update final video URL
-const fetchAndUpdateVideoUrl = async (supabaseAdmin, creds, task) => {
-  if (!task.idPost) return;
-  // THE FIX IS HERE: Change parameter name from 'id' to 'idPost'
-  const params = new URLSearchParams({ ...creds, idPost: task.idPost });
-  const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
-  const downloadRes = await fetch(downloadUrl);
-  const downloadData = await downloadRes.json();
-  if (downloadData.code === 0 && downloadData.data.videoUrl) {
-    await supabaseAdmin.from('dreamface_tasks').update({ result_video_url: downloadData.data.videoUrl, status: 'completed' }).eq('id', task.id);
-  } else if (downloadData.code !== 1) {
-    await supabaseAdmin.from('dreamface_tasks').update({ status: 'failed', error_message: `Download failed: ${downloadData.message || 'Unknown error'}` }).eq('id', task.id);
-  }
-};
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -77,8 +62,12 @@ serve(async (req) => {
             await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
           }
           
+          // THE FIX IS HERE: If ready, invoke the dedicated download function
           if (dfTask.web_work_status === 200 && (dfTask.id || task.idPost)) {
-            await fetchAndUpdateVideoUrl(supabaseAdmin, creds, { ...task, idPost: dfTask.id || task.idPost });
+            // Don't await, let it run in the background
+            supabaseAdmin.functions.invoke('dreamface-get-download-url', {
+              body: { taskId: task.id }
+            }).catch(console.error);
           }
         }
       }
