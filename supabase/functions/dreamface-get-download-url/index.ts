@@ -21,7 +21,6 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { taskId, idpost, userId } = body;
-    // Giữ lại request gốc và thêm các thông tin khác để gỡ lỗi
     logPayload.request_payload = { original_request: body };
 
     if (!taskId || !idpost || !userId) {
@@ -34,20 +33,19 @@ serve(async (req) => {
     if (apiKeyError || !apiKeyData) throw new Error(`Chưa có API Key Dreamface nào được cấu hình cho user ${userId}.`);
     const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
-    // Thêm credentials đã sử dụng vào log payload
     logPayload.request_payload.credentials_used = creds;
 
     const params = new URLSearchParams({ ...creds, idPost: idpost });
-    const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
+    // **THE FIX IS HERE: Use the correct 'video-dowload' endpoint as per the documentation.**
+    const downloadUrl = `${API_BASE_URL}/video-dowload?${params.toString()}`;
     
-    // Thêm URL cuối cùng vào nhật ký để dễ dàng kiểm tra
     logPayload.request_payload.final_url_sent = downloadUrl;
 
     const downloadRes = await fetch(downloadUrl);
     
     if (!downloadRes.ok) {
         const errorText = await downloadRes.text();
-        throw new Error(`Dreamface API Error (video-download): Status ${downloadRes.status}. Response: ${errorText}`);
+        throw new Error(`Dreamface API Error (video-dowload): Status ${downloadRes.status}. Response: ${errorText}`);
     }
 
     const downloadData = await downloadRes.json();
@@ -55,19 +53,15 @@ serve(async (req) => {
     logPayload.status_code = downloadRes.status;
 
     if (downloadData.success === true && typeof downloadData.data === 'string' && downloadData.data.startsWith('http')) {
-      // Case 1: True Success - URL is valid and present in `data` property
       await supabaseAdmin.from('dreamface_tasks').update({ result_video_url: downloadData.data, status: 'completed' }).eq('id', taskId);
-      // Log remains as successful
     } else if (downloadData.code === 1 || (downloadData.success === true && !downloadData.data)) {
-      // Case 2: Waiting - Still processing or ambiguous success.
-      logPayload.status_code = 202; // Use 202 Accepted to indicate it's not finished yet
+      logPayload.status_code = 202;
       logPayload.error_message = "Task is still processing. API did not provide a video URL yet. Will retry.";
       console.log(`Task ${taskId} is still processing or API returned ambiguous success.`);
     } else {
-      // Case 3: Failure or unexpected response
       const errorMessage = `Download failed: ${downloadData.message || JSON.stringify(downloadData)}`;
       logPayload.error_message = errorMessage;
-      logPayload.status_code = 400; // Bad Request or other client error
+      logPayload.status_code = 400;
       await supabaseAdmin.from('dreamface_tasks').update({ status: 'failed', error_message: errorMessage }).eq('id', taskId);
     }
     
