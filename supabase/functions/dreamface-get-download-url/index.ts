@@ -21,7 +21,7 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { taskId, idpost, userId } = body;
-    // Giữ lại request gốc và thêm URL cuối cùng để gỡ lỗi
+    // Giữ lại request gốc và thêm các thông tin khác để gỡ lỗi
     logPayload.request_payload = { original_request: body };
 
     if (!taskId || !idpost || !userId) {
@@ -33,6 +33,9 @@ serve(async (req) => {
     const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.from("user_dreamface_api_keys").select("account_id, user_id_dreamface, token_id, client_id").eq("user_id", userId).limit(1).single();
     if (apiKeyError || !apiKeyData) throw new Error(`Chưa có API Key Dreamface nào được cấu hình cho user ${userId}.`);
     const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
+
+    // Thêm credentials đã sử dụng vào log payload
+    logPayload.request_payload.credentials_used = creds;
 
     const params = new URLSearchParams({ ...creds, idPost: idpost });
     const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
