@@ -43,7 +43,6 @@ serve(async (req) => {
     if (apiKeyError || !apiKeyData) throw new Error("Chưa có API Key Dreamface nào được cấu hình.");
     const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
-    // THE FIX IS HERE: Always call the /video-list API
     const videoListRes = await fetch(`${API_BASE_URL}/video-list?${new URLSearchParams(creds).toString()}`);
     const videoListData = await videoListRes.json();
     logPayload.response_body = videoListData;
@@ -56,12 +55,10 @@ serve(async (req) => {
     if (!videoListData.success || !Array.isArray(dreamfaceTasks)) {
       console.error("Không tìm thấy danh sách video hợp lệ trong phản hồi /video-list. Phản hồi:", JSON.stringify(videoListData));
     } else {
-      // Get all tasks from our DB to compare against
       const { data: ourTasks, error: ourTasksError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id);
       if (ourTasksError) throw ourTasksError;
 
       for (const task of ourTasks) {
-        // Only sync tasks that are not yet completed or failed
         if (task.status === 'completed' || task.status === 'failed') continue;
 
         const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
@@ -69,15 +66,20 @@ serve(async (req) => {
           const updatePayload = {};
           if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
           if (dfTask.id && !task.idPost) updatePayload.idPost = dfTask.id;
-          if (dfTask.status === 'error' || dfTask.status === 'nsfw') {
+          
+          // THE FIX IS HERE: Check web_work_status for failure conditions
+          if (dfTask.web_work_status < 0) { // Negative values indicate errors
             updatePayload.status = 'failed';
-            updatePayload.error_message = dfTask.error_message || `External API reported status: ${dfTask.status}`;
+            updatePayload.error_message = `External API reported error status: ${dfTask.web_work_status}`;
           }
+
           if (Object.keys(updatePayload).length > 0) {
             await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
           }
-          if (dfTask.id) {
-            await fetchAndUpdateVideoUrl(supabaseAdmin, creds, { ...task, ...updatePayload });
+          
+          // Only attempt to get download URL if web_work_status is 200 and we have the idPost
+          if (dfTask.web_work_status === 200 && (dfTask.id || task.idPost)) {
+            await fetchAndUpdateVideoUrl(supabaseAdmin, creds, { ...task, idPost: dfTask.id || task.idPost });
           }
         }
       }
