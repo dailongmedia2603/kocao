@@ -33,8 +33,8 @@ serve(async (req) => {
     if (apiKeyError || !apiKeyData) throw new Error(`Chưa có API Key Dreamface nào được cấu hình cho user ${userId}.`);
     const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
-    // Sửa lỗi: Đảm bảo tên tham số là 'idpost' (chữ 'p' viết thường) để khớp với yêu cầu của API.
-    const params = new URLSearchParams({ ...creds, idpost: idpost });
+    // **THE FIX IS HERE: Use 'idPost' with a capital 'P' as likely expected by the API.**
+    const params = new URLSearchParams({ ...creds, idPost: idpost });
     const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
     const downloadRes = await fetch(downloadUrl);
     
