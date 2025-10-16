@@ -42,8 +42,23 @@ serve(async (req) => {
       const { data: ourTasks, error: ourTasksError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id);
       if (ourTasksError) throw ourTasksError;
 
+      const dreamfaceTaskAnimateIds = new Set(dreamfaceTasks.map(dft => dft.animate_id));
+
       for (const task of ourTasks) {
         const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
+        
+        // **THE FIX IS HERE: Handle stale/stuck tasks**
+        if (task.status === 'processing' && !dfTask) {
+          // This task is 'processing' in our DB but not in the recent list from the API.
+          // It's likely completed or errored and has fallen off the list.
+          // We'll mark it as failed to stop the polling.
+          await supabaseAdmin.from('dreamface_tasks').update({
+            status: 'failed',
+            error_message: 'Sync failed: Task not found in recent API list. It may be completed or errored.'
+          }).eq('id', task.id);
+          continue; // Move to the next task
+        }
+
         if (!dfTask) continue;
 
         let taskAfterUpdate = task;
@@ -68,7 +83,6 @@ serve(async (req) => {
         }
 
         if (taskAfterUpdate.idpost && !taskAfterUpdate.result_video_url) {
-          // **THE FIX IS HERE: Gửi đầy đủ thông tin cần thiết**
           supabaseAdmin.functions.invoke('dreamface-get-download-url', {
             body: { 
               taskId: taskAfterUpdate.id,
