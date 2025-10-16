@@ -54,6 +54,8 @@ serve(async (req) => {
           // We can now recover a previously failed task. Only skip if it's already fully completed.
           if (task.status !== 'completed') {
             const updatePayload = {};
+            
+            // **THIS IS WHERE THE UPDATE HAPPENS**
             if (dfTask.work_webp_path && !task.thumbnail_url) {
               updatePayload.thumbnail_url = dfTask.work_webp_path;
             }
