@@ -45,31 +45,43 @@ serve(async (req) => {
       if (ourTasksError) throw ourTasksError;
 
       for (const task of ourTasks) {
-        if (task.status === 'completed' || task.status === 'failed') continue;
-
         const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
-        if (dfTask) {
-          const updatePayload = {};
-          if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
-          if (dfTask.id && !task.idPost) updatePayload.idPost = dfTask.id;
-          
-          if (dfTask.web_work_status < 0) {
-            updatePayload.status = 'failed';
-            updatePayload.error_message = `External API reported error status: ${dfTask.web_work_status}`;
-          }
+        if (!dfTask) continue;
 
-          if (Object.keys(updatePayload).length > 0) {
-            await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
+        // THE FIX IS HERE: Prioritize the status from the Dreamface API
+        // Case 1: Dreamface says the task is DONE.
+        if (dfTask.web_work_status === 200) {
+          // We can now recover a previously failed task. Only skip if it's already fully completed.
+          if (task.status !== 'completed') {
+            const updatePayload = {};
+            if (dfTask.work_webp_path && !task.thumbnail_url) {
+              updatePayload.thumbnail_url = dfTask.work_webp_path;
+            }
+            if (dfTask.id && !task.idPost) {
+              updatePayload.idPost = dfTask.id;
+            }
+
+            if (Object.keys(updatePayload).length > 0) {
+              await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
+            }
+
+            if (dfTask.id || task.idPost) {
+              supabaseAdmin.functions.invoke('dreamface-get-download-url', {
+                body: { taskId: task.id }
+              }).catch(console.error);
+            }
           }
-          
-          // THE FIX IS HERE: If ready, invoke the dedicated download function
-          if (dfTask.web_work_status === 200 && (dfTask.id || task.idPost)) {
-            // Don't await, let it run in the background
-            supabaseAdmin.functions.invoke('dreamface-get-download-url', {
-              body: { taskId: task.id }
-            }).catch(console.error);
+        } 
+        // Case 2: Dreamface says the task FAILED.
+        else if (dfTask.web_work_status < 0) {
+          if (task.status !== 'failed') {
+            await supabaseAdmin.from('dreamface_tasks').update({
+              status: 'failed',
+              error_message: `External API reported error status: ${dfTask.web_work_status}`
+            }).eq('id', task.id);
           }
         }
+        // Case 3: Still processing. Do nothing.
       }
     }
 
