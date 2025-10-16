@@ -33,6 +33,7 @@ const DreamfaceStudio = () => {
       return data.data;
     },
     refetchInterval: query => query.state.data?.some((task: any) => task.status === 'processing') ? 5000 : false,
+    refetchOnWindowFocus: false, // **THE FIX IS HERE: Disable refetching on window focus**
   });
 
   const createVideoMutation = useMutation({
