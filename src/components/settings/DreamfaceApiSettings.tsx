@@ -51,12 +51,11 @@ const ApiKeyRow = ({ apiKey }: { apiKey: DreamfaceApiKey }) => {
       return data;
     },
     onSuccess: (data) => {
-      // Correctly access the nested data structure
-      const freeCount = data?.data?.data?.data?.free_count;
+      // THE FIX IS HERE: Read from the simplified data structure
+      const freeCount = data?.data?.free_count;
       if (typeof freeCount !== 'undefined') {
         showSuccess(`Kết nối thành công! Credits miễn phí còn lại: ${freeCount}`);
       } else {
-        // Fallback in case the structure is different than expected
         showError(`Kiểm tra thất bại: API trả về dữ liệu không hợp lệ. Phản hồi: ${JSON.stringify(data)}`);
       }
     },

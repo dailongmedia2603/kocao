@@ -135,11 +135,17 @@ serve(async (req) => {
       }
       case 'get-credit': case 'remain-credit': {
         const res = await fetch(`${API_BASE_URL}/remain-credit?${new URLSearchParams(creds).toString()}`);
-        const creditData = await res.json();
-        logPayload.response_body = creditData;
+        const apiResponse = await res.json();
+        logPayload.response_body = apiResponse;
         if (!res.ok) await handleApiError(res, 'get-credit');
-        if (creditData.code !== 0) throw new Error(`API trả lỗi: ${creditData.message || JSON.stringify(creditData)}`);
-        responseData = { success: true, data: creditData.data };
+
+        // THE FIX IS HERE: Check the correct success indicator and unwrap the data
+        if (apiResponse.data?.status_code !== "THS1214000000") {
+          throw new Error(`API trả lỗi: ${apiResponse.data?.status_msg || JSON.stringify(apiResponse)}`);
+        }
+        
+        // Return only the innermost data object
+        responseData = { success: true, data: apiResponse.data.data };
         break;
       }
       default: throw new Error(`Hành động không hợp lệ: ${action}`);
