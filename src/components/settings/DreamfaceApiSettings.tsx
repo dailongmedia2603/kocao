@@ -50,7 +50,16 @@ const ApiKeyRow = ({ apiKey }: { apiKey: DreamfaceApiKey }) => {
       if (data.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: (data) => showSuccess(`Kết nối thành công! Credits còn lại: ${data.data.remainCredit}`),
+    onSuccess: (data) => {
+      // Correctly access the nested data structure
+      const freeCount = data?.data?.data?.data?.free_count;
+      if (typeof freeCount !== 'undefined') {
+        showSuccess(`Kết nối thành công! Credits miễn phí còn lại: ${freeCount}`);
+      } else {
+        // Fallback in case the structure is different than expected
+        showError(`Kiểm tra thất bại: API trả về dữ liệu không hợp lệ. Phản hồi: ${JSON.stringify(data)}`);
+      }
+    },
     onError: (error: Error) => showError(`Kiểm tra thất bại: ${error.message}`),
   });
 
