@@ -43,44 +43,44 @@ serve(async (req) => {
     if (apiKeyError || !apiKeyData) throw new Error("Chưa có API Key Dreamface nào được cấu hình.");
     const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
-    const { data: processingTasks, error: processingError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id).eq('status', 'processing');
-    if (processingError) throw processingError;
+    // THE FIX IS HERE: Always call the /video-list API
+    const videoListRes = await fetch(`${API_BASE_URL}/video-list?${new URLSearchParams(creds).toString()}`);
+    const videoListData = await videoListRes.json();
+    logPayload.response_body = videoListData;
+    if (!videoListRes.ok) {
+      const errorText = await videoListRes.text();
+      throw new Error(`Dreamface API Error (get-video-list): Status ${videoListRes.status}. Response: ${errorText}`);
+    }
+    
+    const dreamfaceTasks = videoListData?.data;
+    if (!videoListData.success || !Array.isArray(dreamfaceTasks)) {
+      console.error("Không tìm thấy danh sách video hợp lệ trong phản hồi /video-list. Phản hồi:", JSON.stringify(videoListData));
+    } else {
+      // Get all tasks from our DB to compare against
+      const { data: ourTasks, error: ourTasksError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id);
+      if (ourTasksError) throw ourTasksError;
 
-    if (processingTasks.length > 0) {
-      const videoListRes = await fetch(`${API_BASE_URL}/video-list?${new URLSearchParams(creds).toString()}`);
-      const videoListData = await videoListRes.json();
-      logPayload.response_body = videoListData;
-      if (!videoListRes.ok) {
-        const errorText = await videoListRes.text();
-        throw new Error(`Dreamface API Error (get-video-list): Status ${videoListRes.status}. Response: ${errorText}`);
-      }
-      
-      const dreamfaceTasks = videoListData?.data;
-      if (!videoListData.success || !Array.isArray(dreamfaceTasks)) {
-        console.error("Không tìm thấy danh sách video hợp lệ trong phản hồi /video-list. Phản hồi:", JSON.stringify(videoListData));
-      } else {
-        for (const task of processingTasks) {
-          const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
-          if (dfTask) {
-            const updatePayload = {};
-            if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
-            if (dfTask.id && !task.idPost) updatePayload.idPost = dfTask.id;
-            if (dfTask.status === 'error' || dfTask.status === 'nsfw') {
-              updatePayload.status = 'failed';
-              updatePayload.error_message = dfTask.error_message || `External API reported status: ${dfTask.status}`;
-            }
-            if (Object.keys(updatePayload).length > 0) {
-              await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
-            }
-            if (dfTask.id) {
-              await fetchAndUpdateVideoUrl(supabaseAdmin, creds, { ...task, ...updatePayload });
-            }
+      for (const task of ourTasks) {
+        // Only sync tasks that are not yet completed or failed
+        if (task.status === 'completed' || task.status === 'failed') continue;
+
+        const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
+        if (dfTask) {
+          const updatePayload = {};
+          if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
+          if (dfTask.id && !task.idPost) updatePayload.idPost = dfTask.id;
+          if (dfTask.status === 'error' || dfTask.status === 'nsfw') {
+            updatePayload.status = 'failed';
+            updatePayload.error_message = dfTask.error_message || `External API reported status: ${dfTask.status}`;
+          }
+          if (Object.keys(updatePayload).length > 0) {
+            await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
+          }
+          if (dfTask.id) {
+            await fetchAndUpdateVideoUrl(supabaseAdmin, creds, { ...task, ...updatePayload });
           }
         }
       }
-    } else {
-      // THE FIX IS HERE: Add a clear log message when no action is taken.
-      logPayload.response_body = { message: "Không có tác vụ nào đang xử lý, bỏ qua việc gọi API." };
     }
 
     const { data: allTasks, error: allTasksError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
