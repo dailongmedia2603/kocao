@@ -78,6 +78,9 @@ serve(async (req) => {
           }
         }
       }
+    } else {
+      // THE FIX IS HERE: Add a clear log message when no action is taken.
+      logPayload.response_body = { message: "Không có tác vụ nào đang xử lý, bỏ qua việc gọi API." };
     }
 
     const { data: allTasks, error: allTasksError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
