@@ -6,7 +6,7 @@ import { showSuccess, showError } from "@/utils/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, CheckCircle, Loader2, Plus, KeyRound, Film } from "lucide-react";
+import { Trash2, Plus, KeyRound } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { AddDreamfaceApiKeyDialog } from "./AddDreamfaceApiKeyDialog";
 
@@ -41,34 +41,10 @@ const ApiKeyRow = ({ apiKey }: { apiKey: DreamfaceApiKey }) => {
     onError: (error: Error) => showError(`Lỗi: ${error.message}`),
   });
 
-  const checkConnectionMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", { 
-        body: { action: "get-credit" } 
-      });
-      if (error) throw new Error(error.message);
-      if (data.error) throw new Error(data.error);
-      return data;
-    },
-    onSuccess: (data) => {
-      // THE FIX IS HERE: Read from the simplified data structure
-      const freeCount = data?.data?.free_count;
-      if (typeof freeCount !== 'undefined') {
-        showSuccess(`Kết nối thành công! Credits miễn phí còn lại: ${freeCount}`);
-      } else {
-        showError(`Kiểm tra thất bại: API trả về dữ liệu không hợp lệ. Phản hồi: ${JSON.stringify(data)}`);
-      }
-    },
-    onError: (error: Error) => showError(`Kiểm tra thất bại: ${error.message}`),
-  });
-
   return (
     <div className="flex items-center justify-between gap-4 p-4 border rounded-lg bg-background/50">
       <div className="flex-1 min-w-0"><p className="font-medium truncate">{apiKey.name}</p><p className="text-sm text-muted-foreground">Account ID: {apiKey.account_id}</p></div>
       <div className="flex items-center gap-2 flex-shrink-0">
-        <Button variant="outline" onClick={() => checkConnectionMutation.mutate()} disabled={checkConnectionMutation.isPending}>
-          {checkConnectionMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}Kiểm tra
-        </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild><Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
           <AlertDialogContent>

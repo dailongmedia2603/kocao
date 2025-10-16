@@ -133,21 +133,6 @@ serve(async (req) => {
         responseData = { success: true, message: "Task deleted." };
         break;
       }
-      case 'get-credit': case 'remain-credit': {
-        const res = await fetch(`${API_BASE_URL}/remain-credit?${new URLSearchParams(creds).toString()}`);
-        const apiResponse = await res.json();
-        logPayload.response_body = apiResponse;
-        if (!res.ok) await handleApiError(res, 'get-credit');
-
-        // THE FIX IS HERE: Check the top-level 'success' flag and the inner status code
-        if (apiResponse.success !== true || apiResponse.data?.status_code !== "THS1214000000") {
-          throw new Error(`API trả lỗi: ${apiResponse.data?.status_msg || JSON.stringify(apiResponse)}`);
-        }
-        
-        // Return only the innermost data object
-        responseData = { success: true, data: apiResponse.data.data };
-        break;
-      }
       default: throw new Error(`Hành động không hợp lệ: ${action}`);
     }
     logPayload.response_body = logPayload.response_body || responseData;
