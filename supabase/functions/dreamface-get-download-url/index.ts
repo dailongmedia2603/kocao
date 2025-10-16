@@ -33,7 +33,8 @@ serve(async (req) => {
     if (apiKeyError || !apiKeyData) throw new Error(`Chưa có API Key Dreamface nào được cấu hình cho user ${userId}.`);
     const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
-    const params = new URLSearchParams({ ...creds, idPost: idpost });
+    // Sửa lỗi: Đảm bảo tên tham số là 'idpost' (chữ 'p' viết thường) để khớp với yêu cầu của API.
+    const params = new URLSearchParams({ ...creds, idpost: idpost });
     const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
     const downloadRes = await fetch(downloadUrl);
     
@@ -52,7 +53,6 @@ serve(async (req) => {
       // Log remains as successful
     } else if (downloadData.code === 1 || (downloadData.success === true && !downloadData.data)) {
       // Case 2: Waiting - Still processing or ambiguous success.
-      // **THE FIX IS HERE: Update the log to reflect the "waiting" state**
       logPayload.status_code = 202; // Use 202 Accepted to indicate it's not finished yet
       logPayload.error_message = "Task is still processing. API did not provide a video URL yet. Will retry.";
       console.log(`Task ${taskId} is still processing or API returned ambiguous success.`);
