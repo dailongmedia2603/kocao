@@ -13,7 +13,8 @@ const API_BASE_URL = "https://dapi.qcv.vn";
 // Helper to fetch and update final video URL
 const fetchAndUpdateVideoUrl = async (supabaseAdmin, creds, task) => {
   if (!task.idPost) return;
-  const params = new URLSearchParams({ ...creds, id: task.idPost });
+  // THE FIX IS HERE: Change parameter name from 'id' to 'idPost'
+  const params = new URLSearchParams({ ...creds, idPost: task.idPost });
   const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
   const downloadRes = await fetch(downloadUrl);
   const downloadData = await downloadRes.json();
@@ -67,8 +68,7 @@ serve(async (req) => {
           if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
           if (dfTask.id && !task.idPost) updatePayload.idPost = dfTask.id;
           
-          // THE FIX IS HERE: Check web_work_status for failure conditions
-          if (dfTask.web_work_status < 0) { // Negative values indicate errors
+          if (dfTask.web_work_status < 0) {
             updatePayload.status = 'failed';
             updatePayload.error_message = `External API reported error status: ${dfTask.web_work_status}`;
           }
@@ -77,7 +77,6 @@ serve(async (req) => {
             await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
           }
           
-          // Only attempt to get download URL if web_work_status is 200 and we have the idPost
           if (dfTask.web_work_status === 200 && (dfTask.id || task.idPost)) {
             await fetchAndUpdateVideoUrl(supabaseAdmin, creds, { ...task, idPost: dfTask.id || task.idPost });
           }

@@ -13,7 +13,8 @@ const API_BASE_URL = "https://dapi.qcv.vn";
 // Helper to fetch and update final video URL
 const fetchAndUpdateVideoUrl = async (supabaseAdmin, creds, task) => {
   if (!task.idPost) return;
-  const params = new URLSearchParams({ ...creds, id: task.idPost });
+  // THE FIX IS HERE: Change parameter name from 'id' to 'idPost'
+  const params = new URLSearchParams({ ...creds, idPost: task.idPost });
   const downloadUrl = `${API_BASE_URL}/video-download?${params.toString()}`;
   const downloadRes = await fetch(downloadUrl);
   const downloadData = await downloadRes.json();
