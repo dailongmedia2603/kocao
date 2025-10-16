@@ -139,8 +139,8 @@ serve(async (req) => {
         logPayload.response_body = apiResponse;
         if (!res.ok) await handleApiError(res, 'get-credit');
 
-        // THE FIX IS HERE: Check the correct success indicator and unwrap the data
-        if (apiResponse.data?.status_code !== "THS1214000000") {
+        // THE FIX IS HERE: Check the top-level 'success' flag and the inner status code
+        if (apiResponse.success !== true || apiResponse.data?.status_code !== "THS1214000000") {
           throw new Error(`API trả lỗi: ${apiResponse.data?.status_msg || JSON.stringify(apiResponse)}`);
         }
         
