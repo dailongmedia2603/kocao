@@ -65,7 +65,7 @@ const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView, onRetry }: 
     switch (status) {
       case "done": return <Badge variant="default" className="bg-green-100 text-green-800">Hoàn thành</Badge>;
       case "doing": return <Badge variant="outline" className="text-blue-800 border-blue-200"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Đang xử lý</Badge>;
-      case "error": return <Badge variant="destructive">Lỗi</Badge>;
+      case "error": return <Badge variant="destructive" className="hover:bg-destructive">Lỗi</Badge>;
       default: return <Badge variant="secondary">{status}</Badge>;
     }
   };
