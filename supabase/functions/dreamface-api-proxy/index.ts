@@ -59,12 +59,12 @@ serve(async (req) => {
     const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
     const contentType = req.headers.get("content-type");
-    let action, body, videoFile, audioFile;
+    let action, body, audioFile, videoUrl;
 
     if (contentType?.includes('multipart/form-data')) {
       const formData = await req.formData();
       action = formData.get('action');
-      videoFile = formData.get('videoFile');
+      videoUrl = formData.get('videoUrl');
       audioFile = formData.get('audioFile');
       const formBody = {};
       for (const [key, value] of formData.entries()) {
@@ -82,14 +82,23 @@ serve(async (req) => {
 
     switch (action) {
       case 'create-video': {
-        if (!(body instanceof FormData) || !videoFile || !audioFile) throw new Error("create-video action requires FormData with videoFile and audioFile.");
-        const [originalVideoUrl, originalAudioUrl] = await Promise.all([uploadToR2AndGetUrl(videoFile, 'video', user.id), uploadToR2AndGetUrl(audioFile, 'audio', user.id)]);
-        const { data: tempTask, error: insertError } = await supabaseAdmin.from('dreamface_tasks').insert({ user_id: user.id, title: videoFile.name, status: 'processing', original_video_url: originalVideoUrl, original_audio_url: originalAudioUrl }).select().single();
+        if (!videoUrl || !audioFile) throw new Error("create-video action requires videoUrl and audioFile.");
+        
+        const videoResponse = await fetch(videoUrl);
+        if (!videoResponse.ok) throw new Error(`Failed to fetch video from URL: ${videoUrl}`);
+        const videoBlob = await videoResponse.blob();
+        const videoFileName = videoUrl.split('/').pop()?.split('?')[0] || 'video.mp4';
+        const fetchedVideoFile = new File([videoBlob], videoFileName, { type: videoBlob.type });
+
+        const originalAudioUrl = await uploadToR2AndGetUrl(audioFile, 'audio', user.id);
+        const originalVideoUrl = videoUrl;
+
+        const { data: tempTask, error: insertError } = await supabaseAdmin.from('dreamface_tasks').insert({ user_id: user.id, title: fetchedVideoFile.name, status: 'processing', original_video_url: originalVideoUrl, original_audio_url: originalAudioUrl }).select().single();
         if (insertError) throw new Error(`Lỗi tạo task tạm: ${insertError.message}`);
         logPayload.dreamface_task_id = tempTask.id;
         try {
           const formVideo = new FormData();
-          formVideo.append("accountId", creds.accountId); formVideo.append("userId", creds.userId); formVideo.append("tokenId", creds.tokenId); formVideo.append("clientId", creds.clientId); formVideo.append("file", videoFile, "video.mp4");
+          formVideo.append("accountId", creds.accountId); formVideo.append("userId", creds.userId); formVideo.append("tokenId", creds.tokenId); formVideo.append("clientId", creds.clientId); formVideo.append("file", fetchedVideoFile, "video.mp4");
           const uploadVideoRes = await fetch(`${API_BASE_URL}/upload-video`, { method: 'POST', body: formVideo });
           const videoData = await uploadVideoRes.json();
           if (!uploadVideoRes.ok) { logPayload.response_body = videoData; await handleApiError(uploadVideoRes, 'upload-video'); }

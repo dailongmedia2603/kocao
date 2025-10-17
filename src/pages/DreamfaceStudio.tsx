@@ -48,19 +48,9 @@ const DreamfaceStudio = () => {
     mutationFn: async () => {
       if (!videoUrl || !audioFile) throw new Error("Vui lòng chọn video từ KOC và file audio.");
 
-      showSuccess("Đang tải video nguồn, vui lòng chờ...");
-      const response = await fetch(videoUrl);
-      if (!response.ok) {
-        console.error('Fetch error:', response);
-        throw new Error(`Không thể tải video từ URL. Status: ${response.status}`);
-      }
-      const blob = await response.blob();
-      const fileName = videoUrl.split('/').pop()?.split('?')[0] || 'video.mp4';
-      const fetchedVideoFile = new File([blob], fileName, { type: blob.type });
-
       const formData = new FormData();
       formData.append('action', 'create-video');
-      formData.append('videoFile', fetchedVideoFile);
+      formData.append('videoUrl', videoUrl);
       formData.append('audioFile', audioFile);
       
       const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", { body: formData });
