@@ -25,22 +25,22 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Invalid or expired token.");
     logPayload.user_id = user.id;
 
-    // This function now only serves to enrich data and trigger downloads.
-    // It no longer marks tasks as failed to prevent race conditions.
-    // The new `dreamface-sync-status` function will handle status updates.
-
     const { data: allTasks, error: allTasksError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
     if (allTasksError) throw allTasksError;
     
-    return new Response(JSON.stringify({ success: true, data: allTasks }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const responseData = { success: true, data: allTasks };
+    logPayload.response_body = responseData; // Capture response before returning
+
+    return new Response(JSON.stringify(responseData), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (error) {
     console.error(`[dreamface-get-list] CRITICAL ERROR:`, error.message);
     logPayload.error_message = error.message;
     logPayload.status_code = 500;
+    logPayload.response_body = { success: false, error: error.message }; // Capture error response
+
     return new Response(JSON.stringify({ success: false, error: error.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } finally {
-    // We still log the attempt to get the list
     await supabaseAdmin.from('dreamface_logs').insert({ ...logPayload, action: 'get-list-ui-refresh' });
   }
 });
