@@ -44,26 +44,40 @@ serve(async (req) => {
     logPayload.status_text = response.statusText;
     logPayload.response_body = responseData;
 
-    if (!response.ok) throw new Error(responseData.message || JSON.stringify(responseData));
+    if (!response.ok) {
+      throw new Error(responseData.message || JSON.stringify(responseData));
+    }
 
-    // If the clone was successful, save it to our database.
-    if (responseData.success === true && responseData.data?.voice_id) {
+    // Stricter check for successful clone and data integrity
+    if (responseData.success === true) {
         const voiceData = responseData.data;
-        const { error: insertError } = await supabaseAdmin
-            .from('cloned_voices')
-            .insert({
-                voice_id: voiceData.voice_id,
-                user_id: user.id,
-                voice_name: voiceName,
-                sample_audio: voiceData.sample_audio || null,
-                cover_url: voiceData.cover_url || null,
-            });
-        
-        if (insertError) {
-            console.error("Failed to save cloned voice to DB:", insertError);
-            // IMPORTANT: Throw the error so the user is notified of the failure.
-            throw new Error(`Lỗi lưu trữ giọng nói vào CSDL: ${insertError.message}. Vui lòng thử lại hoặc liên hệ hỗ trợ.`);
+        const newVoiceId = voiceData?.voice_id;
+
+        if (newVoiceId) {
+            // If we have a voice_id, proceed to save to our database
+            const { error: insertError } = await supabaseAdmin
+                .from('cloned_voices')
+                .insert({
+                    voice_id: newVoiceId,
+                    user_id: user.id,
+                    voice_name: voiceName,
+                    sample_audio: voiceData.sample_audio || null,
+                    cover_url: voiceData.cover_url || null,
+                });
+            
+            if (insertError) {
+                console.error("Failed to save cloned voice to DB:", insertError);
+                // Throw a specific, user-facing error if the database insert fails
+                throw new Error(`Lỗi lưu trữ giọng nói vào CSDL: ${insertError.message}. Vui lòng thử lại hoặc liên hệ hỗ trợ.`);
+            }
+        } else {
+            // The API reported success but didn't give us the essential voice_id. This is a critical failure.
+            console.error("Clone successful according to API, but no voice_id was returned. Response data:", JSON.stringify(voiceData));
+            throw new Error("Clone thành công nhưng API không trả về ID giọng nói. Vui lòng kiểm tra lại sau hoặc liên hệ hỗ trợ.");
         }
+    } else {
+        // The API reported failure (e.g., success: false)
+        throw new Error(responseData.message || "API báo lỗi không thành công mà không có thông báo chi tiết.");
     }
 
     return new Response(JSON.stringify(responseData), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
