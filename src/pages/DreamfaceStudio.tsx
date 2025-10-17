@@ -15,9 +15,10 @@ import { vi } from 'date-fns/locale';
 import { VideoPopup } from "@/components/dreamface/VideoPopup";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DreamfaceLogDialog } from "@/components/dreamface/DreamfaceLogDialog";
+import { KocVideoSelector } from "@/components/dreamface/KocVideoSelector";
 
 const DreamfaceStudio = () => {
-  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [isVideoPopupOpen, setVideoPopupOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
@@ -34,12 +35,10 @@ const DreamfaceStudio = () => {
     },
     refetchInterval: query => {
       const data = query.state.data as any[];
-      // Tiếp tục làm mới nếu có task đang xử lý, HOẶC có task đã hoàn thành nhưng chưa có link video
       const shouldRefetch = data?.some(task => 
         task.status === 'processing' || 
         (task.status === 'completed' && !task.result_video_url)
       );
-      // **THE FIX IS HERE: Change refetch interval to 60 seconds (1 minute)**
       return shouldRefetch ? 60000 : false;
     },
     refetchOnWindowFocus: false,
@@ -47,10 +46,21 @@ const DreamfaceStudio = () => {
 
   const createVideoMutation = useMutation({
     mutationFn: async () => {
-      if (!videoFile || !audioFile) throw new Error("Vui lòng chọn cả file video và audio.");
+      if (!videoUrl || !audioFile) throw new Error("Vui lòng chọn video từ KOC và file audio.");
+
+      showSuccess("Đang tải video nguồn, vui lòng chờ...");
+      const response = await fetch(videoUrl);
+      if (!response.ok) {
+        console.error('Fetch error:', response);
+        throw new Error(`Không thể tải video từ URL. Status: ${response.status}`);
+      }
+      const blob = await response.blob();
+      const fileName = videoUrl.split('/').pop()?.split('?')[0] || 'video.mp4';
+      const fetchedVideoFile = new File([blob], fileName, { type: blob.type });
+
       const formData = new FormData();
       formData.append('action', 'create-video');
-      formData.append('videoFile', videoFile);
+      formData.append('videoFile', fetchedVideoFile);
       formData.append('audioFile', audioFile);
       
       const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", { body: formData });
@@ -60,7 +70,7 @@ const DreamfaceStudio = () => {
     onSuccess: () => {
       showSuccess("Yêu cầu tạo video đã được gửi! Video sẽ sớm xuất hiện trong danh sách.");
       queryClient.invalidateQueries({ queryKey: ['dreamface_tasks'] });
-      setVideoFile(null);
+      setVideoUrl(null);
       setAudioFile(null);
       const form = document.getElementById('create-video-form') as HTMLFormElement;
       form?.reset();
@@ -131,19 +141,16 @@ const DreamfaceStudio = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Tạo video từ video mẫu và âm thanh</CardTitle>
-                <CardDescription>Tải lên video mẫu và file âm thanh để tạo video mới.</CardDescription>
+                <CardDescription>Chọn KOC và video nguồn, sau đó tải lên file âm thanh để tạo video mới.</CardDescription>
               </CardHeader>
               <CardContent>
-                <form id="create-video-form" onSubmit={handleCreateVideo} className="space-y-4">
+                <form id="create-video-form" onSubmit={handleCreateVideo} className="space-y-6">
+                  <KocVideoSelector onVideoSelect={setVideoUrl} selectedVideoUrl={videoUrl} />
                   <div>
-                    <label className="text-sm font-medium">File video mẫu (.mp4)</label>
-                    <Input type="file" onChange={(e) => setVideoFile(e.target.files ? e.target.files[0] : null)} accept="video/mp4" required />
+                    <label className="text-sm font-medium">3. Tải lên file âm thanh (.mp3, .wav)</label>
+                    <Input className="mt-1" type="file" onChange={(e) => setAudioFile(e.target.files ? e.target.files[0] : null)} accept="audio/*" required />
                   </div>
-                  <div>
-                    <label className="text-sm font-medium">File âm thanh (.mp3, .wav)</label>
-                    <Input type="file" onChange={(e) => setAudioFile(e.target.files ? e.target.files[0] : null)} accept="audio/*" required />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={createVideoMutation.isPending}>
+                  <Button type="submit" className="w-full" disabled={createVideoMutation.isPending || !videoUrl || !audioFile}>
                     {createVideoMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Film className="mr-2 h-4 w-4" />}
                     Tạo Video
                   </Button>
