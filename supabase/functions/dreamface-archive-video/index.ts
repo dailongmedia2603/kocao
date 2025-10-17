@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { S3Client, PutObjectCommand } from "npm:@aws-sdk/client-s3@^3.609.0";
+import { format } from "https://deno.land/std@0.208.0/datetime/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,13 +21,12 @@ serve(async (req) => {
   );
 
   try {
-    // 1. Tìm các video cần được lưu trữ (chưa được archived và có link tạm thời)
     const { data: tasksToArchive, error: fetchError } = await supabaseAdmin
       .from('dreamface_tasks')
-      .select('id, user_id, result_video_url, title')
+      .select('id, user_id, result_video_url, title, koc_id')
       .eq('is_archived', false)
       .like('result_video_url', '%aliyuncs.com%')
-      .limit(5); // Xử lý 5 video mỗi lần chạy để tránh timeout
+      .limit(5);
 
     if (fetchError) {
       throw new Error(`Lỗi khi tìm video cần lưu trữ: ${fetchError.message}`);
@@ -43,7 +43,6 @@ serve(async (req) => {
     let successCount = 0;
     let errorCount = 0;
 
-    // Lấy thông tin R2 từ biến môi trường
     const R2_ACCOUNT_ID = Deno.env.get("R2_ACCOUNT_ID");
     const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID");
     const R2_SECRET_ACCESS_KEY = Deno.env.get("R2_SECRET_ACCESS_KEY");
@@ -59,10 +58,22 @@ serve(async (req) => {
       credentials: { accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_ACCESS_KEY },
     });
 
-    // 2. Xử lý từng video
     for (const task of tasksToArchive) {
       try {
-        // Tải video từ URL tạm thời
+        if (!task.koc_id) {
+            throw new Error(`Task ${task.id} is not associated with a KOC. Cannot archive.`);
+        }
+
+        const { data: kocData, error: kocError } = await supabaseAdmin
+            .from('kocs')
+            .select('folder_path')
+            .eq('id', task.koc_id)
+            .single();
+        if (kocError || !kocData?.folder_path) {
+            throw new Error(`Could not find folder path for KOC ID ${task.koc_id}.`);
+        }
+        const kocFolderPath = kocData.folder_path;
+
         const videoResponse = await fetch(task.result_video_url);
         if (!videoResponse.ok) {
           throw new Error(`Không thể tải video từ URL tạm thời (status: ${videoResponse.status})`);
@@ -70,27 +81,39 @@ serve(async (req) => {
         const videoBuffer = await videoResponse.arrayBuffer();
         const videoContentType = videoResponse.headers.get('content-type') || 'video/mp4';
         
-        // Tạo đường dẫn và tên file trên R2
         const fileExtension = videoContentType.split('/')[1] || 'mp4';
-        const storagePath = `dreamface/${task.user_id}/${task.id}.${fileExtension}`;
+        const r2Key = `${kocFolderPath}/generated/dreamface-${task.id}.${fileExtension}`;
+        const displayName = `${task.title || 'dreamface-video'}-${format(new Date(), 'yyyy-MM-dd')}.${fileExtension}`;
 
-        // Tải video lên R2
         await s3.send(new PutObjectCommand({
           Bucket: R2_BUCKET_NAME,
-          Key: storagePath,
+          Key: r2Key,
           Body: new Uint8Array(videoBuffer),
           ContentType: videoContentType,
         }));
 
-        const publicUrl = `${R2_PUBLIC_URL}/${storagePath}`;
+        const publicUrl = `${R2_PUBLIC_URL}/${r2Key}`;
 
-        // Cập nhật lại CSDL với link R2 và đánh dấu đã lưu trữ
+        // **THE FIX IS HERE: Add the video to the KOC's official library**
+        const { error: kocFileError } = await supabaseAdmin
+            .from('koc_files')
+            .insert({
+                koc_id: task.koc_id,
+                user_id: task.user_id,
+                r2_key: r2Key,
+                display_name: displayName,
+            });
+        if (kocFileError) {
+            console.error(`Failed to create koc_files record for task ${task.id}:`, kocFileError.message);
+            throw new Error(`Failed to create koc_files record: ${kocFileError.message}`);
+        }
+
         const { error: updateError } = await supabaseAdmin
           .from('dreamface_tasks')
           .update({
             result_video_url: publicUrl,
             is_archived: true,
-            error_message: null, // Xóa lỗi cũ nếu có
+            error_message: null,
           })
           .eq('id', task.id);
 
@@ -103,7 +126,6 @@ serve(async (req) => {
 
       } catch (err) {
         console.error(`Lỗi khi xử lý task ${task.id}:`, err.message);
-        // Nếu có lỗi, cập nhật CSDL với thông báo lỗi
         await supabaseAdmin
           .from('dreamface_tasks')
           .update({ error_message: `Lỗi lưu trữ: ${err.message}` })
