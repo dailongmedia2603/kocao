@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
@@ -109,11 +109,32 @@ export const TaskList = () => {
     queryKey: ["voice_tasks_grouped", user?.id],
     queryFn: () => fetchTasks(user!.id),
     enabled: !!user,
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      return data?.some(task => task.status === 'doing') ? 10000 : false;
-    },
   });
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`voice_tasks_changes_${user.id}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'voice_tasks',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Voice task change received!', payload);
+          queryClient.invalidateQueries({ queryKey: ['voice_tasks_grouped', user.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 
   const groupedTasks = useMemo(() => {
     if (!tasks) return {};
