@@ -4,7 +4,7 @@ import { callVoiceApi } from "@/lib/voiceApi";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, History, Loader2, Trash2, FileText } from "lucide-react";
+import { AlertCircle, History, Loader2, Trash2, FileText, RefreshCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -111,7 +111,7 @@ const fetchTasks = async () => {
   return mergedTasks;
 };
 
-const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView }: { task: any, onSelect: (id: string) => void, isSelected: boolean, onDelete: (id: string) => void, onLogView: (id: string) => void }) => {
+const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView, onRetry }: { task: any, onSelect: (id: string) => void, isSelected: boolean, onDelete: (id: string) => void, onLogView: (id: string) => void, onRetry: (id: string) => void }) => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "done": return <Badge variant="default" className="bg-green-100 text-green-800">Hoàn thành</Badge>;
@@ -119,6 +119,13 @@ const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView }: { task: a
       case "error": return <Badge variant="destructive">Lỗi</Badge>;
       default: return <Badge variant="secondary">{status}</Badge>;
     }
+  };
+
+  const friendlyErrorMessage = (message: string) => {
+    if (message && message.includes("Max retries")) {
+      return "Dịch vụ tạo voice không thể xử lý yêu cầu này sau nhiều lần thử. Vui lòng thử lại sau hoặc kiểm tra lại nội dung văn bản.";
+    }
+    return message;
   };
 
   return (
@@ -134,13 +141,18 @@ const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView }: { task: a
           {task.status === 'done' && task.metadata?.audio_url && (
             <audio controls src={task.metadata.audio_url} className="h-8 w-full mt-2" />
           )}
-          {task.status === 'error' && <p className="text-xs text-destructive mt-1">{task.error_message}</p>}
+          {task.status === 'error' && <p className="text-xs text-destructive mt-1">{friendlyErrorMessage(task.error_message)}</p>}
         </div>
       </div>
       <div className="flex items-center">
         <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-blue-500" onClick={() => onLogView(task.id)} title="Xem Log">
           <FileText className="h-4 w-4" />
         </Button>
+        {task.status === 'error' && (
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-green-500" onClick={() => onRetry(task.id)} title="Thử lại">
+            <RefreshCcw className="h-4 w-4" />
+          </Button>
+        )}
         <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => onDelete(task.id)} title="Xóa Task">
           <Trash2 className="h-4 w-4" />
         </Button>
@@ -181,6 +193,25 @@ export const TaskList = () => {
     onError: (error: Error) => {
       showError(`Lỗi: ${error.message}`);
       setTasksToDelete([]);
+    },
+  });
+
+  const retryTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const { data, error } = await supabase.functions.invoke("retry-voice-task", {
+        body: { oldTaskId: taskId },
+      });
+      if (error || data.error) {
+        throw new Error(error?.message || data.error);
+      }
+      return data;
+    },
+    onSuccess: () => {
+      showSuccess("Đã gửi lại yêu cầu tạo voice!");
+      queryClient.invalidateQueries({ queryKey: ["voice_tasks"] });
+    },
+    onError: (error: Error) => {
+      showError(`Thử lại thất bại: ${error.message}`);
     },
   });
 
@@ -225,6 +256,7 @@ export const TaskList = () => {
               isSelected={selectedTaskIds.includes(task.id)}
               onDelete={(id) => handleDelete([id])}
               onLogView={(id) => setLogTaskId(id)}
+              onRetry={(id) => retryTaskMutation.mutate(id)}
             />
           ))}</div>
           : <div className="text-center py-10 border-2 border-dashed rounded-lg"><History className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-4 text-lg font-medium">Chưa có task nào</h3><p className="mt-1 text-sm text-muted-foreground">Hãy bắt đầu tạo voice đầu tiên của bạn!</p></div>}
