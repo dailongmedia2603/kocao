@@ -9,18 +9,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { showSuccess, showError } from "@/utils/toast";
-import { Film, Clapperboard, AlertCircle, Download, Loader2, RefreshCw, Trash2, Eye, History, Library } from "lucide-react";
+import { Film, Clapperboard, AlertCircle, Download, Loader2, RefreshCw, Trash2, Eye, History, Library, Upload } from "lucide-react";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { VideoPopup } from "@/components/dreamface/VideoPopup";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DreamfaceLogDialog } from "@/components/dreamface/DreamfaceLogDialog";
 import { KocVideoSelector } from "@/components/dreamface/KocVideoSelector";
+import { VoiceTaskSelector } from "@/components/dreamface/VoiceTaskSelector";
 
 const DreamfaceStudio = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [selectedKocId, setSelectedKocId] = useState<string | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [selectedAudioUrl, setSelectedAudioUrl] = useState<string | null>(null);
   const [isVideoPopupOpen, setVideoPopupOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<any | null>(null);
@@ -47,15 +49,34 @@ const DreamfaceStudio = () => {
 
   const createVideoMutation = useMutation({
     mutationFn: async () => {
-      if (!videoUrl || !audioFile || !selectedKocId) throw new Error("Vui lòng chọn KOC, video nguồn và file audio.");
+      if (!videoUrl || !selectedKocId || (!audioFile && !selectedAudioUrl)) {
+        throw new Error("Vui lòng chọn KOC, video nguồn và nguồn âm thanh.");
+      }
 
-      const formData = new FormData();
-      formData.append('action', 'create-video');
-      formData.append('videoUrl', videoUrl);
-      formData.append('audioFile', audioFile);
-      formData.append('kocId', selectedKocId);
+      let body;
+      let action;
+
+      if (audioFile) {
+        // Case 1: Uploading a new file
+        action = 'create-video';
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('videoUrl', videoUrl);
+        formData.append('audioFile', audioFile);
+        formData.append('kocId', selectedKocId);
+        body = formData;
+      } else {
+        // Case 2: Using a URL from the library
+        action = 'create-video-from-url';
+        body = {
+          action,
+          videoUrl,
+          audioUrl: selectedAudioUrl,
+          kocId: selectedKocId,
+        };
+      }
       
-      const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", { body: formData });
+      const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", { body });
       if (error || data.error) throw new Error(error?.message || data.error);
       return data;
     },
@@ -64,6 +85,7 @@ const DreamfaceStudio = () => {
       queryClient.invalidateQueries({ queryKey: ['dreamface_tasks'] });
       setVideoUrl(null);
       setAudioFile(null);
+      setSelectedAudioUrl(null);
       setSelectedKocId(null);
       const form = document.getElementById('create-video-form') as HTMLFormElement;
       form?.reset();
@@ -109,9 +131,20 @@ const DreamfaceStudio = () => {
     setVideoPopupOpen(true);
   };
 
-  const handleSelectionChange = (selection: { videoUrl: string | null; kocId: string | null }) => {
+  const handleVideoSelectionChange = (selection: { videoUrl: string | null; kocId: string | null }) => {
     setVideoUrl(selection.videoUrl);
     setSelectedKocId(selection.kocId);
+  };
+
+  const handleAudioUrlSelect = (url: string | null) => {
+    setSelectedAudioUrl(url);
+    if (url) setAudioFile(null); // Clear file if URL is selected
+  };
+
+  const handleAudioFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files ? e.target.files[0] : null;
+    setAudioFile(file);
+    if (file) setSelectedAudioUrl(null); // Clear URL if file is selected
   };
 
   const getStatusBadge = (status: string) => {
@@ -152,16 +185,27 @@ const DreamfaceStudio = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Tạo video từ video mẫu và âm thanh</CardTitle>
-                <CardDescription>Chọn KOC và video nguồn, sau đó tải lên file âm thanh để tạo video mới.</CardDescription>
+                <CardDescription>Chọn KOC và video nguồn, sau đó chọn âm thanh từ thư viện hoặc tải lên file mới.</CardDescription>
               </CardHeader>
               <CardContent>
                 <form id="create-video-form" onSubmit={handleCreateVideo} className="space-y-6">
-                  <KocVideoSelector onSelectionChange={handleSelectionChange} selectedVideoUrl={videoUrl} />
+                  <KocVideoSelector onSelectionChange={handleVideoSelectionChange} selectedVideoUrl={videoUrl} />
                   <div>
-                    <label className="text-sm font-medium">3. Tải lên file âm thanh (.mp3, .wav)</label>
-                    <Input className="mt-1" type="file" onChange={(e) => setAudioFile(e.target.files ? e.target.files[0] : null)} accept="audio/*" required />
+                    <label className="text-sm font-medium mb-2 block">3. Chọn nguồn âm thanh</label>
+                    <Tabs defaultValue="library" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="library"><Library className="mr-2 h-4 w-4" />Thư viện</TabsTrigger>
+                        <TabsTrigger value="upload"><Upload className="mr-2 h-4 w-4" />Tải lên</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="library" className="pt-4">
+                        <VoiceTaskSelector onAudioUrlSelect={handleAudioUrlSelect} selectedAudioUrl={selectedAudioUrl} />
+                      </TabsContent>
+                      <TabsContent value="upload" className="pt-4">
+                        <Input type="file" onChange={handleAudioFileChange} accept="audio/*" />
+                      </TabsContent>
+                    </Tabs>
                   </div>
-                  <Button type="submit" className="w-full" disabled={createVideoMutation.isPending || !videoUrl || !audioFile}>
+                  <Button type="submit" className="w-full" disabled={createVideoMutation.isPending || !videoUrl || (!selectedAudioUrl && !audioFile)}>
                     {createVideoMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Film className="mr-2 h-4 w-4" />}
                     Tạo Video
                   </Button>
