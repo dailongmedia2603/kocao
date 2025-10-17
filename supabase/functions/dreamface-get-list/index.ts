@@ -25,66 +25,9 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Invalid or expired token.");
     logPayload.user_id = user.id;
 
-    const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.from("user_dreamface_api_keys").select("account_id, user_id_dreamface, token_id, client_id").eq("user_id", user.id).limit(1).single();
-    if (apiKeyError || !apiKeyData) throw new Error("Chưa có API Key Dreamface nào được cấu hình.");
-    const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
-
-    const videoListRes = await fetch(`${API_BASE_URL}/video-list?${new URLSearchParams(creds).toString()}`);
-    const videoListData = await videoListRes.json();
-    logPayload.response_body = videoListData;
-    if (!videoListRes.ok) {
-      const errorText = await videoListRes.text();
-      throw new Error(`Dreamface API Error (get-video-list): Status ${videoListRes.status}. Response: ${errorText}`);
-    }
-    
-    const dreamfaceTasks = videoListData?.data;
-    if (videoListData.success && Array.isArray(dreamfaceTasks)) {
-      const { data: ourTasks, error: ourTasksError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id);
-      if (ourTasksError) throw ourTasksError;
-
-      for (const task of ourTasks) {
-        const dfTask = dreamfaceTasks.find(dft => dft.animate_id === task.animate_id);
-        
-        if (task.status === 'processing' && !dfTask) {
-          await supabaseAdmin.from('dreamface_tasks').update({
-            status: 'failed',
-            error_message: 'Sync failed: Task not found in recent API list. It may be completed or errored.'
-          }).eq('id', task.id);
-          continue;
-        }
-
-        if (!dfTask) continue;
-
-        const updatePayload = {};
-
-        if (dfTask.web_work_status < 0 && task.status !== 'failed') {
-          updatePayload.status = 'failed';
-          updatePayload.error_message = `External API reported error status: ${dfTask.web_work_status}`;
-        }
-        // **THE FIX IS HERE: Don't update status to 'completed' here.**
-        // We only update other metadata like idpost and thumbnail.
-        if (dfTask.id && !task.idpost) updatePayload.idpost = dfTask.id;
-        if (dfTask.work_webp_path && !task.thumbnail_url) updatePayload.thumbnail_url = dfTask.work_webp_path;
-
-        if (Object.keys(updatePayload).length > 0) {
-          const { error } = await supabaseAdmin.from('dreamface_tasks').update(updatePayload).eq('id', task.id);
-          if (error) {
-            console.error(`Failed to update task ${task.id}:`, error.message);
-          }
-        }
-
-        // If the API says the task is done and we don't have a URL yet, try to get it.
-        if (dfTask.web_work_status === 200 && dfTask.id && !task.result_video_url) {
-          supabaseAdmin.functions.invoke('dreamface-get-download-url', {
-            body: JSON.stringify({ 
-              taskId: task.id,
-              idpost: dfTask.id, // Use the idpost we just got
-              userId: task.user_id
-            })
-          }).catch(err => console.error(`Error invoking get-download-url for task ${task.id}:`, err.message));
-        }
-      }
-    }
+    // This function now only serves to enrich data and trigger downloads.
+    // It no longer marks tasks as failed to prevent race conditions.
+    // The new `dreamface-sync-status` function will handle status updates.
 
     const { data: allTasks, error: allTasksError } = await supabaseAdmin.from('dreamface_tasks').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
     if (allTasksError) throw allTasksError;
@@ -97,6 +40,7 @@ serve(async (req) => {
     logPayload.status_code = 500;
     return new Response(JSON.stringify({ success: false, error: error.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } finally {
-    await supabaseAdmin.from('dreamface_logs').insert(logPayload);
+    // We still log the attempt to get the list
+    await supabaseAdmin.from('dreamface_logs').insert({ ...logPayload, action: 'get-list-ui-refresh' });
   }
 });
