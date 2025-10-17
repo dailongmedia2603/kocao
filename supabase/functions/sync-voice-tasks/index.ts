@@ -37,13 +37,13 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // **THE FIX IS HERE: Only fetch a small batch of tasks at a time**
+    // Fetch a smaller batch of tasks to reduce load and avoid rate limiting
     const { data: pendingTasks, error: fetchError } = await supabaseAdmin
       .from('voice_tasks')
       .select('id, user_id')
       .eq('status', 'doing')
       .order('created_at', { ascending: true }) // Process oldest tasks first
-      .limit(10); // Limit to 10 tasks per run to avoid rate limiting
+      .limit(5); // Limit to 5 tasks per run
 
     if (fetchError) {
       throw new Error(`Error fetching pending tasks: ${fetchError.message}`);
@@ -94,6 +94,9 @@ serve(async (req) => {
               successCount++;
             }
           }
+        } else {
+          // Handle cases where the API returns a success response but no actual data object.
+          throw new Error("API returned an empty or invalid data object for this task.");
         }
       } catch (syncError) {
         console.error(`Error syncing task ${task.id}:`, syncError.message);
