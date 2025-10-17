@@ -48,35 +48,31 @@ serve(async (req) => {
       throw new Error(responseData.message || JSON.stringify(responseData));
     }
 
-    // Stricter check for successful clone and data integrity
     if (responseData.success === true) {
-        const voiceData = responseData.data;
-        const newVoiceId = voiceData?.voice_id;
+        // THE FIX IS HERE: The API returns 'clone_voice_id', not 'voice_id' or 'data.voice_id'.
+        const newVoiceId = responseData.clone_voice_id;
 
         if (newVoiceId) {
-            // If we have a voice_id, proceed to save to our database
             const { error: insertError } = await supabaseAdmin
                 .from('cloned_voices')
                 .insert({
                     voice_id: newVoiceId,
                     user_id: user.id,
                     voice_name: voiceName,
-                    sample_audio: voiceData.sample_audio || null,
-                    cover_url: voiceData.cover_url || null,
+                    // These fields might not be in the initial response, so handle them gracefully.
+                    sample_audio: responseData.sample_audio || null,
+                    cover_url: responseData.cover_url || null,
                 });
             
             if (insertError) {
                 console.error("Failed to save cloned voice to DB:", insertError);
-                // Throw a specific, user-facing error if the database insert fails
                 throw new Error(`Lỗi lưu trữ giọng nói vào CSDL: ${insertError.message}. Vui lòng thử lại hoặc liên hệ hỗ trợ.`);
             }
         } else {
-            // The API reported success but didn't give us the essential voice_id. This is a critical failure.
-            console.error("Clone successful according to API, but no voice_id was returned. Response data:", JSON.stringify(voiceData));
+            console.error("Clone successful according to API, but no clone_voice_id was returned. Response data:", JSON.stringify(responseData));
             throw new Error("Clone thành công nhưng API không trả về ID giọng nói. Vui lòng kiểm tra lại sau hoặc liên hệ hỗ trợ.");
         }
     } else {
-        // The API reported failure (e.g., success: false)
         throw new Error(responseData.message || "API báo lỗi không thành công mà không có thông báo chi tiết.");
     }
 
