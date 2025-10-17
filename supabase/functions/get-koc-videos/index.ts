@@ -1,4 +1,4 @@
-/// <reference types="https://unpkg.com/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
+/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
@@ -30,13 +30,14 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'kocId is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Service role client to bypass RLS for internal check if needed, but we'll use user context for security
+    // A source file is any file that is NOT a generated file.
+    // This is more robust than assuming a '/source/' folder.
     const { data: files, error } = await supabaseClient
       .from('koc_files')
       .select('id, r2_key, display_name')
       .eq('koc_id', kocId)
-      .eq('user_id', user.id) // Ensure user can only access their own KOC's files
-      .like('r2_key', '%/source/%')
+      .eq('user_id', user.id)
+      .not('r2_key', 'like', '%/generated/%')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -45,7 +46,6 @@ serve(async (req) => {
 
     const r2PublicUrl = Deno.env.get('R2_PUBLIC_URL');
     if (!r2PublicUrl) {
-      // Fallback or error if the env var is not set
       console.error('R2_PUBLIC_URL environment variable is not set.');
       throw new Error('Server configuration error: R2 public URL is missing.');
     }
