@@ -32,7 +32,8 @@ serve(async (req) => {
     const apiKey = apiKeyData.api_key;
     
     const formData = await req.formData();
-    logPayload.request_payload = { voice_name: formData.get("voice_name"), preview_text: formData.get("preview_text"), language_tag: "Vietnamese" };
+    const voiceName = formData.get("voice_name") as string;
+    logPayload.request_payload = { voice_name: voiceName, preview_text: formData.get("preview_text"), language_tag: "Vietnamese" };
     formData.append("language_tag", "Vietnamese");
     
     const apiUrl = "https://gateway.vivoo.work/v1m/voice/clone";
@@ -44,6 +45,25 @@ serve(async (req) => {
     logPayload.response_body = responseData;
 
     if (!response.ok) throw new Error(responseData.message || JSON.stringify(responseData));
+
+    // If the clone was successful, save it to our database.
+    if (responseData.success === true && responseData.data?.voice_id) {
+        const { voice_id, sample_audio, cover_url } = responseData.data;
+        const { error: insertError } = await supabaseAdmin
+            .from('cloned_voices')
+            .insert({
+                voice_id: voice_id,
+                user_id: user.id,
+                voice_name: voiceName, // Use the name from the form for consistency
+                sample_audio: sample_audio,
+                cover_url: cover_url,
+            });
+        
+        if (insertError) {
+            // Log the error but don't fail the whole request, as the clone itself was successful.
+            console.error("Failed to save cloned voice to DB:", insertError);
+        }
+    }
 
     return new Response(JSON.stringify(responseData), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
