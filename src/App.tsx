@@ -13,6 +13,7 @@ import KocLayout from "./components/koc/KocLayout";
 import Reports from "./pages/Reports";
 import CreateVoicePage from "./pages/CreateVoice";
 import TaoContent from "./pages/TaoContent";
+import Automation from "./pages/Automation";
 import DreamfaceStudio from "./pages/DreamfaceStudio";
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/automation" element={<Automation />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/dreamface-studio" element={<DreamfaceStudio />} />
             </Route>
