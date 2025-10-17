@@ -19,6 +19,7 @@ import { KocVideoSelector } from "@/components/dreamface/KocVideoSelector";
 
 const DreamfaceStudio = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [selectedKocId, setSelectedKocId] = useState<string | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [isVideoPopupOpen, setVideoPopupOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
@@ -46,12 +47,13 @@ const DreamfaceStudio = () => {
 
   const createVideoMutation = useMutation({
     mutationFn: async () => {
-      if (!videoUrl || !audioFile) throw new Error("Vui lòng chọn video từ KOC và file audio.");
+      if (!videoUrl || !audioFile || !selectedKocId) throw new Error("Vui lòng chọn KOC, video nguồn và file audio.");
 
       const formData = new FormData();
       formData.append('action', 'create-video');
       formData.append('videoUrl', videoUrl);
       formData.append('audioFile', audioFile);
+      formData.append('kocId', selectedKocId);
       
       const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", { body: formData });
       if (error || data.error) throw new Error(error?.message || data.error);
@@ -62,6 +64,7 @@ const DreamfaceStudio = () => {
       queryClient.invalidateQueries({ queryKey: ['dreamface_tasks'] });
       setVideoUrl(null);
       setAudioFile(null);
+      setSelectedKocId(null);
       const form = document.getElementById('create-video-form') as HTMLFormElement;
       form?.reset();
     },
@@ -91,6 +94,11 @@ const DreamfaceStudio = () => {
   const handleViewVideo = (task: any) => {
     setSelectedTask(task);
     setVideoPopupOpen(true);
+  };
+
+  const handleSelectionChange = (selection: { videoUrl: string | null; kocId: string | null }) => {
+    setVideoUrl(selection.videoUrl);
+    setSelectedKocId(selection.kocId);
   };
 
   const getStatusBadge = (status: string) => {
@@ -135,7 +143,7 @@ const DreamfaceStudio = () => {
               </CardHeader>
               <CardContent>
                 <form id="create-video-form" onSubmit={handleCreateVideo} className="space-y-6">
-                  <KocVideoSelector onVideoSelect={setVideoUrl} selectedVideoUrl={videoUrl} />
+                  <KocVideoSelector onSelectionChange={handleSelectionChange} selectedVideoUrl={videoUrl} />
                   <div>
                     <label className="text-sm font-medium">3. Tải lên file âm thanh (.mp3, .wav)</label>
                     <Input className="mt-1" type="file" onChange={(e) => setAudioFile(e.target.files ? e.target.files[0] : null)} accept="audio/*" required />

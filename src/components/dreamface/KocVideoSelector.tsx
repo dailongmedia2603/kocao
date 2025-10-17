@@ -7,11 +7,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Video, CheckCircle } from 'lucide-react';
 
 interface KocVideoSelectorProps {
-  onVideoSelect: (url: string | null) => void;
+  onSelectionChange: (selection: { videoUrl: string | null; kocId: string | null }) => void;
   selectedVideoUrl: string | null;
 }
 
-export const KocVideoSelector = ({ onVideoSelect, selectedVideoUrl }: KocVideoSelectorProps) => {
+export const KocVideoSelector = ({ onSelectionChange, selectedVideoUrl }: KocVideoSelectorProps) => {
   const [selectedKocId, setSelectedKocId] = useState<string | null>(null);
 
   const { data: kocs, isLoading: isLoadingKocs } = useQuery({
@@ -39,7 +39,7 @@ export const KocVideoSelector = ({ onVideoSelect, selectedVideoUrl }: KocVideoSe
 
   const handleKocChange = (kocId: string) => {
     setSelectedKocId(kocId);
-    onVideoSelect(null);
+    onSelectionChange({ videoUrl: null, kocId });
   };
 
   return (
@@ -74,7 +74,7 @@ export const KocVideoSelector = ({ onVideoSelect, selectedVideoUrl }: KocVideoSe
               {videos.map((video: any) => (
                 <div
                   key={video.id}
-                  onClick={() => onVideoSelect(video.url)}
+                  onClick={() => onSelectionChange({ videoUrl: video.url, kocId: selectedKocId })}
                   className={`relative aspect-video rounded-md overflow-hidden cursor-pointer border-2 group ${selectedVideoUrl === video.url ? 'border-red-500' : 'border-transparent'}`}
                 >
                    <div className="absolute inset-0 bg-black bg-opacity-20 group-hover:bg-opacity-40 transition-all flex items-center justify-center">

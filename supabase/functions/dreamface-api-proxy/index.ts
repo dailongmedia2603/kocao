@@ -59,13 +59,14 @@ serve(async (req) => {
     const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
     const contentType = req.headers.get("content-type");
-    let action, body, audioFile, videoUrl;
+    let action, body, audioFile, videoUrl, kocId;
 
     if (contentType?.includes('multipart/form-data')) {
       const formData = await req.formData();
       action = formData.get('action');
       videoUrl = formData.get('videoUrl');
       audioFile = formData.get('audioFile');
+      kocId = formData.get('kocId');
       const formBody = {};
       for (const [key, value] of formData.entries()) {
         formBody[key] = typeof value === 'string' ? value : `[File: ${value.name}, Size: ${value.size}]`;
@@ -82,7 +83,7 @@ serve(async (req) => {
 
     switch (action) {
       case 'create-video': {
-        if (!videoUrl || !audioFile) throw new Error("create-video action requires videoUrl and audioFile.");
+        if (!videoUrl || !audioFile || !kocId) throw new Error("create-video action requires videoUrl, audioFile, and kocId.");
         
         const videoResponse = await fetch(videoUrl);
         if (!videoResponse.ok) throw new Error(`Failed to fetch video from URL: ${videoUrl}`);
@@ -93,7 +94,7 @@ serve(async (req) => {
         const originalAudioUrl = await uploadToR2AndGetUrl(audioFile, 'audio', user.id);
         const originalVideoUrl = videoUrl;
 
-        const { data: tempTask, error: insertError } = await supabaseAdmin.from('dreamface_tasks').insert({ user_id: user.id, title: fetchedVideoFile.name, status: 'processing', original_video_url: originalVideoUrl, original_audio_url: originalAudioUrl }).select().single();
+        const { data: tempTask, error: insertError } = await supabaseAdmin.from('dreamface_tasks').insert({ user_id: user.id, title: fetchedVideoFile.name, status: 'processing', original_video_url: originalVideoUrl, original_audio_url: originalAudioUrl, koc_id: kocId }).select().single();
         if (insertError) throw new Error(`Lỗi tạo task tạm: ${insertError.message}`);
         logPayload.dreamface_task_id = tempTask.id;
         try {
