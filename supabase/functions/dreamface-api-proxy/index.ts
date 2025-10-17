@@ -76,7 +76,7 @@ serve(async (req) => {
         const { data: newTask, error: insertError } = await supabaseAdmin.from('dreamface_tasks').insert({ 
             user_id: user.id, 
             title: videoFileName, 
-            status: 'pending', // Set status to pending for the queue processor
+            status: 'pending',
             original_video_url: videoUrl, 
             original_audio_url: originalAudioUrl, 
             koc_id: kocId 
@@ -86,6 +86,27 @@ serve(async (req) => {
         
         logPayload.dreamface_task_id = newTask.id;
         responseData = { success: true, message: "Task queued successfully." };
+        break;
+      }
+      case 'create-video-from-url': {
+        const { videoUrl, audioUrl, kocId } = body;
+        if (!videoUrl || !audioUrl || !kocId) throw new Error("create-video-from-url action requires videoUrl, audioUrl, and kocId.");
+
+        const videoFileName = videoUrl.split('/').pop()?.split('?')[0] || 'video.mp4';
+
+        const { data: newTask, error: insertError } = await supabaseAdmin.from('dreamface_tasks').insert({
+            user_id: user.id,
+            title: videoFileName,
+            status: 'pending',
+            original_video_url: videoUrl,
+            original_audio_url: audioUrl,
+            koc_id: kocId
+        }).select().single();
+
+        if (insertError) throw new Error(`Lỗi tạo task: ${insertError.message}`);
+
+        logPayload.dreamface_task_id = newTask.id;
+        responseData = { success: true, message: "Task queued successfully from URL." };
         break;
       }
       default: throw new Error(`Hành động không hợp lệ: ${action}`);
