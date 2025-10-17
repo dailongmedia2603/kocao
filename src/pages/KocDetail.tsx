@@ -77,6 +77,12 @@ type VoiceTask = {
   audio_url: string | null;
 };
 
+type DreamfaceTask = {
+  id: string;
+  thumbnail_url: string | null;
+  result_video_url: string | null;
+};
+
 // Data fetching
 const fetchKocDetails = async (kocId: string) => {
   const { data, error } = await supabase
@@ -183,6 +189,38 @@ const KocDetail = () => {
     queryFn: () => fetchVideoScripts(kocId!),
     enabled: !!kocId,
   });
+
+  const { data: dreamfaceTasks } = useQuery<DreamfaceTask[]>({
+    queryKey: ['dreamface_tasks_for_koc', kocId],
+    queryFn: async () => {
+        if (!kocId) return [];
+        const { data, error } = await supabase
+            .from('dreamface_tasks')
+            .select('id, thumbnail_url, result_video_url')
+            .eq('koc_id', kocId)
+            .eq('is_archived', true);
+        if (error) throw error;
+        return data;
+    },
+    enabled: !!kocId,
+  });
+
+  const dreamfaceThumbnailsMap = useMemo(() => {
+    if (!dreamfaceTasks) return new Map<string, string>();
+    const map = new Map<string, string>();
+    dreamfaceTasks.forEach(task => {
+        if (task.result_video_url && task.thumbnail_url) {
+            try {
+                const url = new URL(task.result_video_url);
+                const r2Key = url.pathname.substring(1);
+                map.set(r2Key, task.thumbnail_url);
+            } catch (e) {
+                console.error("Invalid URL in dreamface_tasks:", task.result_video_url);
+            }
+        }
+    });
+    return map;
+  }, [dreamfaceTasks]);
 
   const voiceTaskIds = useMemo(() => 
     videoScripts
@@ -371,7 +409,7 @@ const KocDetail = () => {
                     <Button variant="outline" onClick={() => setUploadOpen(true)} disabled={!koc?.folder_path}><UploadCloud className="mr-2 h-4 w-4" /> Tải lên tệp</Button>
                   </div>
                 </div>
-                {areFilesLoading ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}</div>) : isError ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{filesError.message}</AlertDescription></Alert>) : generatedFiles && generatedFiles.length > 0 ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{generatedFiles.map((file) => { const { Icon, bgColor, iconColor, type } = getFileTypeDetails(file.display_name); const isSelected = selectedFileIds.includes(file.id); return (<Card key={file.id} className="overflow-hidden group relative"><Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`absolute top-2 left-2 z-10 h-5 w-5 bg-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} /><CardContent className="p-0"><div className="aspect-video flex items-center justify-center relative cursor-pointer" onClick={() => handleFileClick(file)}><div className={`w-full h-full flex items-center justify-center ${bgColor}`}><Icon className={`h-12 w-12 ${iconColor}`} /></div>{type === 'video' && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><PlayCircle className="h-16 w-16 text-white" /></div>}<Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4" /></Button></div><div className="p-3 space-y-1"><EditableFileName fileId={file.id} initialName={file.display_name} queryKey={filesQueryKey} />{file.created_at && <p className="text-xs text-muted-foreground">{format(new Date(file.created_at), "dd/MM/yyyy")}</p>}</div></CardContent></Card>); })}</div>) : (<Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Film className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có tệp nào</h3><p className="mt-1 text-sm">Bấm "Tải lên tệp" để thêm tệp đầu tiên của bạn.</p></div></CardContent></Card>)}
+                {areFilesLoading ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}</div>) : isError ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{filesError.message}</AlertDescription></Alert>) : generatedFiles && generatedFiles.length > 0 ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{generatedFiles.map((file) => { const { Icon, bgColor, iconColor, type } = getFileTypeDetails(file.display_name); const isSelected = selectedFileIds.includes(file.id); const thumbnailUrl = dreamfaceThumbnailsMap.get(file.r2_key); return (<Card key={file.id} className="overflow-hidden group relative"><Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`absolute top-2 left-2 z-10 h-5 w-5 bg-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} /><CardContent className="p-0"><div className="aspect-video flex items-center justify-center relative cursor-pointer bg-muted" onClick={() => handleFileClick(file)}>{thumbnailUrl ? (<img src={thumbnailUrl} alt={file.display_name} className="w-full h-full object-cover" />) : (<div className={`w-full h-full flex items-center justify-center ${bgColor}`}><Icon className={`h-12 w-12 ${iconColor}`} /></div>)}{type === 'video' && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><PlayCircle className="h-16 w-16 text-white" /></div>}<Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4" /></Button></div><div className="p-3 space-y-1"><EditableFileName fileId={file.id} initialName={file.display_name} queryKey={filesQueryKey} />{file.created_at && <p className="text-xs text-muted-foreground">{format(new Date(file.created_at), "dd/MM/yyyy")}</p>}</div></CardContent></Card>); })}</div>) : (<Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Film className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có tệp nào</h3><p className="mt-1 text-sm">Bấm "Tải lên tệp" để thêm tệp đầu tiên của bạn.</p></div></CardContent></Card>)}
               </TabsContent>
               <TabsContent value="sources" className="mt-6">
                 <div className="flex justify-between items-center mb-4">
