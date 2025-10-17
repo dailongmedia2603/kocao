@@ -52,8 +52,13 @@ serve(async (req) => {
     logPayload.status_code = downloadRes.status;
 
     if (downloadData.success === true && typeof downloadData.data === 'string' && downloadData.data.startsWith('http')) {
-      // **THE FIX IS HERE: Only update status to 'completed' AFTER getting the URL.**
-      await supabaseAdmin.from('dreamface_tasks').update({ result_video_url: downloadData.data, status: 'completed' }).eq('id', taskId);
+      // **BỔ SUNG LOGIC TẠI ĐÂY**
+      // Khi lấy được link tạm, cập nhật CSDL và đánh dấu is_archived = false
+      await supabaseAdmin.from('dreamface_tasks').update({ 
+        result_video_url: downloadData.data, 
+        status: 'completed',
+        is_archived: false // Đánh dấu là chưa được lưu trữ
+      }).eq('id', taskId);
     } else if (downloadData.code === 1 || (downloadData.success === true && !downloadData.data)) {
       logPayload.status_code = 202;
       logPayload.error_message = "Task is still processing. API did not provide a video URL yet. Will retry.";
