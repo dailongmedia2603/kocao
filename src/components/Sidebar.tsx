@@ -13,11 +13,10 @@ import {
 
 const menuItems = [
   {
-    label: "Dự án",
+    label: "Dashboard",
     icon: LayoutDashboard,
     to: "/",
   },
-  { label: "Extensions", icon: Plug, to: "/extensions" },
   { label: "KOCs Manager", icon: Video, to: "/list-koc" },
   { label: "Automation", icon: Bot, to: "/automation" },
   { label: "Dreamface Studio", icon: Film, to: "/dreamface-studio" },

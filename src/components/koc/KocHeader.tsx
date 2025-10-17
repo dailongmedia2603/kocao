@@ -49,16 +49,6 @@ const KocHeader = () => {
             </>
           )}
         </NavLink>
-        <NavLink to="/projects" className={navLinkClasses}>
-          {({ isActive }) => (
-            <>
-              <div className={iconContainerClasses(isActive)}>
-                <Video className="h-4 w-4" />
-              </div>
-              <span className="ml-2">Tạo Video</span>
-            </>
-          )}
-        </NavLink>
         <NavLink to="/create-voice" className={navLinkClasses}>
           {({ isActive }) => (
             <>
