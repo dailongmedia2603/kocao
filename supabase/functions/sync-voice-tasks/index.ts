@@ -14,9 +14,8 @@ const callVoiceApi = async (supabaseAdmin, { path, method, body = {}, userId }) 
   });
 
   if (error) {
-    // Try to get the specific error message from the response data if it exists
     const errorMessage = data?.error || error.message;
-    throw new Error(errorMessage); // Throw a cleaner error message
+    throw new Error(errorMessage);
   }
 
   if (data.success === false) {
@@ -37,13 +36,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fetch a smaller batch of tasks to reduce load and avoid rate limiting
     const { data: pendingTasks, error: fetchError } = await supabaseAdmin
       .from('voice_tasks')
       .select('id, user_id')
       .eq('status', 'doing')
-      .order('created_at', { ascending: true }) // Process oldest tasks first
-      .limit(5); // Limit to 5 tasks per run
+      .order('created_at', { ascending: true })
+      .limit(5);
 
     if (fetchError) {
       throw new Error(`Error fetching pending tasks: ${fetchError.message}`);
@@ -69,8 +67,11 @@ serve(async (req) => {
           userId: task.user_id,
         });
         
-        if (apiTaskDetails && apiTaskDetails.data) {
-          const { status, error_message, metadata } = apiTaskDetails.data;
+        // THE FIX IS HERE: Check for data at the top level OR nested in a 'data' property.
+        const taskData = apiTaskDetails.data || apiTaskDetails;
+
+        if (taskData && taskData.status) {
+          const { status, error_message, metadata } = taskData;
           
           if (status !== 'doing') {
             const updatePayload = {
@@ -95,14 +96,12 @@ serve(async (req) => {
             }
           }
         } else {
-          // Handle cases where the API returns a success response but no actual data object.
           throw new Error("API returned an empty or invalid data object for this task.");
         }
       } catch (syncError) {
         console.error(`Error syncing task ${task.id}:`, syncError.message);
         errorCount++;
         
-        // Mark the task as failed in the database so it doesn't get picked up again
         const { error: updateError } = await supabaseAdmin
           .from('voice_tasks')
           .update({
