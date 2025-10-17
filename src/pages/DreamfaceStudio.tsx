@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { showSuccess, showError } from "@/utils/toast";
-import { Film, Clapperboard, AlertCircle, Download, Loader2, RefreshCw, Trash2, Eye, History } from "lucide-react";
+import { Film, Clapperboard, AlertCircle, Download, Loader2, RefreshCw, Trash2, Eye, History, Library } from "lucide-react";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { VideoPopup } from "@/components/dreamface/VideoPopup";
@@ -111,9 +111,21 @@ const DreamfaceStudio = () => {
         </header>
 
         <Tabs defaultValue="library" className="w-full">
-          <TabsList>
-            <TabsTrigger value="library">Thư viện</TabsTrigger>
-            <TabsTrigger value="create">Tạo Video Mới</TabsTrigger>
+          <TabsList className="h-auto justify-start gap-1 rounded-none border-b bg-transparent p-0">
+            <TabsTrigger
+              value="library"
+              className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 border-transparent bg-gray-100 px-6 py-4 text-base font-semibold text-gray-600 ring-offset-background transition-all hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-red-500 data-[state=active]:bg-red-50 data-[state=active]:text-red-600"
+            >
+              <Library className="h-5 w-5 text-gray-500 group-data-[state=active]:text-red-600" />
+              Thư viện
+            </TabsTrigger>
+            <TabsTrigger
+              value="create"
+              className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 border-transparent bg-gray-100 px-6 py-4 text-base font-semibold text-gray-600 ring-offset-background transition-all hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-red-500 data-[state=active]:bg-red-50 data-[state=active]:text-red-600"
+            >
+              <Clapperboard className="h-5 w-5 text-gray-500 group-data-[state=active]:text-red-600" />
+              Tạo Video Mới
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="create" className="mt-6">
             <Card>
