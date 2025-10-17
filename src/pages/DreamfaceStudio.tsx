@@ -9,17 +9,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { showSuccess, showError } from "@/utils/toast";
-import { Film, Clapperboard, AlertCircle, Download, Loader2, RefreshCw, Trash2, Eye, History, Library, Clock } from "lucide-react";
+import { Film, Clapperboard, AlertCircle, Download, Loader2, RefreshCw, Trash2, Eye, History, Library } from "lucide-react";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { VideoPopup } from "@/components/dreamface/VideoPopup";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DreamfaceLogDialog } from "@/components/dreamface/DreamfaceLogDialog";
-import { KocVideoSelector } from "@/components/dreamface/KocVideoSelector";
 
 const DreamfaceStudio = () => {
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [selectedKocId, setSelectedKocId] = useState<string | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [isVideoPopupOpen, setVideoPopupOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any | null>(null);
@@ -36,36 +34,34 @@ const DreamfaceStudio = () => {
     },
     refetchInterval: query => {
       const data = query.state.data as any[];
+      // Tiếp tục làm mới nếu có task đang xử lý, HOẶC có task đã hoàn thành nhưng chưa có link video
       const shouldRefetch = data?.some(task => 
         task.status === 'processing' || 
-        task.status === 'pending' ||
         (task.status === 'completed' && !task.result_video_url)
       );
-      return shouldRefetch ? 15000 : false; // Check every 15 seconds
+      // **THE FIX IS HERE: Change refetch interval to 60 seconds (1 minute)**
+      return shouldRefetch ? 60000 : false;
     },
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   const createVideoMutation = useMutation({
     mutationFn: async () => {
-      if (!videoUrl || !audioFile || !selectedKocId) throw new Error("Vui lòng chọn KOC, video nguồn và file audio.");
-
+      if (!videoFile || !audioFile) throw new Error("Vui lòng chọn cả file video và audio.");
       const formData = new FormData();
       formData.append('action', 'create-video');
-      formData.append('videoUrl', videoUrl);
+      formData.append('videoFile', videoFile);
       formData.append('audioFile', audioFile);
-      formData.append('kocId', selectedKocId);
       
       const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", { body: formData });
       if (error || data.error) throw new Error(error?.message || data.error);
       return data;
     },
     onSuccess: () => {
-      showSuccess("Yêu cầu đã được tiếp nhận! Video đang được xử lý trong nền.");
+      showSuccess("Yêu cầu tạo video đã được gửi! Video sẽ sớm xuất hiện trong danh sách.");
       queryClient.invalidateQueries({ queryKey: ['dreamface_tasks'] });
-      setVideoUrl(null);
+      setVideoFile(null);
       setAudioFile(null);
-      setSelectedKocId(null);
       const form = document.getElementById('create-video-form') as HTMLFormElement;
       form?.reset();
     },
@@ -97,16 +93,10 @@ const DreamfaceStudio = () => {
     setVideoPopupOpen(true);
   };
 
-  const handleSelectionChange = (selection: { videoUrl: string | null; kocId: string | null }) => {
-    setVideoUrl(selection.videoUrl);
-    setSelectedKocId(selection.kocId);
-  };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed': return <Badge className="bg-green-100 text-green-800">Hoàn thành</Badge>;
       case 'processing': return <Badge variant="outline" className="text-blue-800 border-blue-200"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Đang xử lý</Badge>;
-      case 'pending': return <Badge variant="outline" className="text-yellow-800 border-yellow-200"><Clock className="mr-1 h-3 w-3" />Đang chờ</Badge>;
       case 'failed': return <Badge variant="destructive">Thất bại</Badge>;
       default: return <Badge variant="secondary">{status}</Badge>;
     }
@@ -141,16 +131,19 @@ const DreamfaceStudio = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Tạo video từ video mẫu và âm thanh</CardTitle>
-                <CardDescription>Chọn KOC và video nguồn, sau đó tải lên file âm thanh để tạo video mới.</CardDescription>
+                <CardDescription>Tải lên video mẫu và file âm thanh để tạo video mới.</CardDescription>
               </CardHeader>
               <CardContent>
-                <form id="create-video-form" onSubmit={handleCreateVideo} className="space-y-6">
-                  <KocVideoSelector onSelectionChange={handleSelectionChange} selectedVideoUrl={videoUrl} />
+                <form id="create-video-form" onSubmit={handleCreateVideo} className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium">3. Tải lên file âm thanh (.mp3, .wav)</label>
-                    <Input className="mt-1" type="file" onChange={(e) => setAudioFile(e.target.files ? e.target.files[0] : null)} accept="audio/*" required />
+                    <label className="text-sm font-medium">File video mẫu (.mp4)</label>
+                    <Input type="file" onChange={(e) => setVideoFile(e.target.files ? e.target.files[0] : null)} accept="video/mp4" required />
                   </div>
-                  <Button type="submit" className="w-full" disabled={createVideoMutation.isPending || !videoUrl || !audioFile}>
+                  <div>
+                    <label className="text-sm font-medium">File âm thanh (.mp3, .wav)</label>
+                    <Input type="file" onChange={(e) => setAudioFile(e.target.files ? e.target.files[0] : null)} accept="audio/*" required />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={createVideoMutation.isPending}>
                     {createVideoMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Film className="mr-2 h-4 w-4" />}
                     Tạo Video
                   </Button>
