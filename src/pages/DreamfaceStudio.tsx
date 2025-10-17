@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { showSuccess, showError } from "@/utils/toast";
-import { Film, Clapperboard, AlertCircle, Download, Loader2, RefreshCw, Trash2, Eye, History, Library } from "lucide-react";
+import { Film, Clapperboard, AlertCircle, Download, Loader2, RefreshCw, Trash2, Eye, History, Library, Clock } from "lucide-react";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { VideoPopup } from "@/components/dreamface/VideoPopup";
@@ -38,11 +38,12 @@ const DreamfaceStudio = () => {
       const data = query.state.data as any[];
       const shouldRefetch = data?.some(task => 
         task.status === 'processing' || 
+        task.status === 'pending' ||
         (task.status === 'completed' && !task.result_video_url)
       );
-      return shouldRefetch ? 60000 : false;
+      return shouldRefetch ? 15000 : false; // Check every 15 seconds
     },
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
 
   const createVideoMutation = useMutation({
@@ -60,7 +61,7 @@ const DreamfaceStudio = () => {
       return data;
     },
     onSuccess: () => {
-      showSuccess("Yêu cầu tạo video đã được gửi! Video sẽ sớm xuất hiện trong danh sách.");
+      showSuccess("Yêu cầu đã được tiếp nhận! Video đang được xử lý trong nền.");
       queryClient.invalidateQueries({ queryKey: ['dreamface_tasks'] });
       setVideoUrl(null);
       setAudioFile(null);
@@ -105,6 +106,7 @@ const DreamfaceStudio = () => {
     switch (status) {
       case 'completed': return <Badge className="bg-green-100 text-green-800">Hoàn thành</Badge>;
       case 'processing': return <Badge variant="outline" className="text-blue-800 border-blue-200"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Đang xử lý</Badge>;
+      case 'pending': return <Badge variant="outline" className="text-yellow-800 border-yellow-200"><Clock className="mr-1 h-3 w-3" />Đang chờ</Badge>;
       case 'failed': return <Badge variant="destructive">Thất bại</Badge>;
       default: return <Badge variant="secondary">{status}</Badge>;
     }
