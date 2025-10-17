@@ -25,11 +25,11 @@ serve(async (req) => {
     // 1. Fetch original task data
     const { data: oldTask, error: oldTaskError } = await supabaseAdmin
       .from('voice_tasks')
-      .select('user_id, voice_name')
+      .select('user_id, voice_name, cloned_voice_id, cloned_voice_name')
       .eq('id', oldTaskId)
       .single();
     if (oldTaskError) throw new Error(`Failed to find original task: ${oldTaskError.message}`);
-    const { user_id, voice_name } = oldTask;
+    const { user_id, voice_name, cloned_voice_id, cloned_voice_name } = oldTask;
 
     // 2. Fetch original request payload from logs
     const { data: logData, error: logError } = await supabaseAdmin
@@ -86,7 +86,9 @@ serve(async (req) => {
       user_id: user_id, 
       voice_name: voice_name, 
       status: 'doing', 
-      task_type: 'minimax_tts' 
+      task_type: 'minimax_tts',
+      cloned_voice_id: cloned_voice_id,
+      cloned_voice_name: cloned_voice_name
     });
     if (insertError) throw new Error(`Failed to insert new task record: ${insertError.message}`);
 

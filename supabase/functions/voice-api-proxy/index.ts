@@ -57,6 +57,7 @@ serve(async (req) => {
     }
 
     const voice_name = body?.voice_name;
+    const cloned_voice_id = body?.voice_setting?.voice_id;
     const { voice_name: _removed, ...apiBody } = body || {};
 
     const apiUrl = `https://gateway.vivoo.work/${path}`;
@@ -69,20 +70,33 @@ serve(async (req) => {
     const apiResponse = await fetch(apiUrl, fetchOptions);
     const responseData = await apiResponse.json();
 
-    // Ghi log cho tất cả các yêu cầu TTS
     if (path === "v1m/task/text-to-speech" && method === "POST") {
       const taskId = responseData?.task_id;
       const logPayload = { user_id: userId, task_id: taskId || null, request_payload: body, response_body: responseData, status_code: apiResponse.status };
       await supabaseAdmin.from("tts_logs").insert(logPayload);
 
-      // **THE FIX IS HERE: Insert into the new table with the correct data**
       if (taskId && apiResponse.ok) {
+        let cloned_voice_name = 'Không rõ';
+        if (cloned_voice_id) {
+            const { data: voiceData } = await supabaseAdmin
+                .from('cloned_voices')
+                .select('voice_name')
+                .eq('voice_id', cloned_voice_id)
+                .eq('user_id', userId)
+                .single();
+            if (voiceData) {
+                cloned_voice_name = voiceData.voice_name;
+            }
+        }
+
         await supabaseAdmin.from("voice_tasks").insert({ 
-          id: taskId, // Use the real task_id from the API
+          id: taskId,
           user_id: userId, 
           voice_name: voice_name, 
           status: 'doing', 
-          task_type: 'minimax_tts' 
+          task_type: 'minimax_tts',
+          cloned_voice_id: cloned_voice_id,
+          cloned_voice_name: cloned_voice_name
         });
       }
     }
@@ -92,10 +106,8 @@ serve(async (req) => {
       throw new Error(errorMessage);
     }
 
-    // Luôn trả về success: true nếu không có lỗi
     return new Response(JSON.stringify({ success: true, ...responseData }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
-    // Bắt lỗi và trả về 200 OK với success: false
     return new Response(JSON.stringify({ success: false, error: err.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
