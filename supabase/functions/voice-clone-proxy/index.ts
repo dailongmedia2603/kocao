@@ -48,20 +48,21 @@ serve(async (req) => {
 
     // If the clone was successful, save it to our database.
     if (responseData.success === true && responseData.data?.voice_id) {
-        const { voice_id, sample_audio, cover_url } = responseData.data;
+        const voiceData = responseData.data;
         const { error: insertError } = await supabaseAdmin
             .from('cloned_voices')
             .insert({
-                voice_id: voice_id,
+                voice_id: voiceData.voice_id,
                 user_id: user.id,
-                voice_name: voiceName, // Use the name from the form for consistency
-                sample_audio: sample_audio,
-                cover_url: cover_url,
+                voice_name: voiceName,
+                sample_audio: voiceData.sample_audio || null,
+                cover_url: voiceData.cover_url || null,
             });
         
         if (insertError) {
-            // Log the error but don't fail the whole request, as the clone itself was successful.
             console.error("Failed to save cloned voice to DB:", insertError);
+            // IMPORTANT: Throw the error so the user is notified of the failure.
+            throw new Error(`Lỗi lưu trữ giọng nói vào CSDL: ${insertError.message}. Vui lòng thử lại hoặc liên hệ hỗ trợ.`);
         }
     }
 
