@@ -14,7 +14,6 @@ import { showError, showSuccess } from "@/utils/toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const LogViewer = ({ taskId }: { taskId: string }) => {
   const { data: log, isLoading, isError, error } = useQuery({
@@ -174,7 +173,17 @@ export const TaskList = () => {
             <Accordion type="multiple" className="w-full space-y-3 max-h-[600px] overflow-y-auto pr-2">
               {Object.entries(groupedTasks).map(([voiceName, taskGroup]) => (
                 <AccordionItem key={voiceName} value={voiceName} className="border rounded-lg bg-background/50">
-                  <AccordionTrigger className="p-4 hover:no-underline"><div className="flex items-center justify-between w-full"><div className="flex items-center gap-3"><Avatar className="h-8 w-8 bg-muted"><AvatarFallback className="font-semibold">{voiceName.charAt(0)}</AvatarFallback></Avatar><span className="font-semibold">{voiceName}</span></div><Badge variant="secondary">{taskGroup.length} task</Badge></div></AccordionTrigger>
+                  <AccordionTrigger className="p-4 hover:no-underline">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-purple-100 text-purple-600">
+                          <Mic className="h-5 w-5" />
+                        </div>
+                        <span className="font-semibold">{voiceName}</span>
+                      </div>
+                      <Badge variant="secondary">{taskGroup.length} task</Badge>
+                    </div>
+                  </AccordionTrigger>
                   <AccordionContent className="p-4 pt-0"><div className="space-y-3 border-t pt-4">{taskGroup.map((task) => (<TaskItem key={task.id} task={task} onSelect={handleSelectTask} isSelected={selectedTaskIds.includes(task.id)} onDelete={(id) => handleDelete([id])} onLogView={(id) => setLogTaskId(id)} onRetry={(id) => retryTaskMutation.mutate(id)} />))}</div></AccordionContent>
                 </AccordionItem>
               ))}
