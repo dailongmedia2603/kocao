@@ -73,17 +73,30 @@ const DreamfaceStudio = () => {
 
   const deleteTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
-      const { data, error } = await supabase.functions.invoke("dreamface-api-proxy", {
-        body: { action: 'delete-task', body: { taskId } }
+      const { data, error } = await supabase.functions.invoke("dreamface-delete-task", {
+        body: { taskId }
       });
       if (error || data.error) throw new Error(error?.message || data.error);
     },
-    onSuccess: () => {
-      showSuccess("Xóa tác vụ thành công!");
-      queryClient.invalidateQueries({ queryKey: ['dreamface_tasks'] });
+    onMutate: async (taskIdToDelete: string) => {
+      await queryClient.cancelQueries({ queryKey: ['dreamface_tasks'] });
+      const previousTasks = queryClient.getQueryData(['dreamface_tasks']);
+      queryClient.setQueryData(['dreamface_tasks'], (old: any[] | undefined) =>
+        old ? old.filter(task => task.id !== taskIdToDelete) : []
+      );
       setTaskToDelete(null);
+      showSuccess("Đã bắt đầu xóa tác vụ!");
+      return { previousTasks };
     },
-    onError: (error: Error) => showError(`Lỗi: ${error.message}`),
+    onError: (err: Error, taskId, context: any) => {
+      if (context?.previousTasks) {
+        queryClient.setQueryData(['dreamface_tasks'], context.previousTasks);
+      }
+      showError(`Lỗi xóa tác vụ: ${err.message}`);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['dreamface_tasks'] });
+    },
   });
 
   const handleCreateVideo = (e: React.FormEvent) => {

@@ -88,15 +88,6 @@ serve(async (req) => {
         responseData = { success: true, message: "Task queued successfully." };
         break;
       }
-      case 'delete-task': {
-        const { taskId } = body.body;
-        if (!taskId) throw new Error("Task ID is required.");
-        logPayload.dreamface_task_id = taskId;
-        const { error } = await supabaseAdmin.from('dreamface_tasks').delete().eq('id', taskId).eq('user_id', user.id);
-        if (error) throw error;
-        responseData = { success: true, message: "Task deleted." };
-        break;
-      }
       default: throw new Error(`Hành động không hợp lệ: ${action}`);
     }
     logPayload.response_body = logPayload.response_body || responseData;
