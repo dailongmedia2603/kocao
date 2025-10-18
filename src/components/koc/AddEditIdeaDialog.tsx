@@ -110,19 +110,21 @@ export const AddEditIdeaDialog = ({ isOpen, onOpenChange, kocId, idea }: AddEdit
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="new_content"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Content mới (Tùy chọn)</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Nhập nội dung chi tiết đã phát triển từ idea..." className="min-h-[120px]" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {idea && (
+              <FormField
+                control={form.control}
+                name="new_content"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Content mới (Tùy chọn)</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Nhập nội dung chi tiết đã phát triển từ idea..." className="min-h-[120px]" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
               <Button type="submit" disabled={upsertMutation.isPending}>
