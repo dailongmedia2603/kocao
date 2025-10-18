@@ -164,7 +164,6 @@ const KocDetail = () => {
   const [isPlayerOpen, setPlayerOpen] = useState(false);
   const [isUploadOpen, setUploadOpen] = useState(false);
   const [isSourceVideoUploadOpen, setSourceVideoUploadOpen] = useState(false);
-  const [isSourceAudioUploadOpen, setSourceAudioUploadOpen] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
   const [selectedScript, setSelectedScript] = useState<VideoScript | null>(null);
   const [isViewScriptOpen, setIsViewScriptOpen] = useState(false);
@@ -254,7 +253,6 @@ const KocDetail = () => {
 
   const generatedFiles = useMemo(() => files?.filter(file => file.r2_key.includes('/generated/')) || [], [files]);
   const sourceVideos = useMemo(() => files?.filter(file => file.r2_key.includes('/sources/videos/')) || [], [files]);
-  const sourceAudios = useMemo(() => files?.filter(file => file.r2_key.includes('/sources/audios/')) || [], [files]);
 
   const deleteFilesMutation = useMutation({
     mutationFn: async (fileIds: string[]) => {
@@ -383,7 +381,7 @@ const KocDetail = () => {
                   <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Clapperboard className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Video đã tạo</span></div>
                 </TabsTrigger>
                 <TabsTrigger value="sources" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
-                  <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><FileArchive className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Nguồn Video/Audio</span></div>
+                  <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><FileArchive className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Nguồn Video</span></div>
                 </TabsTrigger>
                 <TabsTrigger value="auto-scripts" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
                   <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Bot className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Kịch bản tự động</span></div>
@@ -416,7 +414,7 @@ const KocDetail = () => {
                     <h3 className="text-xl font-semibold">Quản lý tệp nguồn</h3>
                     {selectedFileIds.length > 0 && <Button variant="destructive" onClick={handleBulkDelete}><Trash2 className="mr-2 h-4 w-4" /> Xóa ({selectedFileIds.length})</Button>}
                 </div>
-                <Accordion type="multiple" className="w-full space-y-4">
+                <Accordion type="single" defaultValue="videos" className="w-full space-y-4">
                   <AccordionItem value="videos" className="border-none">
                     <AccordionTrigger className="bg-white p-4 rounded-lg border hover:no-underline data-[state=open]:rounded-b-none">
                         <div className="flex items-center justify-between w-full">
@@ -447,38 +445,6 @@ const KocDetail = () => {
                                 )})}
                             </div>
                         ) : (<p className="text-sm text-muted-foreground text-center py-4">Chưa có video nguồn nào.</p>)}
-                    </AccordionContent>
-                  </AccordionItem>
-                  <AccordionItem value="audios" className="border-none">
-                    <AccordionTrigger className="bg-white p-4 rounded-lg border hover:no-underline data-[state=open]:rounded-b-none">
-                        <div className="flex items-center justify-between w-full">
-                            <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-600 text-white"><Music className="h-5 w-5" /></div><h4 className="font-semibold text-lg">Nguồn Audio</h4></div>
-                            <div className="flex items-center gap-2">
-                              <Badge className="bg-red-50 text-red-700">{sourceAudios.length} audios</Badge>
-                              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setSourceAudioUploadOpen(true); }} disabled={!koc?.folder_path}><Plus className="mr-2 h-4 w-4" /> Thêm audio</Button>
-                            </div>
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pt-4 p-4 border border-t-0 rounded-b-lg bg-white">
-                        {areFilesLoading ? <Skeleton className="h-20 w-full" /> : sourceAudios.length > 0 ? (
-                            <div className="space-y-3">
-                                {sourceAudios.map(file => { const isSelected = selectedFileIds.includes(file.id); return (
-                                    <div key={file.id} className="group flex items-center justify-between p-3 rounded-md border bg-gray-50/50 hover:bg-gray-100 transition-colors">
-                                        <div className="flex items-center gap-4 flex-grow min-w-0 cursor-pointer" onClick={() => handleFileClick(file)}>
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-purple-100 text-purple-600 flex-shrink-0"><Music className="h-5 w-5" /></div>
-                                            <div className="min-w-0">
-                                                <p className="font-semibold text-sm truncate" title={file.display_name}>{file.display_name}</p>
-                                                {file.created_at && <p className="text-xs text-muted-foreground">Tải lên: {format(new Date(file.created_at), "dd/MM/yyyy")}</p>}
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2 pl-2">
-                                            <Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
-                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                        </div>
-                                    </div>
-                                )})}
-                            </div>
-                        ) : (<p className="text-sm text-muted-foreground text-center py-4">Chưa có audio nguồn nào.</p>)}
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
@@ -660,7 +626,6 @@ const KocDetail = () => {
       <VideoPlayerDialog isOpen={isPlayerOpen} onOpenChange={setPlayerOpen} videoUrl={selectedFile?.url} videoName={selectedFile?.display_name} />
       {koc && koc.folder_path && (<UploadVideoDialog isOpen={isUploadOpen} onOpenChange={setUploadOpen} folderPath={`${koc.folder_path}/generated`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} />)}
       {koc && koc.folder_path && (<UploadVideoDialog isOpen={isSourceVideoUploadOpen} onOpenChange={setSourceVideoUploadOpen} folderPath={`${koc.folder_path}/sources/videos`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} accept="video/*" />)}
-      {koc && koc.folder_path && (<UploadVideoDialog isOpen={isSourceAudioUploadOpen} onOpenChange={setSourceAudioUploadOpen} folderPath={`${koc.folder_path}/sources/audios`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} accept="audio/*" />)}
       <AlertDialog open={filesToDelete.length > 0} onOpenChange={() => setFilesToDelete([])}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. {filesToDelete.length} tệp sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader>
