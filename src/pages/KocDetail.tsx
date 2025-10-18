@@ -126,6 +126,15 @@ const fetchVideoScripts = async (kocId: string) => {
   return data as VideoScript[];
 };
 
+const fetchIdeas = async (kocId: string) => {
+  const { data, error } = await supabase.functions.invoke('get-koc-ideas', {
+    body: { kocId },
+  });
+  if (error) throw error;
+  if (data.error) throw new Error(data.error);
+  return data.data as Idea[];
+};
+
 // Mock data
 const performanceMetrics = [
   { title: "Tỷ lệ tương tác", value: "4.5%", icon: ThumbsUp, color: "bg-blue-100 text-blue-600" },
@@ -204,16 +213,7 @@ const KocDetail = () => {
 
   const { data: ideas, isLoading: areIdeasLoading } = useQuery<Idea[]>({
     queryKey: ["koc_content_ideas", kocId],
-    queryFn: async () => {
-      if (!kocId) return [];
-      const { data, error } = await supabase
-        .from("koc_content_ideas")
-        .select("*, koc_files(display_name, url)")
-        .eq("koc_id", kocId)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as Idea[];
-    },
+    queryFn: () => fetchIdeas(kocId!),
     enabled: !!kocId,
   });
 
