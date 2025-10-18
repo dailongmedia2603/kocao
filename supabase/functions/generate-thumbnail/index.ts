@@ -45,17 +45,30 @@ serve(async (req) => {
       { expiresIn: 300 } // URL hợp lệ trong 5 phút
     );
 
-    // --- 2. Gọi dịch vụ bên thứ ba để tạo thumbnail ---
-    // Sử dụng dịch vụ miễn phí đơn giản để lấy frame đầu tiên
-    const thumbnailUrlService = `https://shot.screenshotapi.net/video?url=${encodeURIComponent(presignedUrl)}&seek=1`;
-    const thumbnailResponse = await fetch(thumbnailUrlService);
+    // --- 2. Gọi dịch vụ Microlink để tạo thumbnail ---
+    const microlinkUrl = `https://api.microlink.io/?url=${encodeURIComponent(presignedUrl)}&screenshot=true&meta=false&video=true`;
+    
+    const microlinkResponse = await fetch(microlinkUrl);
+    if (!microlinkResponse.ok) {
+        const errorText = await microlinkResponse.text();
+        throw new Error(`Lỗi từ dịch vụ Microlink: ${microlinkResponse.statusText}. Details: ${errorText}`);
+    }
+    
+    const microlinkData = await microlinkResponse.json();
+    const screenshotUrl = microlinkData?.data?.screenshot?.url;
 
+    if (!screenshotUrl) {
+        throw new Error("Không thể lấy URL thumbnail từ phản hồi của Microlink.");
+    }
+
+    // --- 3. Tải ảnh thumbnail từ URL nhận được ---
+    const thumbnailResponse = await fetch(screenshotUrl);
     if (!thumbnailResponse.ok) {
-      throw new Error(`Lỗi tạo thumbnail: ${thumbnailResponse.statusText}`);
+        throw new Error(`Không thể tải ảnh thumbnail từ URL của Microlink: ${thumbnailResponse.statusText}`);
     }
     const thumbnailBuffer = await thumbnailResponse.arrayBuffer();
 
-    // --- 3. Tải thumbnail lên R2 ---
+    // --- 4. Tải thumbnail lên R2 ---
     const thumbnailR2Key = `${r2_key}.jpg`;
     await s3.send(new PutObjectCommand({
       Bucket: R2_BUCKET_NAME,
@@ -64,7 +77,7 @@ serve(async (req) => {
       ContentType: "image/jpeg",
     }));
 
-    // --- 4. Cập nhật CSDL với URL của thumbnail ---
+    // --- 5. Cập nhật CSDL với URL của thumbnail ---
     const publicThumbnailUrl = `${R2_PUBLIC_URL}/${thumbnailR2Key}`;
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
