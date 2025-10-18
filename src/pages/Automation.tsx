@@ -8,21 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Settings, Bot } from "lucide-react";
 import { CreateCampaignDialog } from "@/components/automation/CreateCampaignDialog";
 import { ConfigureAiTemplatesDialog } from "@/components/automation/ConfigureAiTemplatesDialog";
-import { CampaignCard } from "@/components/automation/CampaignCard";
-
-export type Campaign = {
-  id: string;
-  name: string;
-  description: string | null;
-  status: string;
-  created_at: string;
-  kocs: {
-    name: string;
-    avatar_url: string | null;
-  } | null;
-  cloned_voice_name: string | null;
-  ai_prompt: string | null;
-};
+import { CampaignCard, type Campaign } from "@/components/automation/CampaignCard";
 
 const Automation = () => {
   const [isCreateOpen, setCreateOpen] = useState(false);

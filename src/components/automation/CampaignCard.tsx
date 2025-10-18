@@ -9,7 +9,20 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Trash2, Bot, Mic } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import type { Campaign } from "@/pages/Automation";
+
+export type Campaign = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  created_at: string;
+  kocs: {
+    name: string;
+    avatar_url: string | null;
+  } | null;
+  cloned_voice_name: string | null;
+  ai_prompt: string | null;
+};
 
 type CampaignCardProps = {
   campaign: Campaign;
@@ -43,7 +56,7 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
     },
     onSuccess: () => {
       showSuccess("Xóa chiến dịch thành công!");
-      queryClient.invalidateQueries({ queryKey: ['automation_campaigns', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["automation_campaigns", user?.id] });
     },
     onError: (error: Error) => showError(`Lỗi: ${error.message}`),
   });
