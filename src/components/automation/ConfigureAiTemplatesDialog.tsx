@@ -92,13 +92,15 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange }: ConfigureAi
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Quản lý Template AI</DialogTitle>
-            <DialogDescription>Tạo, chỉnh sửa và chọn template mặc định cho các chiến dịch automation của bạn.</DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="flex justify-end mb-4">
-              <Button onClick={handleAddNew}><Plus className="mr-2 h-4 w-4" /> Thêm Template mới</Button>
+            <div className="flex justify-between items-start">
+              <div>
+                <DialogTitle>Quản lý Template AI</DialogTitle>
+                <DialogDescription>Tạo, chỉnh sửa và chọn template mặc định cho các chiến dịch automation của bạn.</DialogDescription>
+              </div>
+              <Button onClick={handleAddNew} className="flex-shrink-0"><Plus className="mr-2 h-4 w-4" /> Thêm Template mới</Button>
             </div>
+          </DialogHeader>
+          <div className="pt-4">
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               {isLoading ? (
                 [...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
