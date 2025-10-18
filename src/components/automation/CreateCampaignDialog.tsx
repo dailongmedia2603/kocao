@@ -18,6 +18,7 @@ const formSchema = z.object({
   description: z.string().optional(),
   kocId: z.string().min(1, "Vui lòng chọn KOC"),
   clonedVoiceId: z.string().min(1, "Vui lòng chọn giọng nói"),
+  ai_prompt: z.string().min(1, "AI Prompt không được để trống."),
 });
 
 type CreateCampaignDialogProps = {
@@ -56,7 +57,7 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", description: "" },
+    defaultValues: { name: "", description: "", ai_prompt: "" },
   });
 
   const createCampaignMutation = useMutation({
@@ -88,6 +89,7 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
         koc_id: values.kocId,
         cloned_voice_id: values.clonedVoiceId,
         cloned_voice_name: selectedVoice.voice_name,
+        ai_prompt: values.ai_prompt,
       });
 
       if (campaignError) {
@@ -122,6 +124,7 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
             <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Mô tả</FormLabel><FormControl><Textarea placeholder="Mô tả ngắn về mục tiêu của chiến dịch..." {...field} /></FormControl><FormMessage /></FormItem>)} />
             <FormField control={form.control} name="kocId" render={({ field }) => (<FormItem><FormLabel>KOC</FormLabel>{isLoadingKocs ? <Skeleton className="h-10 w-full" /> : (<Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn KOC" /></SelectTrigger></FormControl><SelectContent>{kocs?.map(koc => <SelectItem key={koc.id} value={koc.id}>{koc.name}</SelectItem>)}</SelectContent></Select>)}<FormMessage /></FormItem>)} />
             <FormField control={form.control} name="clonedVoiceId" render={({ field }) => (<FormItem><FormLabel>Giọng nói</FormLabel>{isLoadingVoices ? <Skeleton className="h-10 w-full" /> : (<Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn giọng nói đã clone" /></SelectTrigger></FormControl><SelectContent>{voices?.map(voice => <SelectItem key={voice.voice_id} value={voice.voice_id}>{voice.voice_name}</SelectItem>)}</SelectContent></Select>)}<FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="ai_prompt" render={({ field }) => (<FormItem><FormLabel>AI Prompt</FormLabel><FormControl><Textarea placeholder="Mô tả yêu cầu cho AI để tạo kịch bản..." {...field} /></FormControl><FormMessage /></FormItem>)} />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
               <Button type="submit" disabled={createCampaignMutation.isPending}>{createCampaignMutation.isPending ? "Đang tạo..." : "Tạo"}</Button>
