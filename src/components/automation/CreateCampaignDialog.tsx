@@ -65,15 +65,36 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
       const selectedVoice = voices?.find(v => v.voice_id === values.clonedVoiceId);
       if (!selectedVoice) throw new Error("Giọng nói đã chọn không hợp lệ.");
 
-      const { error } = await supabase.from("automation_campaigns").insert({
+      // 1. Create a new project for this campaign
+      const { data: newProject, error: projectError } = await supabase
+        .from("projects")
+        .insert({
+          user_id: user.id,
+          name: `Project for: ${values.name}`,
+        })
+        .select("id")
+        .single();
+
+      if (projectError) {
+        throw new Error(`Lỗi tạo project: ${projectError.message}`);
+      }
+
+      // 2. Create the automation campaign and link it to the new project
+      const { error: campaignError } = await supabase.from("automation_campaigns").insert({
         user_id: user.id,
+        project_id: newProject.id, // Link to the newly created project
         name: values.name,
         description: values.description,
         koc_id: values.kocId,
         cloned_voice_id: values.clonedVoiceId,
         cloned_voice_name: selectedVoice.voice_name,
       });
-      if (error) throw error;
+
+      if (campaignError) {
+        // Rollback: delete the created project if campaign creation fails
+        await supabase.from("projects").delete().eq("id", newProject.id);
+        throw new Error(`Lỗi tạo chiến dịch: ${campaignError.message}`);
+      }
     },
     onSuccess: () => {
       showSuccess("Tạo chiến dịch thành công!");
