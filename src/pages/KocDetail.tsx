@@ -411,43 +411,38 @@ const KocDetail = () => {
               </TabsContent>
               <TabsContent value="sources" className="mt-6">
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xl font-semibold">Quản lý tệp nguồn</h3>
+                  <h3 className="text-xl font-semibold">Quản lý tệp nguồn</h3>
+                  <div className="flex items-center gap-2">
                     {selectedFileIds.length > 0 && <Button variant="destructive" onClick={handleBulkDelete}><Trash2 className="mr-2 h-4 w-4" /> Xóa ({selectedFileIds.length})</Button>}
+                    <Button variant="outline" onClick={() => setSourceVideoUploadOpen(true)} disabled={!koc?.folder_path}><Plus className="mr-2 h-4 w-4" /> Thêm video</Button>
+                  </div>
                 </div>
-                <Accordion type="single" defaultValue="videos" className="w-full space-y-4">
-                  <AccordionItem value="videos" className="border-none">
-                    <AccordionTrigger className="bg-white p-4 rounded-lg border hover:no-underline data-[state=open]:rounded-b-none">
-                        <div className="flex items-center justify-between w-full">
-                            <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-md bg-red-600 text-white"><Video className="h-5 w-5" /></div><h4 className="font-semibold text-lg">Nguồn Video</h4></div>
-                            <div className="flex items-center gap-2">
-                              <Badge className="bg-red-50 text-red-700">{sourceVideos.length} videos</Badge>
-                              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setSourceVideoUploadOpen(true); }} disabled={!koc?.folder_path}><Plus className="mr-2 h-4 w-4" /> Thêm video</Button>
+                <Card>
+                  <CardContent className="p-4">
+                    {areFilesLoading ? <Skeleton className="h-20 w-full" /> : sourceVideos.length > 0 ? (
+                      <div className="space-y-3">
+                        {sourceVideos.map(file => {
+                          const isSelected = selectedFileIds.includes(file.id);
+                          return (
+                            <div key={file.id} className="group flex items-center justify-between p-3 rounded-md border bg-gray-50/50 hover:bg-gray-100 transition-colors">
+                              <div className="flex items-center gap-4 flex-grow min-w-0 cursor-pointer" onClick={() => handleFileClick(file)}>
+                                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-100 text-blue-600 flex-shrink-0"><Clapperboard className="h-5 w-5" /></div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-sm truncate" title={file.display_name}>{file.display_name}</p>
+                                  {file.created_at && <p className="text-xs text-muted-foreground">Tải lên: {format(new Date(file.created_at), "dd/MM/yyyy")}</p>}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 pl-2">
+                                <Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              </div>
                             </div>
-                        </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="pt-4 p-4 border border-t-0 rounded-b-lg bg-white">
-                        {areFilesLoading ? <Skeleton className="h-20 w-full" /> : sourceVideos.length > 0 ? (
-                            <div className="space-y-3">
-                                {sourceVideos.map(file => { const isSelected = selectedFileIds.includes(file.id); return (
-                                    <div key={file.id} className="group flex items-center justify-between p-3 rounded-md border bg-gray-50/50 hover:bg-gray-100 transition-colors">
-                                        <div className="flex items-center gap-4 flex-grow min-w-0 cursor-pointer" onClick={() => handleFileClick(file)}>
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-100 text-blue-600 flex-shrink-0"><Clapperboard className="h-5 w-5" /></div>
-                                            <div className="min-w-0">
-                                                <p className="font-semibold text-sm truncate" title={file.display_name}>{file.display_name}</p>
-                                                {file.created_at && <p className="text-xs text-muted-foreground">Tải lên: {format(new Date(file.created_at), "dd/MM/yyyy")}</p>}
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2 pl-2">
-                                            <Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
-                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                        </div>
-                                    </div>
-                                )})}
-                            </div>
-                        ) : (<p className="text-sm text-muted-foreground text-center py-4">Chưa có video nguồn nào.</p>)}
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+                          )
+                        })}
+                      </div>
+                    ) : (<p className="text-sm text-muted-foreground text-center py-4">Chưa có video nguồn nào.</p>)}
+                  </CardContent>
+                </Card>
               </TabsContent>
               <TabsContent value="auto-scripts" className="mt-6">
                 <Card>
