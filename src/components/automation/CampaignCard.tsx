@@ -98,7 +98,7 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">AI Prompt</p>
-            <p className="font-semibold truncate max-w-xs">{campaign.ai_prompt ? "Đã cấu hình" : "Chưa cấu hình"}</p>
+            <p className="font-semibold truncate max-w-xs">{campaign.ai_prompt || "Chưa cấu hình"}</p>
           </div>
         </div>
       </CardContent>
