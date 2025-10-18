@@ -95,7 +95,7 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange }: ConfigureAi
             <div className="flex justify-between items-start">
               <div>
                 <DialogTitle>Quản lý Template AI</DialogTitle>
-                <DialogDescription>Tạo, chỉnh sửa và chọn template mặc định cho các chiến dịch automation của bạn.</DialogDescription>
+                <DialogDescription>Quản lý Prompt AI để tạo kịch bản thoại</DialogDescription>
               </div>
               <Button onClick={handleAddNew} className="flex-shrink-0"><Plus className="mr-2 h-4 w-4" /> Thêm Template mới</Button>
             </div>
