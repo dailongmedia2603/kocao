@@ -96,6 +96,9 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
       const selectedVoice = voices?.find(v => v.voice_id === values.clonedVoiceId);
       if (!selectedVoice) throw new Error("Giọng nói đã chọn không hợp lệ.");
 
+      const selectedTemplate = templates?.find(t => t.id === values.aiPromptTemplateId);
+      if (!selectedTemplate) throw new Error("Template AI đã chọn không hợp lệ.");
+
       const { data: newProject, error: projectError } = await supabase
         .from("projects")
         .insert({ user_id: user.id, name: `Project for: ${values.name}` })
@@ -113,6 +116,7 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
         cloned_voice_id: values.clonedVoiceId,
         cloned_voice_name: selectedVoice.voice_name,
         ai_prompt_template_id: values.aiPromptTemplateId,
+        ai_prompt: selectedTemplate.name,
       });
 
       if (campaignError) {
