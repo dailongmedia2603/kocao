@@ -4,11 +4,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Video, CheckCircle } from 'lucide-react';
+import { Video, CheckCircle, PlayCircle } from 'lucide-react';
 
 interface KocVideoSelectorProps {
   onSelectionChange: (selection: { videoUrl: string | null; kocId: string | null }) => void;
   selectedVideoUrl: string | null;
+}
+
+interface KocVideo {
+  id: string;
+  url: string;
+  display_name: string;
+  thumbnail_url: string | null;
 }
 
 export const KocVideoSelector = ({ onSelectionChange, selectedVideoUrl }: KocVideoSelectorProps) => {
@@ -32,7 +39,7 @@ export const KocVideoSelector = ({ onSelectionChange, selectedVideoUrl }: KocVid
       });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
-      return data.data;
+      return data.data as KocVideo[];
     },
     enabled: !!selectedKocId,
   });
@@ -71,15 +78,22 @@ export const KocVideoSelector = ({ onSelectionChange, selectedVideoUrl }: KocVid
             </div>
           ) : videos && videos.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-2 max-h-64 overflow-y-auto p-2 rounded-md border">
-              {videos.map((video: any) => (
+              {videos.map((video: KocVideo) => (
                 <div
                   key={video.id}
                   onClick={() => onSelectionChange({ videoUrl: video.url, kocId: selectedKocId })}
                   className={`relative aspect-video rounded-md overflow-hidden cursor-pointer border-2 group ${selectedVideoUrl === video.url ? 'border-red-500' : 'border-transparent'}`}
                 >
-                   <div className="absolute inset-0 bg-black bg-opacity-20 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
-                    <Video className="h-8 w-8 text-white opacity-70" />
-                  </div>
+                   {video.thumbnail_url ? (
+                     <img src={video.thumbnail_url} alt={video.display_name} className="w-full h-full object-cover" />
+                   ) : (
+                     <div className="w-full h-full flex items-center justify-center bg-slate-200">
+                       <Video className="h-8 w-8 text-slate-500" />
+                     </div>
+                   )}
+                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
+                     <PlayCircle className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                   </div>
                   {selectedVideoUrl === video.url && (
                     <div className="absolute top-1.5 right-1.5 bg-red-500 rounded-full p-0.5">
                       <CheckCircle className="h-4 w-4 text-white" />
