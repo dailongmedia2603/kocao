@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -27,28 +27,17 @@ type Idea = {
 
 type IdeaContentTabProps = {
   kocId: string;
+  ideas: Idea[] | undefined;
+  isLoading: boolean;
 };
 
-export const IdeaContentTab = ({ kocId }: IdeaContentTabProps) => {
+export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps) => {
   const queryClient = useQueryClient();
   const [isAddEditOpen, setAddEditOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [isViewContentOpen, setViewContentOpen] = useState(false);
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [contentToView, setContentToView] = useState<string | null>(null);
-
-  const { data: ideas, isLoading } = useQuery<Idea[]>({
-    queryKey: ["koc_content_ideas", kocId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("koc_content_ideas")
-        .select("*, koc_files(display_name, url)")
-        .eq("koc_id", kocId)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as Idea[];
-    },
-  });
 
   const deleteMutation = useMutation({
     mutationFn: async (ideaId: string) => {

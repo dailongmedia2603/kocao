@@ -84,6 +84,18 @@ type DreamfaceTask = {
   result_video_url: string | null;
 };
 
+type Idea = {
+  id: string;
+  idea_content: string;
+  new_content: string | null;
+  status: string;
+  created_at: string;
+  koc_files: {
+    display_name: string;
+    url: string;
+  } | null;
+};
+
 // Data fetching
 const fetchKocDetails = async (kocId: string) => {
   const { data, error } = await supabase
@@ -187,6 +199,21 @@ const KocDetail = () => {
   const { data: videoScripts, isLoading: areScriptsLoading } = useQuery<VideoScript[]>({
     queryKey: ["video_scripts", kocId],
     queryFn: () => fetchVideoScripts(kocId!),
+    enabled: !!kocId,
+  });
+
+  const { data: ideas, isLoading: areIdeasLoading } = useQuery<Idea[]>({
+    queryKey: ["koc_content_ideas", kocId],
+    queryFn: async () => {
+      if (!kocId) return [];
+      const { data, error } = await supabase
+        .from("koc_content_ideas")
+        .select("*, koc_files(display_name, url)")
+        .eq("koc_id", kocId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Idea[];
+    },
     enabled: !!kocId,
   });
 
@@ -541,7 +568,7 @@ const KocDetail = () => {
                 </Card>
               </TabsContent>
               <TabsContent value="idea-content" className="mt-6">
-                <IdeaContentTab kocId={koc.id} />
+                <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} />
               </TabsContent>
             </Tabs>
           </div>
