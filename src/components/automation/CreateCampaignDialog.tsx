@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
+import { callVoiceApi } from "@/lib/voiceApi"; // Import the voice API helper
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -43,13 +44,16 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
     enabled: !!user,
   });
 
+  // Fetch voices from the API instead of direct DB query
   const { data: voices, isLoading: isLoadingVoices } = useQuery<ClonedVoice[]>({
-    queryKey: ['cloned_voices_for_automation', user?.id],
+    queryKey: ['cloned_voices'], // Use the same query key for caching
     queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('cloned_voices').select('voice_id, voice_name').eq('user_id', user.id);
-      if (error) throw error;
-      return data;
+      const response = await callVoiceApi({ path: "v1m/voice/clone", method: "GET" });
+      // API returns { success: true, data: [...] }
+      if (response && response.data) {
+        return response.data.filter((v: any) => v.voice_status === 2); // Only show completed voices
+      }
+      return [];
     },
     enabled: !!user,
   });
