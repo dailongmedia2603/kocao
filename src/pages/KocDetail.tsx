@@ -14,14 +14,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EditKocDialog } from "@/components/koc/EditKocDialog";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 // Icons
-import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, SlidersHorizontal, CreditCard, FileText, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, CalendarDays, Bot, MoreHorizontal, Loader2, Mic } from "lucide-react";
+import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, CalendarDays, Bot, MoreHorizontal, Loader2, Mic, Lightbulb, FileText } from "lucide-react";
 
 // Custom Components
 import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
@@ -29,6 +28,7 @@ import { UploadVideoDialog } from "@/components/koc/UploadVideoDialog";
 import { EditableFileName } from "@/components/koc/EditableFileName";
 import { ViewScriptContentDialog } from "@/components/content/ViewScriptContentDialog";
 import { ViewScriptLogDialog } from "@/components/content/ViewScriptLogDialog";
+import { IdeaContentTab } from "@/components/koc/IdeaContentTab";
 
 // Utils
 import { showSuccess, showError } from "@/utils/toast";
@@ -387,8 +387,8 @@ const KocDetail = () => {
                 <TabsTrigger value="auto-scripts" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
                   <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Bot className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Kịch bản tự động</span></div>
                 </TabsTrigger>
-                <TabsTrigger value="reports" disabled className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
-                  <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><FileText className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Báo cáo</span></div>
+                <TabsTrigger value="idea-content" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
+                  <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Lightbulb className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Idea Content</span></div>
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="overview" className="mt-6">
@@ -539,6 +539,9 @@ const KocDetail = () => {
                     </Table>
                   </CardContent>
                 </Card>
+              </TabsContent>
+              <TabsContent value="idea-content" className="mt-6">
+                <IdeaContentTab kocId={koc.id} />
               </TabsContent>
             </Tabs>
           </div>
