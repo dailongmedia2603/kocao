@@ -5,8 +5,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST,OPTIONS" };
 
+const isVideo = (contentType) => {
+  return contentType && contentType.startsWith('video/');
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
 
   try {
     const formData = await req.formData();
@@ -32,15 +38,26 @@ serve(async (req) => {
 
     await s3.send(new PutObjectCommand({ Bucket: bucket, Key: r2Key, Body: fileBuffer, ContentType: file.type }));
 
-    const supabaseAdmin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
-    const { error: dbError } = await supabaseAdmin.from('koc_files').insert({
+    const { data: newFile, error: dbError } = await supabaseAdmin.from('koc_files').insert({
       koc_id: kocId,
       user_id: userId,
       r2_key: r2Key,
       display_name: fileName,
-    });
+    }).select('id').single();
 
     if (dbError) throw new Error(`Lỗi lưu vào database: ${dbError.message}`);
+
+    // BƯỚC 3: KÍCH HOẠT TẠO THUMBNAIL TỰ ĐỘNG
+    if (newFile && isVideo(file.type)) {
+      // Gọi hàm generate-thumbnail mà không cần chờ (fire-and-forget)
+      // để không làm chậm quá trình upload của người dùng.
+      supabaseAdmin.functions.invoke("generate-thumbnail", {
+        body: { r2_key: r2Key, file_id: newFile.id },
+      }).catch(err => {
+        // Ghi lại lỗi nếu việc gọi hàm thất bại, nhưng không làm sập hàm chính
+        console.error(`Lỗi khi kích hoạt generate-thumbnail cho file ${newFile.id}:`, err.message);
+      });
+    }
 
     return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
