@@ -15,6 +15,7 @@ import CreateVoicePage from "./pages/CreateVoice";
 import TaoContent from "./pages/TaoContent";
 import Automation from "./pages/Automation";
 import DreamfaceStudio from "./pages/DreamfaceStudio";
+import VideoToScript from "./pages/VideoToScript";
 
 function App() {
   return (
@@ -37,6 +38,7 @@ function App() {
               <Route path="/reports" element={<Reports />} />
               <Route path="/create-voice" element={<CreateVoicePage />} />
               <Route path="/tao-content" element={<TaoContent />} />
+              <Route path="/video-to-script" element={<VideoToScript />} />
             </Route>
           </Route>
         </Routes>

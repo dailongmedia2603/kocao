@@ -1,4 +1,4 @@
-import { Users, BarChart3, Video, Mic, PenSquare } from "lucide-react";
+import { Users, BarChart3, Video, Mic, PenSquare, Captions } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -67,6 +67,17 @@ const KocHeader = () => {
                 <PenSquare className="h-4 w-4" />
               </div>
               <span className="ml-2">Tạo Content</span>
+            </>
+          )}
+        </NavLink>
+
+        <NavLink to="/video-to-script" className={navLinkClasses}>
+          {({ isActive }) => (
+            <>
+              <div className={iconContainerClasses(isActive)}>
+                <Captions className="h-4 w-4" />
+              </div>
+              <span className="ml-2">Tách Script</span>
             </>
           )}
         </NavLink>
