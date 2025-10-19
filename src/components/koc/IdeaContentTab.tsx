@@ -88,8 +88,8 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
             <CardDescription>Quản lý các ý tưởng và nội dung đã phát triển cho KOC.</CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setIsLogOpen(true)}>
-              <History className="mr-2 h-4 w-4" /> Nhật ký
+            <Button variant="outline" size="icon" onClick={() => setIsLogOpen(true)}>
+              <History className="h-4 w-4" />
             </Button>
             <Button variant="outline" onClick={() => setConfigureOpen(true)}>
               <Settings className="mr-2 h-4 w-4" /> Cấu hình AI
