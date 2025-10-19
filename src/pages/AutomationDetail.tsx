@@ -6,7 +6,6 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 
 // UI Components
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -41,7 +40,9 @@ const TimelineStep = ({ icon: Icon, title, status, children, statusColor }) => (
         <div className="flex-1 space-y-1">
             <div className="flex items-center justify-between">
                 <p className="font-semibold">{title}</p>
-                <Badge variant="outline" className="text-xs">{status}</Badge>
+                <Badge variant="outline" className={`text-xs font-medium border-transparent ${statusColor.bg} ${statusColor.text}`}>
+                    {status}
+                </Badge>
             </div>
             <div className="text-sm text-muted-foreground">{children}</div>
         </div>
@@ -123,7 +124,7 @@ const AutomationDetail = () => {
                     ) : Object.keys(groupedActivities).length > 0 ? (
                         <Accordion type="multiple" defaultValue={Object.keys(groupedActivities).slice(0, 1)} className="w-full space-y-4">
                             {Object.entries(groupedActivities).map(([date, activitiesForDate]) => (
-                                <AccordionItem key={date} value={date} className="border rounded-lg">
+                                <AccordionItem key={date} value={date} className="border rounded-lg bg-gray-50/50">
                                     <AccordionTrigger className="p-4 hover:no-underline">
                                         <div className="flex items-center gap-3">
                                             <Calendar className="h-5 w-5 text-primary" />
@@ -131,34 +132,45 @@ const AutomationDetail = () => {
                                             <Badge variant="secondary">{activitiesForDate.length} hoạt động</Badge>
                                         </div>
                                     </AccordionTrigger>
-                                    <AccordionContent className="p-4 border-t">
-                                        <div className="space-y-6">
-                                            {activitiesForDate.map(activity => (
-                                                <div key={activity.idea_id} className="p-4 border rounded-md space-y-4">
-                                                    <TimelineStep icon={FileText} title="Ý tưởng" status="Đã xử lý" statusColor={getStatusInfo('completed').color}>
-                                                        <p className="line-clamp-2">{activity.idea_content}</p>
-                                                    </TimelineStep>
-                                                    <TimelineStep icon={Mic} title="Tạo Voice" status={getStatusInfo(activity.voice_status).text} statusColor={getStatusInfo(activity.voice_status).color}>
-                                                        {activity.voice_audio_url && <audio controls src={activity.voice_audio_url} className="h-8 w-full" />}
-                                                    </TimelineStep>
-                                                    <TimelineStep icon={Video} title="Tạo Video" status={getStatusInfo(activity.dreamface_status).text} statusColor={getStatusInfo(activity.dreamface_status).color}>
-                                                        {activity.video_url ? (
-                                                            <video
-                                                                controls
-                                                                src={activity.video_url}
-                                                                poster={activity.video_thumbnail_url || undefined}
-                                                                className="w-full max-w-xs rounded-lg"
-                                                            />
-                                                        ) : activity.video_thumbnail_url && (
-                                                            <div className="flex items-center gap-2">
-                                                                <img src={activity.video_thumbnail_url} alt="thumbnail" className="h-12 w-12 rounded-md object-cover" />
-                                                                <p className="font-medium">{activity.video_display_name}</p>
+                                    <AccordionContent className="p-4 border-t bg-white">
+                                        <Accordion type="multiple" defaultValue={['run-0']} className="w-full space-y-4">
+                                            {activitiesForDate.map((activity, index) => (
+                                                <AccordionItem key={activity.idea_id} value={`run-${index}`} className="border rounded-lg">
+                                                    <AccordionTrigger className="p-4 hover:no-underline">
+                                                        <div className="flex items-center justify-between w-full">
+                                                            <div className="flex items-center gap-3 text-left">
+                                                                <span className="font-semibold text-primary">Lần {index + 1}</span>
+                                                                <p className="text-sm text-muted-foreground truncate max-w-md">{activity.idea_content}</p>
                                                             </div>
-                                                        )}
-                                                    </TimelineStep>
-                                                </div>
+                                                            <Badge variant="outline">{format(new Date(activity.idea_created_at), 'HH:mm')}</Badge>
+                                                        </div>
+                                                    </AccordionTrigger>
+                                                    <AccordionContent className="p-4 border-t space-y-6">
+                                                        <TimelineStep icon={FileText} title="Ý tưởng" status="Đã xử lý" statusColor={getStatusInfo('completed').color}>
+                                                            <p>{activity.idea_content}</p>
+                                                        </TimelineStep>
+                                                        <TimelineStep icon={Mic} title="Tạo Voice" status={getStatusInfo(activity.voice_status).text} statusColor={getStatusInfo(activity.voice_status).color}>
+                                                            {activity.voice_audio_url && <audio controls src={activity.voice_audio_url} className="h-8 w-full" />}
+                                                        </TimelineStep>
+                                                        <TimelineStep icon={Video} title="Tạo Video" status={getStatusInfo(activity.dreamface_status).text} statusColor={getStatusInfo(activity.dreamface_status).color}>
+                                                            {activity.video_url ? (
+                                                                <video
+                                                                    controls
+                                                                    src={activity.video_url}
+                                                                    poster={activity.video_thumbnail_url || undefined}
+                                                                    className="w-full max-w-xs rounded-lg"
+                                                                />
+                                                            ) : activity.video_thumbnail_url && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <img src={activity.video_thumbnail_url} alt="thumbnail" className="h-12 w-12 rounded-md object-cover" />
+                                                                    <p className="font-medium">{activity.video_display_name}</p>
+                                                                </div>
+                                                            )}
+                                                        </TimelineStep>
+                                                    </AccordionContent>
+                                                </AccordionItem>
                                             ))}
-                                        </div>
+                                        </Accordion>
                                     </AccordionContent>
                                 </AccordionItem>
                             ))}
