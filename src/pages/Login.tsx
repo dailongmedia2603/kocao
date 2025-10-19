@@ -135,7 +135,7 @@ const Login = () => {
       <div className="w-1/2 hidden lg:block">
         <img
           className="h-full w-full object-cover"
-          src="https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
+          src="/login-background.svg"
           alt="Woman working on a laptop"
         />
       </div>
