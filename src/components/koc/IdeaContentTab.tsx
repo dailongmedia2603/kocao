@@ -8,10 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, MoreHorizontal, Edit, Trash2, Lightbulb, Loader2, Video } from "lucide-react";
+import { Plus, MoreHorizontal, Edit, Trash2, Lightbulb, Loader2, Video, Settings } from "lucide-react";
 import { AddEditIdeaDialog } from "./AddEditIdeaDialog";
 import { showSuccess, showError } from "@/utils/toast";
 import { ViewScriptContentDialog } from "@/components/content/ViewScriptContentDialog";
+import { ConfigureAiTemplatesDialog } from "@/components/automation/ConfigureAiTemplatesDialog";
 
 type Idea = {
   id: string;
@@ -38,6 +39,7 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
   const [isViewContentOpen, setViewContentOpen] = useState(false);
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [contentToView, setContentToView] = useState<string | null>(null);
+  const [isConfigureOpen, setConfigureOpen] = useState(false);
 
   const deleteMutation = useMutation({
     mutationFn: async (ideaId: string) => {
@@ -83,9 +85,14 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
             <CardTitle>Danh sách Idea Content</CardTitle>
             <CardDescription>Quản lý các ý tưởng và nội dung đã phát triển cho KOC.</CardDescription>
           </div>
-          <Button onClick={handleAddNew}>
-            <Plus className="mr-2 h-4 w-4" /> Thêm mới
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setConfigureOpen(true)}>
+              <Settings className="mr-2 h-4 w-4" /> Cấu hình AI
+            </Button>
+            <Button onClick={handleAddNew}>
+              <Plus className="mr-2 h-4 w-4" /> Thêm mới
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -191,6 +198,7 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
         title="Content mới"
         content={contentToView}
       />
+      <ConfigureAiTemplatesDialog isOpen={isConfigureOpen} onOpenChange={setConfigureOpen} />
     </>
   );
 };

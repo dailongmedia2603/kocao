@@ -5,14 +5,12 @@ import { useSession } from "@/contexts/SessionContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Settings, Bot } from "lucide-react";
+import { Plus, Bot } from "lucide-react";
 import { CreateCampaignDialog } from "@/components/automation/CreateCampaignDialog";
-import { ConfigureAiTemplatesDialog } from "@/components/automation/ConfigureAiTemplatesDialog";
 import { CampaignCard, type Campaign } from "@/components/automation/CampaignCard";
 
 const Automation = () => {
   const [isCreateOpen, setCreateOpen] = useState(false);
-  const [isConfigureOpen, setConfigureOpen] = useState(false);
   const { user } = useSession();
 
   const { data: campaigns = [], isLoading } = useQuery<Campaign[]>({
@@ -39,9 +37,6 @@ const Automation = () => {
             <p className="text-muted-foreground mt-1">Tự động hóa quy trình sáng tạo nội dung của bạn.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setConfigureOpen(true)}>
-              <Settings className="mr-2 h-4 w-4" /> Cấu hình AI
-            </Button>
             <Button onClick={() => setCreateOpen(true)} className="bg-red-600 hover:bg-red-700 text-white">
               <Plus className="mr-2 h-4 w-4" /> Tạo chiến dịch mới
             </Button>
@@ -73,7 +68,6 @@ const Automation = () => {
         )}
       </div>
       <CreateCampaignDialog isOpen={isCreateOpen} onOpenChange={setCreateOpen} />
-      <ConfigureAiTemplatesDialog isOpen={isConfigureOpen} onOpenChange={setConfigureOpen} />
     </>
   );
 };

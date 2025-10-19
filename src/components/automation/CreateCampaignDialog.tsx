@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -14,15 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ConfigureAiTemplatesDialog } from "./ConfigureAiTemplatesDialog";
-import { Settings } from "lucide-react";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên chiến dịch không được để trống"),
   description: z.string().optional(),
   kocId: z.string().min(1, "Vui lòng chọn KOC"),
   clonedVoiceId: z.string().min(1, "Vui lòng chọn giọng nói"),
-  aiPromptTemplateId: z.string().min(1, "Vui lòng chọn Prompt AI"),
 });
 
 type CreateCampaignDialogProps = {
@@ -32,12 +28,10 @@ type CreateCampaignDialogProps = {
 
 type Koc = { id: string; name: string; };
 type ClonedVoice = { voice_id: string; voice_name: string; };
-type PromptTemplate = { id: string; name: string; is_default: boolean };
 
 export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
-  const [isConfigureOpen, setConfigureOpen] = useState(false);
 
   const { data: kocs, isLoading: isLoadingKocs } = useQuery<Koc[]>({
     queryKey: ['kocs_for_automation', user?.id],
@@ -62,33 +56,10 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
     enabled: !!user,
   });
 
-  const { data: templates, isLoading: isLoadingTemplates } = useQuery<PromptTemplate[]>({
-    queryKey: ['ai_prompt_templates', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('ai_prompt_templates')
-        .select('id, name, is_default')
-        .eq('user_id', user.id);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user,
-  });
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", description: "", aiPromptTemplateId: "" },
+    defaultValues: { name: "", description: "" },
   });
-
-  useEffect(() => {
-    if (templates && !form.getValues('aiPromptTemplateId')) {
-      const defaultTemplate = templates.find(t => t.is_default);
-      if (defaultTemplate) {
-        form.setValue('aiPromptTemplateId', defaultTemplate.id);
-      }
-    }
-  }, [templates, form]);
 
   const createCampaignMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
@@ -96,8 +67,16 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
       const selectedVoice = voices?.find(v => v.voice_id === values.clonedVoiceId);
       if (!selectedVoice) throw new Error("Giọng nói đã chọn không hợp lệ.");
 
-      const selectedTemplate = templates?.find(t => t.id === values.aiPromptTemplateId);
-      if (!selectedTemplate) throw new Error("Template AI đã chọn không hợp lệ.");
+      const { data: defaultTemplate, error: templateError } = await supabase
+        .from('ai_prompt_templates')
+        .select('id, name')
+        .eq('user_id', user.id)
+        .eq('is_default', true)
+        .single();
+
+      if (templateError || !defaultTemplate) {
+        throw new Error("Không tìm thấy template AI mặc định. Vui lòng vào Cấu hình AI và đặt một template làm mặc định.");
+      }
 
       const { data: newProject, error: projectError } = await supabase
         .from("projects")
@@ -115,8 +94,8 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
         koc_id: values.kocId,
         cloned_voice_id: values.clonedVoiceId,
         cloned_voice_name: selectedVoice.voice_name,
-        ai_prompt_template_id: values.aiPromptTemplateId,
-        ai_prompt: selectedTemplate.name,
+        ai_prompt_template_id: defaultTemplate.id,
+        ai_prompt: defaultTemplate.name,
       });
 
       if (campaignError) {
@@ -151,35 +130,6 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
               <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Mô tả</FormLabel><FormControl><Textarea placeholder="Mô tả ngắn về mục tiêu của chiến dịch..." {...field} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="kocId" render={({ field }) => (<FormItem><FormLabel>KOC</FormLabel>{isLoadingKocs ? <Skeleton className="h-10 w-full" /> : (<Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn KOC" /></SelectTrigger></FormControl><SelectContent>{kocs?.map(koc => <SelectItem key={koc.id} value={koc.id}>{koc.name}</SelectItem>)}</SelectContent></Select>)}<FormMessage /></FormItem>)} />
               <FormField control={form.control} name="clonedVoiceId" render={({ field }) => (<FormItem><FormLabel>Giọng nói</FormLabel>{isLoadingVoices ? <Skeleton className="h-10 w-full" /> : (<Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn giọng nói đã clone" /></SelectTrigger></FormControl><SelectContent>{voices?.map(voice => <SelectItem key={voice.voice_id} value={voice.voice_id}>{voice.voice_name}</SelectItem>)}</SelectContent></Select>)}<FormMessage /></FormItem>)} />
-              <FormField
-                control={form.control}
-                name="aiPromptTemplateId"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center justify-between">
-                      <FormLabel>Prompt AI Content</FormLabel>
-                      <Button type="button" variant="link" className="p-0 h-auto text-xs" onClick={() => setConfigureOpen(true)}>
-                        <Settings className="mr-1 h-3 w-3" /> Cấu hình
-                      </Button>
-                    </div>
-                    {isLoadingTemplates ? <Skeleton className="h-10 w-full" /> : (
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger><SelectValue placeholder="Chọn một mẫu prompt" /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {templates?.map(template => (
-                            <SelectItem key={template.id} value={template.id}>
-                              {template.name} {template.is_default && "(Mặc định)"}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
                 <Button type="submit" disabled={createCampaignMutation.isPending}>{createCampaignMutation.isPending ? "Đang tạo..." : "Tạo"}</Button>
@@ -188,7 +138,6 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
           </Form>
         </DialogContent>
       </Dialog>
-      <ConfigureAiTemplatesDialog isOpen={isConfigureOpen} onOpenChange={setConfigureOpen} />
     </>
   );
 };
