@@ -50,98 +50,101 @@ const Register = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-white font-sans">
-      <div className="w-full lg:w-1/2 flex flex-col justify-between p-8 sm:p-12">
-        <div className="flex items-center">
-            <img src="/logokocao.png" alt="Logo" className="h-24 w-auto" />
+    <div className="flex h-screen overflow-hidden bg-white font-sans">
+      <div className="w-full lg:w-1/2 flex flex-col p-8 sm:p-12">
+        <div className="flex-shrink-0">
+            <img src="/logokocao.png" alt="Logo" className="h-20 w-auto" />
         </div>
         
-        <div className="w-full max-w-sm mx-auto">
-          <div className="text-left mb-8">
-            <h2 className="text-4xl font-bold tracking-tight">Tạo tài khoản</h2>
-            <p className="text-gray-500 mt-2 text-sm">DrX AI KOC - Phần mềm tạo KOC</p>
-          </div>
-          <form onSubmit={handleRegister} className="space-y-5">
-            <div className="flex gap-4">
-                <div className="flex-1">
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Họ</label>
-                    <div className="relative">
-                        <Input
-                        type="text"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        required
-                        className="h-12 pl-4 pr-10"
-                        />
-                        <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    </div>
-                </div>
-                <div className="flex-1">
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Tên</label>
-                    <div className="relative">
-                        <Input
-                        type="text"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        required
-                        className="h-12 pl-4 pr-10"
-                        />
-                        <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    </div>
-                </div>
+        <div className="flex-grow flex items-center justify-center">
+          <div className="w-full max-w-sm">
+            <div className="text-left mb-8">
+              <h2 className="text-3xl font-bold tracking-tight">Tạo tài khoản</h2>
+              <p className="text-gray-500 mt-2 text-sm">DrX AI KOC - Phần mềm tạo KOC</p>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
-              <div className="relative">
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="h-12 pl-4 pr-10"
-                />
-                <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div className="flex gap-4">
+                  <div className="flex-1">
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Họ</label>
+                      <div className="relative">
+                          <Input
+                          type="text"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          required
+                          className="h-12 pl-4 pr-10"
+                          />
+                          <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      </div>
+                  </div>
+                  <div className="flex-1">
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Tên</label>
+                      <div className="relative">
+                          <Input
+                          type="text"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          required
+                          className="h-12 pl-4 pr-10"
+                          />
+                          <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      </div>
+                  </div>
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
-              <div className="relative">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="h-12 pl-4 pr-10"
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none">
-                  {showPassword ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
-                </button>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
+                <div className="relative">
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-12 pl-4 pr-10"
+                  />
+                  <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                </div>
               </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="h-12 pl-4 pr-10"
+                  />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none">
+                    {showPassword ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
+                  </button>
+                </div>
+              </div>
+              {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+              <div>
+                <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base font-bold rounded-lg" disabled={loading}>
+                  {loading ? 'Đang đăng ký...' : 'Đăng ký'}
+                </Button>
+              </div>
+            </form>
+            <div className="mt-6">
+              <p className="text-center text-sm text-gray-600">
+                Đã có tài khoản?{' '}
+                <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
+                  Đăng nhập
+                </Link>
+              </p>
             </div>
-            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-            <div>
-              <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base font-bold rounded-lg" disabled={loading}>
-                {loading ? 'Đang đăng ký...' : 'Đăng ký'}
-              </Button>
-            </div>
-          </form>
-          <div className="mt-6">
-            <p className="text-center text-sm text-gray-600">
-              Đã có tài khoản?{' '}
-              <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
-                Đăng nhập
-              </Link>
-            </p>
           </div>
         </div>
-        <div className="text-center text-gray-500 text-sm">
+
+        <div className="flex-shrink-0 text-center text-gray-500 text-sm">
           <p>Copyright © 2025 - CRMS</p>
         </div>
       </div>
       <div className="w-1/2 hidden lg:block">
         <img
           className="h-full w-full object-cover"
-          src="https://images.pexels.com/photos/3769021/pexels-photo-3769021.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
+          src="/login-background.png"
           alt="Woman working on a laptop"
         />
       </div>
