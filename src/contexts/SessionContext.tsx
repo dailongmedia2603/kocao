@@ -1,8 +1,7 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-// Định nghĩa kiểu dữ liệu cho profile dựa trên bảng 'profiles' của bạn
 type Profile = {
   id: string;
   first_name: string | null;
@@ -17,6 +16,7 @@ interface SessionContextType {
   profile: Profile | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  refetchProfile: () => Promise<void>;
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
@@ -29,38 +29,70 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setSession(null);
+    setUser(null);
+    setProfile(null);
   };
 
-  useEffect(() => {
-    setLoading(true);
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
+  const fetchProfile = useCallback(async (user: User | null) => {
+    if (!user) {
+      setProfile(null);
+      return;
+    }
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
       
-      if (currentUser) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', currentUser.id)
-          .single();
-        
-        if (profileError) {
-          console.error("Lỗi khi lấy thông tin profile:", profileError.message);
-          setProfile(null);
-        } else {
-          setProfile(profileData);
-        }
+      if (profileError) {
+        console.error("Lỗi khi lấy thông tin profile:", profileError.message);
+        setProfile(null);
       } else {
+        setProfile(profileData);
+      }
+    } catch (e) {
+      console.error("Lỗi khi lấy thông tin profile:", e);
+      setProfile(null);
+    }
+  }, []);
+
+  const refetchProfile = useCallback(async () => {
+    if (user) {
+      await fetchProfile(user);
+    }
+  }, [user, fetchProfile]);
+
+  useEffect(() => {
+    const initializeSession = async () => {
+      setLoading(true);
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
+      const currentUser = currentSession?.user ?? null;
+      setUser(currentUser);
+      await fetchProfile(currentUser);
+      setLoading(false);
+    };
+
+    initializeSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      setSession(newSession);
+      const newUser = newSession?.user ?? null;
+      setUser(newUser);
+      if (_event === 'SIGNED_IN' || _event === 'USER_UPDATED') {
+        await fetchProfile(newUser);
+      }
+      if (_event === 'SIGNED_OUT') {
         setProfile(null);
       }
-      setLoading(false);
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchProfile]);
 
   const value = {
     session,
@@ -68,6 +100,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     profile,
     loading,
     signOut,
+    refetchProfile,
   };
 
   return (

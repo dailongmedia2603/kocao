@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { showSuccess, showError } from '@/utils/toast';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { User } from 'lucide-react';
 
 const profileFormSchema = z.object({
@@ -22,8 +22,7 @@ const profileFormSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 const ProfilePage = () => {
-  const { user, profile, loading } = useSession();
-  const queryClient = useQueryClient();
+  const { user, profile, loading, refetchProfile } = useSession();
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   const form = useForm<ProfileFormValues>({
@@ -77,11 +76,9 @@ const ProfilePage = () => {
 
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       showSuccess('Cập nhật thông tin thành công!');
-      // Invalidate queries to refetch data, but a reload is better for context update
-      queryClient.invalidateQueries({ queryKey: ['profile', user?.id] });
-      window.location.reload();
+      await refetchProfile();
     },
     onError: (error: Error) => {
       showError(`Lỗi: ${error.message}`);
