@@ -8,7 +8,10 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log(`[${new Date().toISOString()}] generate-idea-content function invoked with method: ${req.method}`);
+
   if (req.method === "OPTIONS") {
+    console.log("Handling OPTIONS request.");
     return new Response("ok", { headers: corsHeaders });
   }
 
@@ -19,6 +22,7 @@ serve(async (req) => {
     );
 
     // 1. Find new ideas that need content generation
+    console.log("Fetching ideas to process...");
     const { data: ideasToProcess, error: fetchError } = await supabaseAdmin
       .from('koc_content_ideas')
       .select('id, user_id, idea_content, koc_id')
@@ -26,9 +30,13 @@ serve(async (req) => {
       .is('new_content', null)
       .limit(5); // Process 5 at a time to avoid timeouts
 
-    if (fetchError) throw new Error(`Error fetching ideas: ${fetchError.message}`);
+    if (fetchError) {
+      console.error("Error fetching ideas:", fetchError.message);
+      throw new Error(`Error fetching ideas: ${fetchError.message}`);
+    }
 
     if (!ideasToProcess || ideasToProcess.length === 0) {
+      console.log("No new ideas to process. Exiting.");
       return new Response(JSON.stringify({ message: "No new ideas to process." }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -40,6 +48,7 @@ serve(async (req) => {
 
     for (const idea of ideasToProcess) {
       try {
+        console.log(`Processing idea ID: ${idea.id}`);
         // 2. Lock the idea to prevent reprocessing
         await supabaseAdmin
           .from('koc_content_ideas')
@@ -47,6 +56,7 @@ serve(async (req) => {
           .eq('id', idea.id);
 
         // 3. Get user's Gemini API key
+        console.log(`Fetching API key for user ID: ${idea.user_id}`);
         const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
           .from("user_api_keys")
           .select("api_key")
@@ -55,8 +65,10 @@ serve(async (req) => {
           .single();
         if (apiKeyError || !apiKeyData) throw new Error("User has no Gemini API key configured.");
         const geminiApiKey = apiKeyData.api_key;
+        console.log("API key found.");
 
         // 4. Get user's default AI prompt template
+        console.log("Fetching default prompt template...");
         const { data: template, error: templateError } = await supabaseAdmin
           .from('ai_prompt_templates')
           .select('*')
@@ -64,14 +76,17 @@ serve(async (req) => {
           .eq('is_default', true)
           .single();
         if (templateError || !template) throw new Error("User has no default AI prompt template set.");
+        console.log(`Found default template: "${template.name}"`);
 
         // 5. Get KOC's name
+        console.log(`Fetching KOC name for ID: ${idea.koc_id}`);
         const { data: koc, error: kocError } = await supabaseAdmin
           .from('kocs')
           .select('name')
           .eq('id', idea.koc_id)
           .single();
         if (kocError || !koc) throw new Error(`KOC with id ${idea.koc_id} not found.`);
+        console.log(`Found KOC name: "${koc.name}"`);
 
         // 6. Construct the full prompt
         const fullPrompt = `
@@ -97,6 +112,7 @@ serve(async (req) => {
         `;
 
         // 7. Call Gemini API
+        console.log(`Calling Gemini API with model: ${template.model || 'gemini-1.5-pro-latest'}`);
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${template.model || 'gemini-1.5-pro-latest'}:generateContent?key=${geminiApiKey}`;
         const geminiResponse = await fetch(geminiUrl, {
           method: 'POST',
@@ -109,11 +125,14 @@ serve(async (req) => {
 
         const geminiData = await geminiResponse.json();
         if (!geminiResponse.ok || !geminiData.candidates || geminiData.candidates.length === 0) {
+          console.error("Gemini API error response:", JSON.stringify(geminiData));
           throw new Error(geminiData?.error?.message || "Lỗi từ API Gemini.");
         }
         const generatedText = geminiData.candidates[0].content.parts[0].text;
+        console.log("Successfully received response from Gemini.");
 
         // 8. Update the idea in the database
+        console.log(`Updating idea ${idea.id} with new content.`);
         const { error: updateError } = await supabaseAdmin
           .from('koc_content_ideas')
           .update({
@@ -143,7 +162,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error("Critical error in generate-idea-content function:", error);
+    console.error("Critical error in generate-idea-content function:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
