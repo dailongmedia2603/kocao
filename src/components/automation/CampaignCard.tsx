@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Trash2, Mic } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Link } from "react-router-dom";
 
 export type Campaign = {
   id: string;
@@ -61,8 +62,9 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
   });
 
   return (
-    <Card className="flex flex-col">
-      <CardHeader>
+    <Card className="flex flex-col relative group hover:shadow-lg transition-shadow">
+      <Link to={`/automation/${campaign.id}`} className="absolute inset-0 z-0" />
+      <CardHeader className="relative z-10">
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg">{campaign.name}</CardTitle>
           <Badge variant={campaign.status === 'active' ? 'default' : 'secondary'} className={campaign.status === 'active' ? 'bg-green-100 text-green-800' : ''}>
@@ -71,7 +73,7 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
         </div>
         {campaign.description && <CardDescription>{campaign.description}</CardDescription>}
       </CardHeader>
-      <CardContent className="flex-grow space-y-4">
+      <CardContent className="flex-grow space-y-4 relative z-10">
         <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/50">
           <Avatar className="h-10 w-10 border">
             <AvatarImage src={campaign.kocs?.avatar_url || undefined} />
@@ -92,8 +94,8 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
           </div>
         </div>
       </CardContent>
-      <div className="flex items-center justify-between p-4 border-t">
-        <div className="flex items-center space-x-2">
+      <div className="flex items-center justify-between p-4 border-t relative z-10">
+        <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
           <Switch
             checked={campaign.status === 'active'}
             onCheckedChange={(checked) => updateStatusMutation.mutate(checked ? 'active' : 'paused')}
@@ -101,13 +103,13 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
           />
           <label className="text-sm font-medium">Kích hoạt</label>
         </div>
-        <AlertDialog>
+        <AlertDialog onOpenChange={(open) => { if (!open) { /* handle closing if needed */ } }}>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-destructive">
+            <Button variant="ghost" size="icon" className="text-destructive" onClick={(e) => e.stopPropagation()}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent>
+          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
             <AlertDialogHeader>
               <AlertDialogTitle>Xóa chiến dịch "{campaign.name}"?</AlertDialogTitle>
               <AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription>
