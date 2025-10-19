@@ -177,7 +177,7 @@ const AutomationDetail = () => {
                                                         </TimelineStep>
                                                         <TimelineStep icon={Mic} title="Tạo Voice" status={getStatusInfo(activity.voice_status).text} statusColor={getStatusInfo(activity.voice_status).color}>
                                                             {activity.voice_audio_url && <audio controls src={activity.voice_audio_url} className="h-8 w-full" />}
-                                                        </Step>
+                                                        </TimelineStep>
                                                         <TimelineStep icon={Video} title="Tạo Video" status={getStatusInfo(activity.dreamface_status).text} statusColor={getStatusInfo(activity.dreamface_status).color}>
                                                             {activity.video_url ? (
                                                                 <video
