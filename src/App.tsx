@@ -17,6 +17,7 @@ import Automation from "./pages/Automation";
 import DreamfaceStudio from "./pages/DreamfaceStudio";
 import VideoToScript from "./pages/VideoToScript";
 import AutomationDetail from "./pages/AutomationDetail";
+import ForgotPassword from "./pages/ForgotPassword";
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
