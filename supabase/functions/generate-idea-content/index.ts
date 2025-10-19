@@ -1,0 +1,152 @@
+// @ts-nocheck
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // 1. Find new ideas that need content generation
+    const { data: ideasToProcess, error: fetchError } = await supabaseAdmin
+      .from('koc_content_ideas')
+      .select('id, user_id, idea_content, koc_id')
+      .eq('status', 'Chưa sử dụng')
+      .is('new_content', null)
+      .limit(5); // Process 5 at a time to avoid timeouts
+
+    if (fetchError) throw new Error(`Error fetching ideas: ${fetchError.message}`);
+
+    if (!ideasToProcess || ideasToProcess.length === 0) {
+      return new Response(JSON.stringify({ message: "No new ideas to process." }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log(`Found ${ideasToProcess.length} new ideas to process.`);
+    let successCount = 0;
+
+    for (const idea of ideasToProcess) {
+      try {
+        // 2. Lock the idea to prevent reprocessing
+        await supabaseAdmin
+          .from('koc_content_ideas')
+          .update({ status: 'Đang xử lý' })
+          .eq('id', idea.id);
+
+        // 3. Get user's Gemini API key
+        const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
+          .from("user_api_keys")
+          .select("api_key")
+          .eq("user_id", idea.user_id)
+          .limit(1)
+          .single();
+        if (apiKeyError || !apiKeyData) throw new Error("User has no Gemini API key configured.");
+        const geminiApiKey = apiKeyData.api_key;
+
+        // 4. Get user's default AI prompt template
+        const { data: template, error: templateError } = await supabaseAdmin
+          .from('ai_prompt_templates')
+          .select('*')
+          .eq('user_id', idea.user_id)
+          .eq('is_default', true)
+          .single();
+        if (templateError || !template) throw new Error("User has no default AI prompt template set.");
+
+        // 5. Get KOC's name
+        const { data: koc, error: kocError } = await supabaseAdmin
+          .from('kocs')
+          .select('name')
+          .eq('id', idea.koc_id)
+          .single();
+        if (kocError || !koc) throw new Error(`KOC with id ${idea.koc_id} not found.`);
+
+        // 6. Construct the full prompt
+        const fullPrompt = `
+          Bạn là một chuyên gia sáng tạo nội dung cho KOC tên là "${koc.name}".
+          Hãy phát triển ý tưởng sau đây thành một kịch bản video hoàn chỉnh:
+          
+          **Ý tưởng gốc:**
+          ---
+          ${idea.idea_content}
+          ---
+
+          **Yêu cầu chi tiết về kịch bản:**
+          - **Yêu cầu chung:** ${template.general_prompt || 'Không có'}
+          - **Tông giọng:** ${template.tone_of_voice || 'Tự nhiên, hấp dẫn'}
+          - **Văn phong:** ${template.writing_style || 'Kể chuyện, gần gũi'}
+          - **Cách viết:** ${template.writing_method || 'Sử dụng câu ngắn, dễ hiểu'}
+          - **Vai trò của bạn (AI):** ${template.ai_role || 'Một người bạn đang chia sẻ câu chuyện'}
+          - **Yêu cầu bắt buộc:** ${template.mandatory_requirements || 'Không có'}
+          - **Lời thoại ví dụ (tham khảo):** ${template.example_dialogue || 'Không có'}
+          - **Độ dài tối đa:** ${template.word_count ? `Không vượt quá ${template.word_count} từ.` : 'Ngắn gọn, súc tích.'}
+
+          **QUAN TRỌNG:** Chỉ trả về nội dung kịch bản hoàn chỉnh, không thêm bất kỳ lời giải thích, tiêu đề hay ghi chú nào khác.
+        `;
+
+        // 7. Call Gemini API
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${template.model || 'gemini-1.5-pro-latest'}:generateContent?key=${geminiApiKey}`;
+        const geminiResponse = await fetch(geminiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: fullPrompt }] }],
+            generationConfig: { temperature: 0.7, topK: 1, topP: 1, maxOutputTokens: 8192 },
+          }),
+        });
+
+        const geminiData = await geminiResponse.json();
+        if (!geminiResponse.ok || !geminiData.candidates || geminiData.candidates.length === 0) {
+          throw new Error(geminiData?.error?.message || "Lỗi từ API Gemini.");
+        }
+        const generatedText = geminiData.candidates[0].content.parts[0].text;
+
+        // 8. Update the idea in the database
+        const { error: updateError } = await supabaseAdmin
+          .from('koc_content_ideas')
+          .update({
+            new_content: generatedText,
+            status: 'Đã có content'
+          })
+          .eq('id', idea.id);
+        
+        if (updateError) throw new Error(`Error updating idea in DB: ${updateError.message}`);
+        
+        successCount++;
+        console.log(`Successfully generated content for idea ${idea.id}.`);
+
+      } catch (processingError) {
+        console.error(`Failed to process idea ${idea.id}:`, processingError.message);
+        // Revert status to allow retrying later
+        await supabaseAdmin
+          .from('koc_content_ideas')
+          .update({ status: 'Chưa sử dụng' })
+          .eq('id', idea.id);
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, message: `Processed ${successCount}/${ideasToProcess.length} ideas.` }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+  } catch (error) {
+    console.error("Critical error in generate-idea-content function:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
