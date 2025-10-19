@@ -27,7 +27,7 @@ serve(async (req) => {
       .from('koc_content_ideas')
       .select('id, user_id, idea_content, koc_id')
       .eq('status', 'Chưa sử dụng')
-      .is('new_content', null)
+      .or('new_content.is.null,new_content.eq.') // SỬA LỖI: Tìm cả NULL hoặc chuỗi rỗng
       .limit(5); // Process 5 at a time to avoid timeouts
 
     if (fetchError) {
@@ -162,7 +162,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error("Critical error in generate-idea-content function:", error.message);
+    console.error("Critical error in generate-idea-content function:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
