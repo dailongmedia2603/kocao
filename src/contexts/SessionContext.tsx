@@ -8,6 +8,8 @@ export type Profile = {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  role: string | null;
+  status: string | null;
 };
 
 type SessionContextType = {
