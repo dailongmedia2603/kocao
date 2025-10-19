@@ -14,12 +14,21 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
     if (session) {
       navigate("/");
     }
   }, [session, navigate]);
+
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem('rememberedEmail');
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -31,6 +40,11 @@ const Login = () => {
     if (error) {
       setError("Invalid login credentials. Please try again.");
     } else {
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', email);
+      } else {
+        localStorage.removeItem('rememberedEmail');
+      }
       navigate("/");
     }
   };
@@ -79,7 +93,12 @@ const Login = () => {
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <Checkbox id="remember-me" className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500" />
+                  <Checkbox 
+                    id="remember-me" 
+                    className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(Boolean(checked))}
+                  />
                   <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900 font-medium">Remember Me</label>
                 </div>
                 <div className="text-sm">
