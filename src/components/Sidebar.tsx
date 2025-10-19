@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, LayoutDashboard, Settings, Video, Bot, Film } from "lucide-react";
+import { ChevronLeft, LayoutDashboard, Settings, Video, Bot, Film, Plug } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
 import {
@@ -17,9 +17,11 @@ const menuItems = [
     icon: LayoutDashboard,
     to: "/",
   },
+  { label: "Dự án", icon: Film, to: "/projects" },
   { label: "KOCs Manager", icon: Video, to: "/list-koc" },
   { label: "Automation", icon: Bot, to: "/automation" },
   { label: "Dreamface Studio", icon: Film, to: "/dreamface-studio" },
+  { label: "Extensions", icon: Plug, to: "/extensions" },
   { label: "Settings", icon: Settings, to: "/settings" },
 ];
 
@@ -29,7 +31,6 @@ const Sidebar = () => {
 
   const isKocSectionActive =
     location.pathname.startsWith("/list-koc") ||
-    location.pathname.startsWith("/projects") ||
     location.pathname.startsWith("/reports");
 
   return (

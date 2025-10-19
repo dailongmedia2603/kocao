@@ -15,6 +15,9 @@ import CreateVoicePage from "./pages/CreateVoice";
 import TaoContent from "./pages/TaoContent";
 import Automation from "./pages/Automation";
 import DreamfaceStudio from "./pages/DreamfaceStudio";
+import ProjectsList from "./pages/ProjectsList";
+import ProjectDetail from "./pages/ProjectDetail";
+import Extensions from "./pages/Extensions";
 
 function App() {
   return (
@@ -30,10 +33,13 @@ function App() {
               <Route path="/automation" element={<Automation />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/dreamface-studio" element={<DreamfaceStudio />} />
+              <Route path="/extensions" element={<Extensions />} />
             </Route>
             <Route element={<KocLayout />}>
               <Route path="/list-koc" element={<ListKoc />} />
               <Route path="/list-koc/:kocId" element={<KocDetail />} />
+              <Route path="/projects" element={<ProjectsList />} />
+              <Route path="/projects/:projectId" element={<ProjectDetail />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/create-voice" element={<CreateVoicePage />} />
               <Route path="/tao-content" element={<TaoContent />} />
