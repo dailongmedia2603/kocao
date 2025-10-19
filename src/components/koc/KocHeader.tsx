@@ -1,17 +1,15 @@
-import { NavLink } from "react-router-dom";
+import { Users, BarChart3, Video, Mic, PenSquare, Captions } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useSession } from "@/contexts/SessionContext";
+import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Video, Mic, PenSquare, Captions, BarChart3 } from "lucide-react";
-
-const navItems = [
-  { label: "KOCs Manager", icon: Video, to: "/list-koc" },
-  { label: "Tạo Voice", icon: Mic, to: "/create-voice" },
-  { label: "Tạo Content", icon: PenSquare, to: "/tao-content" },
-  { label: "Tách Script", icon: Captions, to: "/video-to-script" },
-  { label: "Report", icon: BarChart3, to: "/reports" },
-];
 
 const KocHeader = () => {
   const { profile, user, signOut } = useSession();
@@ -19,27 +17,81 @@ const KocHeader = () => {
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
     const first = firstName?.[0] || "";
     const last = lastName?.[0] || "";
-    return `${first}${last}`.toUpperCase() || user?.email?.[0].toUpperCase() || "??";
+    return (
+      `${first}${last}`.toUpperCase() || user?.email?.[0].toUpperCase() || "??"
+    );
   };
+
+  const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
+    cn(
+      "flex items-center p-2 rounded-lg font-semibold transition-colors text-sm",
+      isActive
+        ? "bg-red-50 text-red-600"
+        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+    );
+
+  const iconContainerClasses = (isActive: boolean) =>
+    cn(
+      "flex items-center justify-center h-7 w-7 rounded-md transition-colors",
+      isActive ? "bg-red-600 text-white" : "bg-gray-200 text-gray-600"
+    );
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-white px-6 flex-shrink-0">
       <nav className="flex items-center gap-4">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-2 p-2 rounded-md text-sm font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors",
-                isActive && "bg-red-50 text-red-600"
-              )
-            }
-          >
-            <item.icon className="h-5 w-5" />
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
+        <NavLink to="/list-koc" end className={navLinkClasses}>
+          {({ isActive }) => (
+            <>
+              <div className={iconContainerClasses(isActive)}>
+                <Users className="h-4 w-4" />
+              </div>
+              <span className="ml-2">KOCs Manager</span>
+            </>
+          )}
+        </NavLink>
+        <NavLink to="/create-voice" className={navLinkClasses}>
+          {({ isActive }) => (
+            <>
+              <div className={iconContainerClasses(isActive)}>
+                <Mic className="h-4 w-4" />
+              </div>
+              <span className="ml-2">Tạo Voice</span>
+            </>
+          )}
+        </NavLink>
+        
+        <NavLink to="/tao-content" className={navLinkClasses}>
+          {({ isActive }) => (
+            <>
+              <div className={iconContainerClasses(isActive)}>
+                <PenSquare className="h-4 w-4" />
+              </div>
+              <span className="ml-2">Tạo Content</span>
+            </>
+          )}
+        </NavLink>
+
+        <NavLink to="/video-to-script" className={navLinkClasses}>
+          {({ isActive }) => (
+            <>
+              <div className={iconContainerClasses(isActive)}>
+                <Captions className="h-4 w-4" />
+              </div>
+              <span className="ml-2">Tách Script</span>
+            </>
+          )}
+        </NavLink>
+
+        <NavLink to="/reports" className={navLinkClasses}>
+          {({ isActive }) => (
+            <>
+              <div className={iconContainerClasses(isActive)}>
+                <BarChart3 className="h-4 w-4" />
+              </div>
+              <span className="ml-2">Report</span>
+            </>
+          )}
+        </NavLink>
       </nav>
       <div className="flex items-center">
         <DropdownMenu>
@@ -47,7 +99,9 @@ const KocHeader = () => {
             <div className="cursor-pointer">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={profile?.avatar_url || undefined} />
-                <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
+                <AvatarFallback>
+                  {getInitials(profile?.first_name, profile?.last_name)}
+                </AvatarFallback>
               </Avatar>
             </div>
           </DropdownMenuTrigger>
