@@ -86,7 +86,7 @@ const VoiceApiSettings = () => {
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <div><CardTitle>Cấu hình API GenAIPro Voice</CardTitle><CardDescription>Thêm và quản lý API Key của bạn từ Vivoo.work.</CardDescription></div>
+          <div><CardTitle>Cấu hình API Voice</CardTitle><CardDescription>Thêm và quản lý API Key của bạn từ Vivoo.work.</CardDescription></div>
           <Button onClick={() => setAddDialogOpen(true)}><Plus className="mr-2 h-4 w-4" /> Thêm Key</Button>
         </CardHeader>
         <CardContent>

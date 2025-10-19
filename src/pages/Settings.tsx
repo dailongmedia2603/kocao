@@ -4,7 +4,6 @@ import TiktokApiSettings from "@/components/settings/TiktokApiSettings";
 import FacebookApiSettings from "@/components/settings/FacebookApiSettings";
 import VoiceApiSettings from "@/components/settings/VoiceApiSettings";
 import DreamfaceApiSettings from "@/components/settings/DreamfaceApiSettings";
-import { VoiceApiDocumentation } from "@/components/settings/VoiceApiDocumentation";
 import { Bot, KeyRound, Mic, Film } from "lucide-react";
 import { FaTiktok, FaFacebook } from "react-icons/fa";
 
@@ -38,7 +37,6 @@ const Settings = () => {
         <TabsContent value="facebook-api" className="mt-6"><FacebookApiSettings /></TabsContent>
         <TabsContent value="voice-api" className="mt-6">
           <VoiceApiSettings />
-          <VoiceApiDocumentation />
         </TabsContent>
         <TabsContent value="dreamface-api" className="mt-6"><DreamfaceApiSettings /></TabsContent>
       </Tabs>
