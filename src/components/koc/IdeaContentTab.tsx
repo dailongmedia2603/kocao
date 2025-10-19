@@ -8,11 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, MoreHorizontal, Edit, Trash2, Lightbulb, Loader2, Video, Settings } from "lucide-react";
+import { Plus, MoreHorizontal, Edit, Trash2, Lightbulb, Loader2, Video, Settings, History } from "lucide-react";
 import { AddEditIdeaDialog } from "./AddEditIdeaDialog";
 import { showSuccess, showError } from "@/utils/toast";
 import { ViewScriptContentDialog } from "@/components/content/ViewScriptContentDialog";
 import { ConfigureAiTemplatesDialog } from "@/components/automation/ConfigureAiTemplatesDialog";
+import { IdeaLogDialog } from "./IdeaLogDialog";
 
 type Idea = {
   id: string;
@@ -40,6 +41,7 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
   const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
   const [contentToView, setContentToView] = useState<string | null>(null);
   const [isConfigureOpen, setConfigureOpen] = useState(false);
+  const [isLogOpen, setIsLogOpen] = useState(false);
 
   const deleteMutation = useMutation({
     mutationFn: async (ideaId: string) => {
@@ -86,6 +88,9 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
             <CardDescription>Quản lý các ý tưởng và nội dung đã phát triển cho KOC.</CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setIsLogOpen(true)}>
+              <History className="mr-2 h-4 w-4" /> Nhật ký
+            </Button>
             <Button variant="outline" onClick={() => setConfigureOpen(true)}>
               <Settings className="mr-2 h-4 w-4" /> Cấu hình AI
             </Button>
@@ -199,6 +204,7 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
         content={contentToView}
       />
       <ConfigureAiTemplatesDialog isOpen={isConfigureOpen} onOpenChange={setConfigureOpen} />
+      <IdeaLogDialog isOpen={isLogOpen} onOpenChange={setIsLogOpen} kocId={kocId} />
     </>
   );
 };

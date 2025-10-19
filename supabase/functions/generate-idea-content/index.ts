@@ -27,8 +27,8 @@ serve(async (req) => {
       .from('koc_content_ideas')
       .select('id, user_id, idea_content, koc_id')
       .eq('status', 'Chưa sử dụng')
-      .or('new_content.is.null,new_content.eq.') // SỬA LỖI: Tìm cả NULL hoặc chuỗi rỗng
-      .limit(5); // Process 5 at a time to avoid timeouts
+      .or('new_content.is.null,new_content.eq.')
+      .limit(5);
 
     if (fetchError) {
       console.error("Error fetching ideas:", fetchError.message);
@@ -49,46 +49,24 @@ serve(async (req) => {
     for (const idea of ideasToProcess) {
       try {
         console.log(`Processing idea ID: ${idea.id}`);
-        // 2. Lock the idea to prevent reprocessing
-        await supabaseAdmin
-          .from('koc_content_ideas')
-          .update({ status: 'Đang xử lý' })
-          .eq('id', idea.id);
+        await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đang xử lý' }).eq('id', idea.id);
 
-        // 3. Get user's Gemini API key
         console.log(`Fetching API key for user ID: ${idea.user_id}`);
-        const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
-          .from("user_api_keys")
-          .select("api_key")
-          .eq("user_id", idea.user_id)
-          .limit(1)
-          .single();
+        const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.from("user_api_keys").select("api_key").eq("user_id", idea.user_id).limit(1).single();
         if (apiKeyError || !apiKeyData) throw new Error("User has no Gemini API key configured.");
         const geminiApiKey = apiKeyData.api_key;
         console.log("API key found.");
 
-        // 4. Get user's default AI prompt template
         console.log("Fetching default prompt template...");
-        const { data: template, error: templateError } = await supabaseAdmin
-          .from('ai_prompt_templates')
-          .select('*')
-          .eq('user_id', idea.user_id)
-          .eq('is_default', true)
-          .single();
+        const { data: template, error: templateError } = await supabaseAdmin.from('ai_prompt_templates').select('*').eq('user_id', idea.user_id).eq('is_default', true).single();
         if (templateError || !template) throw new Error("User has no default AI prompt template set.");
         console.log(`Found default template: "${template.name}"`);
 
-        // 5. Get KOC's name
         console.log(`Fetching KOC name for ID: ${idea.koc_id}`);
-        const { data: koc, error: kocError } = await supabaseAdmin
-          .from('kocs')
-          .select('name')
-          .eq('id', idea.koc_id)
-          .single();
+        const { data: koc, error: kocError } = await supabaseAdmin.from('kocs').select('name').eq('id', idea.koc_id).single();
         if (kocError || !koc) throw new Error(`KOC with id ${idea.koc_id} not found.`);
         console.log(`Found KOC name: "${koc.name}"`);
 
-        // 6. Construct the full prompt
         const fullPrompt = `
           Bạn là một chuyên gia sáng tạo nội dung cho KOC tên là "${koc.name}".
           Hãy phát triển ý tưởng sau đây thành một kịch bản video hoàn chỉnh:
@@ -111,7 +89,6 @@ serve(async (req) => {
           **QUAN TRỌNG:** Chỉ trả về nội dung kịch bản hoàn chỉnh, không thêm bất kỳ lời giải thích, tiêu đề hay ghi chú nào khác.
         `;
 
-        // 7. Call Gemini API
         console.log(`Calling Gemini API with model: ${template.model || 'gemini-1.5-pro-latest'}`);
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${template.model || 'gemini-1.5-pro-latest'}:generateContent?key=${geminiApiKey}`;
         const geminiResponse = await fetch(geminiUrl, {
@@ -131,13 +108,13 @@ serve(async (req) => {
         const generatedText = geminiData.candidates[0].content.parts[0].text;
         console.log("Successfully received response from Gemini.");
 
-        // 8. Update the idea in the database
         console.log(`Updating idea ${idea.id} with new content.`);
         const { error: updateError } = await supabaseAdmin
           .from('koc_content_ideas')
           .update({
             new_content: generatedText,
-            status: 'Đã có content'
+            status: 'Đã có content',
+            ai_prompt_log: fullPrompt
           })
           .eq('id', idea.id);
         
@@ -148,11 +125,7 @@ serve(async (req) => {
 
       } catch (processingError) {
         console.error(`Failed to process idea ${idea.id}:`, processingError.message);
-        // Revert status to allow retrying later
-        await supabaseAdmin
-          .from('koc_content_ideas')
-          .update({ status: 'Chưa sử dụng' })
-          .eq('id', idea.id);
+        await supabaseAdmin.from('koc_content_ideas').update({ status: 'Chưa sử dụng' }).eq('id', idea.id);
       }
     }
 
