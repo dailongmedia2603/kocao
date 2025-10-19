@@ -5,14 +5,9 @@ import {
   ChevronLeft,
   LayoutDashboard,
   Settings,
-  Video,
   Bot,
   Film,
   Users,
-  Mic,
-  PenSquare,
-  Captions,
-  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
@@ -26,13 +21,8 @@ import { useSession } from "@/contexts/SessionContext";
 
 const menuItems = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/" },
-  { label: "KOCs Manager", icon: Video, to: "/list-koc" },
-  { label: "Tạo Voice", icon: Mic, to: "/create-voice" },
-  { label: "Tạo Content", icon: PenSquare, to: "/tao-content" },
-  { label: "Tách Script", icon: Captions, to: "/video-to-script" },
   { label: "Automation", icon: Bot, to: "/automation" },
   { label: "Dreamface Studio", icon: Film, to: "/dreamface-studio" },
-  { label: "Report", icon: BarChart3, to: "/reports" },
   { label: "Settings", icon: Settings, to: "/settings" },
 ];
 
