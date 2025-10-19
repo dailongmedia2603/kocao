@@ -18,6 +18,9 @@ import DreamfaceStudio from "./pages/DreamfaceStudio";
 import VideoToScript from "./pages/VideoToScript";
 import AutomationDetail from "./pages/AutomationDetail";
 import ForgotPassword from "./pages/ForgotPassword";
+import PendingApproval from "./pages/PendingApproval";
+import AdminRoute from "./components/AdminRoute";
+import UserManagement from "./pages/admin/UserManagement";
 
 function App() {
   return (
@@ -28,7 +31,19 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          
           <Route element={<ProtectedRoute />}>
+            {/* Trang dành cho người dùng đang chờ duyệt */}
+            <Route path="/pending-approval" element={<PendingApproval />} />
+
+            {/* Các Route chỉ dành cho Admin */}
+            <Route element={<AdminRoute />}>
+              <Route element={<AppLayout />}>
+                <Route path="/admin/users" element={<UserManagement />} />
+              </Route>
+            </Route>
+
+            {/* Các Route cho người dùng đã được duyệt */}
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/automation" element={<Automation />} />

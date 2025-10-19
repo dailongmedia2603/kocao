@@ -3,7 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const ProtectedRoute = () => {
-  const { session, loading } = useSession();
+  const { session, profile, loading } = useSession();
   const location = useLocation();
 
   if (loading) {
@@ -18,15 +18,22 @@ const ProtectedRoute = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // Kiểm tra xem đây có phải là phiên đăng nhập tạm thời để khôi phục mật khẩu không
+  // Xử lý phiên khôi phục mật khẩu tạm thời
   const isRecoverySession = (session.user as any).amr?.some(
     (method: { method: string }) => method.method === 'recovery'
   );
 
-  // Nếu là phiên khôi phục và người dùng đang cố truy cập một trang khác ngoài /forgot-password
-  // hãy chuyển hướng họ đến trang đổi mật khẩu.
   if (isRecoverySession && location.pathname !== "/forgot-password") {
     return <Navigate to="/forgot-password" replace />;
+  }
+  
+  // Nếu không phải phiên khôi phục, kiểm tra trạng thái profile
+  if (!isRecoverySession) {
+    // Nếu profile đã tải và trạng thái là 'pending', chuyển hướng đến trang chờ duyệt
+    // trừ khi họ đã ở trên trang đó.
+    if (profile && profile.status === 'pending' && location.pathname !== '/pending-approval') {
+      return <Navigate to="/pending-approval" replace />;
+    }
   }
 
   return <Outlet />;
