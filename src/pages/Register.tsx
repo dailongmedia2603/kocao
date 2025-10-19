@@ -53,12 +53,12 @@ const Register = () => {
     <div className="flex h-screen overflow-hidden bg-white font-sans">
       <div className="w-full lg:w-1/2 flex flex-col p-8 sm:p-12">
         <div className="flex-shrink-0">
-            <img src="/logokocao.png" alt="Logo" className="h-20 w-auto mx-auto lg:mx-0" />
+            <img src="/logokocao.png" alt="Logo" className="h-20 w-auto" />
         </div>
         
         <div className="flex-grow flex items-center justify-center">
           <div className="w-full max-w-sm">
-            <div className="text-center lg:text-left mb-8">
+            <div className="text-left mb-8">
               <h2 className="text-3xl font-bold tracking-tight">Tạo tài khoản</h2>
               <p className="text-gray-500 mt-2 text-sm">DrX AI KOC - Phần mềm tạo KOC</p>
             </div>
