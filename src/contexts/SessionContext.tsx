@@ -1,83 +1,66 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { Session, User } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 
-export type Profile = {
+// Định nghĩa kiểu dữ liệu cho profile dựa trên bảng 'profiles' của bạn
+type Profile = {
   id: string;
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  updated_at?: string;
 };
 
-type SessionContextType = {
+interface SessionContextType {
   session: Session | null;
   user: User | null;
   profile: Profile | null;
   loading: boolean;
   signOut: () => Promise<void>;
-};
+}
 
-const SessionContext = createContext<SessionContextType | null>(null);
+const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
-export const SessionContextProvider = ({
-  children,
-}: {
-  children: React.ReactNode;
-}) => {
+export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const getSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    };
-
-    getSession();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      const fetchProfile = async () => {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single();
-
-        if (error) {
-          console.error("Error fetching profile:", error);
-        } else {
-          setProfile(data);
-        }
-      };
-      fetchProfile();
-    } else {
-      setProfile(null);
-    }
-  }, [user]);
-
   const signOut = async () => {
     await supabase.auth.signOut();
   };
+
+  useEffect(() => {
+    setLoading(true);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      
+      if (currentUser) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single();
+        
+        if (profileError) {
+          console.error("Lỗi khi lấy thông tin profile:", profileError.message);
+          setProfile(null);
+        } else {
+          setProfile(profileData);
+        }
+      } else {
+        setProfile(null);
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const value = {
     session,
@@ -88,14 +71,16 @@ export const SessionContextProvider = ({
   };
 
   return (
-    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+    <SessionContext.Provider value={value}>
+      {children}
+    </SessionContext.Provider>
   );
 };
 
 export const useSession = () => {
   const context = useContext(SessionContext);
   if (context === undefined) {
-    throw new Error("useSession must be used within a SessionContextProvider");
+    throw new Error('useSession must be used within a SessionProvider');
   }
   return context;
 };
