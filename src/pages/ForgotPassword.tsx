@@ -1,23 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Mail, Eye, EyeOff, ArrowLeft } from "lucide-react";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
 import { showSuccess, showError } from "@/utils/toast";
 
-type Step = "enter-email" | "enter-code" | "reset-password";
+type Step = "enter-email" | "reset-password";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("enter-email");
   const [email, setEmail] = useState("");
-  const [token, setToken] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -25,39 +19,40 @@ const ForgotPassword = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSendResetCode = async (e: React.FormEvent) => {
+  useEffect(() => {
+    const handlePasswordRecovery = () => {
+      const hash = window.location.hash;
+      if (hash.includes('type=recovery')) {
+        setStep("reset-password");
+      }
+    };
+
+    // Check immediately on component mount
+    handlePasswordRecovery();
+
+    // Listen for hash changes
+    window.addEventListener('hashchange', handlePasswordRecovery);
+
+    // Cleanup listener
+    return () => {
+      window.removeEventListener('hashchange', handlePasswordRecovery);
+    };
+  }, []);
+
+
+  const handleSendResetLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: '', // Không sử dụng link chuyển hướng
+      redirectTo: window.location.origin + window.location.pathname,
     });
     setLoading(false);
     if (error) {
       setError(error.message);
-      showError("Gửi mã thất bại. Vui lòng kiểm tra lại email.");
+      showError("Gửi link thất bại. Vui lòng kiểm tra lại email.");
     } else {
-      showSuccess("Mã khôi phục đã được gửi đến email của bạn.");
-      setStep("enter-code");
-    }
-  };
-
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: "recovery",
-    });
-    setLoading(false);
-    if (error) {
-      setError("Mã không hợp lệ hoặc đã hết hạn.");
-      showError("Mã không hợp lệ hoặc đã hết hạn.");
-    } else {
-      showSuccess("Xác thực thành công. Vui lòng đặt mật khẩu mới.");
-      setStep("reset-password");
+      showSuccess("Link khôi phục đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.");
     }
   };
 
@@ -82,7 +77,6 @@ const ForgotPassword = () => {
       showError(error.message);
     } else {
       showSuccess("Đặt lại mật khẩu thành công! Vui lòng đăng nhập lại.");
-      await supabase.auth.signOut(); // Đăng xuất người dùng sau khi đổi mật khẩu
       navigate("/login");
     }
   };
@@ -91,7 +85,7 @@ const ForgotPassword = () => {
     switch (step) {
       case "enter-email":
         return (
-          <form onSubmit={handleSendResetCode} className="space-y-4">
+          <form onSubmit={handleSendResetLink} className="space-y-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
               <div className="relative">
@@ -109,31 +103,7 @@ const ForgotPassword = () => {
             {error && <p className="text-red-500 text-sm text-center">{error}</p>}
             <div>
               <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base font-bold rounded-lg" disabled={loading}>
-                {loading ? 'Đang gửi...' : 'Gửi mã khôi phục'}
-              </Button>
-            </div>
-          </form>
-        );
-      case "enter-code":
-        return (
-          <form onSubmit={handleVerifyCode} className="space-y-6">
-            <div className="flex flex-col items-start">
-              <label className="block text-sm font-bold text-gray-700 mb-2">Nhập mã xác thực</label>
-              <InputOTP maxLength={6} value={token} onChange={(value) => setToken(value)}>
-                <InputOTPGroup className="gap-2">
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
-            </div>
-            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-            <div>
-              <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base font-bold rounded-lg" disabled={loading || token.length < 6}>
-                {loading ? 'Đang xác thực...' : 'Xác thực'}
+                {loading ? 'Đang gửi...' : 'Gửi link khôi phục'}
               </Button>
             </div>
           </form>
