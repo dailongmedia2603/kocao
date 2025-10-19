@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft } from "lucide-react";
+import ProjectDetailWorkflow from "@/components/workflow/WorkflowBuilder";
 
 const ProjectDetail = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -25,7 +26,7 @@ const ProjectDetail = () => {
     return (
       <div className="p-8">
         <Skeleton className="h-8 w-64" />
-        <Skeleton className="mt-4 h-96 w-full" />
+        <Skeleton className="mt-4 h-[calc(100vh-150px)] w-full" />
       </div>
     );
   }
@@ -35,8 +36,8 @@ const ProjectDetail = () => {
       <Link to="/projects" className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách dự án
       </Link>
-      <h1 className="text-3xl font-bold">{project?.name}</h1>
-      <p className="mt-4 text-muted-foreground">Phần chi tiết kịch bản và tác vụ sẽ được phát triển ở đây.</p>
+      <h1 className="text-3xl font-bold mb-4">{project?.name}</h1>
+      {projectId && <ProjectDetailWorkflow projectId={projectId} />}
     </div>
   );
 };
