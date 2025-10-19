@@ -30,6 +30,7 @@ type ActivityLog = {
     video_file_id: string | null;
     video_display_name: string | null;
     video_thumbnail_url: string | null;
+    video_url: string | null;
 };
 
 const TimelineStep = ({ icon: Icon, title, status, children, statusColor }) => (
@@ -141,7 +142,14 @@ const AutomationDetail = () => {
                                                         {activity.voice_audio_url && <audio controls src={activity.voice_audio_url} className="h-8 w-full" />}
                                                     </TimelineStep>
                                                     <TimelineStep icon={Video} title="Tạo Video" status={getStatusInfo(activity.dreamface_status).text} statusColor={getStatusInfo(activity.dreamface_status).color}>
-                                                        {activity.video_thumbnail_url && (
+                                                        {activity.video_url ? (
+                                                            <video
+                                                                controls
+                                                                src={activity.video_url}
+                                                                poster={activity.video_thumbnail_url || undefined}
+                                                                className="w-full max-w-xs rounded-lg"
+                                                            />
+                                                        ) : activity.video_thumbnail_url && (
                                                             <div className="flex items-center gap-2">
                                                                 <img src={activity.video_thumbnail_url} alt="thumbnail" className="h-12 w-12 rounded-md object-cover" />
                                                                 <p className="font-medium">{activity.video_display_name}</p>
