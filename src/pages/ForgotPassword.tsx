@@ -20,22 +20,14 @@ const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const handlePasswordRecovery = () => {
-      const hash = window.location.hash;
-      if (hash.includes('type=recovery')) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
         setStep("reset-password");
       }
-    };
+    });
 
-    // Check immediately on component mount
-    handlePasswordRecovery();
-
-    // Listen for hash changes
-    window.addEventListener('hashchange', handlePasswordRecovery);
-
-    // Cleanup listener
     return () => {
-      window.removeEventListener('hashchange', handlePasswordRecovery);
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -45,7 +37,7 @@ const ForgotPassword = () => {
     setError("");
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + window.location.pathname,
+      redirectTo: window.location.origin + '/forgot-password',
     });
     setLoading(false);
     if (error) {
@@ -77,6 +69,8 @@ const ForgotPassword = () => {
       showError(error.message);
     } else {
       showSuccess("Đặt lại mật khẩu thành công! Vui lòng đăng nhập lại.");
+      // Đăng xuất khỏi phiên tạm thời và chuyển hướng về trang đăng nhập
+      await supabase.auth.signOut();
       navigate("/login");
     }
   };
