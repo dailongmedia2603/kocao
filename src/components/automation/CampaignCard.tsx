@@ -69,7 +69,7 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
             {campaign.status === 'active' ? 'Đang chạy' : 'Tạm dừng'}
           </Badge>
         </div>
-        <CardDescription>{campaign.description || "Không có mô tả."}</CardDescription>
+        {campaign.description && <CardDescription>{campaign.description}</CardDescription>}
       </CardHeader>
       <CardContent className="flex-grow space-y-4">
         <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/50">
