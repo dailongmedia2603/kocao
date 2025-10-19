@@ -1,0 +1,15 @@
+TikTokApi>=6.0.0
+playwright>=1.40.0
+requests>=2.31.0
+aiohttp>=3.9.0
+yt-dlp>=2023.12.0
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+python-multipart>=0.0.6
+
+# Speech-to-Text
+openai-whisper>=20231117
+ffmpeg-python>=0.2.0
+torch>=2.0.0
+torchaudio>=2.0.0

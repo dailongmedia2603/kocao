@@ -1,2 +1,0 @@
-ALTER TABLE public.user_files ADD COLUMN storage_provider TEXT DEFAULT 'supabase' NOT NULL;
-COMMENT ON COLUMN public.user_files.storage_provider IS 'Chỉ định nhà cung cấp lưu trữ, ví dụ: ''supabase'' hoặc ''r2''';
