@@ -56,7 +56,7 @@ export const AddEditPromptTemplateDialog = ({ isOpen, onOpenChange, template }: 
     defaultValues: {
       name: "",
       general_prompt: "",
-      model: "gemini-1.5-pro",
+      model: "gemini-2.5-pro",
       word_count: 300,
       tone_of_voice: "hài hước",
       writing_style: "kể chuyện, sử dụng văn nói",
@@ -73,7 +73,7 @@ export const AddEditPromptTemplateDialog = ({ isOpen, onOpenChange, template }: 
         form.reset({
           name: template.name,
           general_prompt: template.general_prompt || "",
-          model: template.model || "gemini-1.5-pro",
+          model: template.model || "gemini-2.5-pro",
           word_count: template.word_count || 300,
           tone_of_voice: template.tone_of_voice || "",
           writing_style: template.writing_style || "",
@@ -86,7 +86,7 @@ export const AddEditPromptTemplateDialog = ({ isOpen, onOpenChange, template }: 
         form.reset({
           name: "",
           general_prompt: "",
-          model: "gemini-1.5-pro",
+          model: "gemini-2.5-pro",
           word_count: 300,
           tone_of_voice: "hài hước",
           writing_style: "kể chuyện, sử dụng văn nói",
@@ -136,7 +136,7 @@ export const AddEditPromptTemplateDialog = ({ isOpen, onOpenChange, template }: 
             <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Tên Template</FormLabel><FormControl><Input placeholder="Ví dụ: Template tin tức hài hước" {...field} /></FormControl><FormMessage /></FormItem>)} />
             <FormField control={form.control} name="general_prompt" render={({ field }) => (<FormItem><FormLabel>Yêu cầu chung cho AI</FormLabel><FormControl><Textarea placeholder="Ví dụ: Tóm tắt lại tin tức, chỉ lấy ý chính..." {...field} /></FormControl><FormMessage /></FormItem>)} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel>Model AI</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem><SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel>Model AI</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem><SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem><SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="word_count" render={({ field }) => (<FormItem><FormLabel>Số từ tối đa</FormLabel><FormControl><Input type="number" placeholder="Ví dụ: 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
             </div>
             <FormField control={form.control} name="tone_of_voice" render={({ field }) => (<FormItem><FormLabel>Tông giọng</FormLabel><FormControl><Input placeholder="Ví dụ: hài hước, chuyên nghiệp..." {...field} /></FormControl><FormMessage /></FormItem>)} />

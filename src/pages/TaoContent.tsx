@@ -139,7 +139,7 @@ const TaoContent = () => {
       kocId: "", 
       newsProcessingRequest: "",
       newsPostId: "", 
-      model: "gemini-1.5-pro",
+      model: "gemini-2.5-pro",
       toneOfVoice: "hài hước",
       writingStyle: "kể chuyện, sử dụng văn nói",
       writingMethod: "Sử dụng câu ngắn, đi thẳng vào vấn đề",

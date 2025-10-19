@@ -90,7 +90,7 @@ serve(async (req) => {
               newsContent: post.content,
               kocName: assignedKoc.name, // **SỬ DỤNG TÊN KOC ĐÃ GÁN**
               maxWords: aiConfig.word_count,
-              model: aiConfig.model || "gemini-1.5-pro-latest",
+              model: aiConfig.model || "gemini-2.5-pro",
             },
           });
 
