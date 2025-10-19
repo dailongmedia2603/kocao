@@ -7,32 +7,61 @@ from pathlib import Path
 import uvicorn
 import json
 from datetime import datetime
+import os
+from dotenv import load_dotenv
 
 from tiktok_scraper import SimpleTikTokScraper
 from transcriber import WhisperTranscriber
 
+# Load environment variables
+load_dotenv()
+
+# Configuration from environment variables
+API_VERSION = os.getenv("API_VERSION", "2.0.0")
+API_HOST = os.getenv("API_HOST", "0.0.0.0")
+API_PORT = int(os.getenv("API_PORT", "8000"))
+API_RELOAD = os.getenv("API_RELOAD", "true").lower() == "true"
+API_LOG_LEVEL = os.getenv("API_LOG_LEVEL", "info")
+
+CORS_ALLOW_ORIGINS = os.getenv("CORS_ALLOW_ORIGINS", "*").split(",")
+CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == "true"
+CORS_ALLOW_METHODS = os.getenv("CORS_ALLOW_METHODS", "*").split(",")
+CORS_ALLOW_HEADERS = os.getenv("CORS_ALLOW_HEADERS", "*").split(",")
+
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
+MAX_VIDEOS_LIMIT = int(os.getenv("MAX_VIDEOS_LIMIT", "1000"))
+
+WHISPER_MODEL_NAME = os.getenv("WHISPER_MODEL_NAME", "base")
+WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "auto")
+WHISPER_COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE_TYPE", "auto")
+
 app = FastAPI(
     title="TikTok Scraper API",
     description="RESTful API for scraping TikTok channel videos, metadata, and speech-to-text transcription",
-    version="2.0.0",
+    version=API_VERSION,
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=CORS_ALLOW_ORIGINS,
+    allow_credentials=CORS_ALLOW_CREDENTIALS,
+    allow_methods=CORS_ALLOW_METHODS,
+    allow_headers=CORS_ALLOW_HEADERS,
 )
 
-scraper = SimpleTikTokScraper()
-transcriber = WhisperTranscriber(model_name="base")
+scraper = SimpleTikTokScraper(download_path=UPLOAD_DIR)
+# Initialize with optimized settings (auto-detect GPU, use INT8/FP16 quantization)
+transcriber = WhisperTranscriber(
+    model_name=WHISPER_MODEL_NAME,
+    device=None if WHISPER_DEVICE == "auto" else WHISPER_DEVICE,
+    compute_type=WHISPER_COMPUTE_TYPE
+)
 
 class ChannelRequest(BaseModel):
     channel_link: str = Field(..., description="TikTok channel URL or username (e.g., @username or https://www.tiktok.com/@username)")
-    max_videos: Optional[int] = Field(None, description="Maximum number of videos to process (None = all videos)", ge=1, le=1000)
+    max_videos: Optional[int] = Field(None, description="Maximum number of videos to process (None = all videos)", ge=1, le=MAX_VIDEOS_LIMIT)
 
     class Config:
         json_schema_extra = {
@@ -81,14 +110,20 @@ class StatusResponse(BaseModel):
 class TranscribeRequest(BaseModel):
     video_filename: str = Field(..., description="Video filename in uploads directory")
     language: Optional[str] = Field(None, description="Language code (e.g., 'vi', 'en'). None for auto-detect")
-    model_size: Optional[str] = Field("base", description="Whisper model size: tiny, base, small, medium, large")
+    model_size: Optional[str] = Field("base", description="Whisper model size: tiny, base, small, medium, large-v2, large-v3")
+    beam_size: Optional[int] = Field(5, description="Beam size for decoding (1=fastest, 5=balanced, 10=best quality)", ge=1, le=10)
+    vad_filter: Optional[bool] = Field(True, description="Enable Voice Activity Detection to skip silence (recommended for speed)")
+    compute_type: Optional[str] = Field("auto", description="Quantization: int8 (fastest), float16 (GPU), float32 (full), auto")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "video_filename": "lephianhdev_001_7521704507173227784.mp4",
                 "language": "vi",
-                "model_size": "base"
+                "model_size": "base",
+                "beam_size": 5,
+                "vad_filter": True,
+                "compute_type": "auto"
             }
         }
 
@@ -118,7 +153,7 @@ async def root():
     return StatusResponse(
         status="online",
         service="TikTok Scraper API",
-        version="2.0.0",
+        version=API_VERSION,
         timestamp=datetime.now().isoformat()
     )
 
@@ -127,7 +162,7 @@ async def health_check():
     return StatusResponse(
         status="healthy",
         service="TikTok Scraper API",
-        version="2.0.0",
+        version=API_VERSION,
         timestamp=datetime.now().isoformat()
     )
 
@@ -201,7 +236,7 @@ async def download_channel_videos(request: ChannelRequest, background_tasks: Bac
 @app.get("/api/v1/metadata/{username}")
 async def get_saved_metadata(username: str):
     try:
-        metadata_file = Path("uploads") / f"{username}_videos_metadata.json"
+        metadata_file = Path(UPLOAD_DIR) / f"{username}_videos_metadata.json"
         
         if not metadata_file.exists():
             raise HTTPException(
@@ -223,7 +258,7 @@ async def get_saved_metadata(username: str):
 @app.get("/api/v1/videos/list")
 async def list_downloaded_videos():
     try:
-        download_path = Path("uploads")
+        download_path = Path(UPLOAD_DIR)
         
         if not download_path.exists():
             return JSONResponse(content={
@@ -262,7 +297,7 @@ async def list_downloaded_videos():
 @app.get("/api/v1/videos/{filename}")
 async def download_video_file(filename: str):
     try:
-        video_path = Path("uploads") / filename
+        video_path = Path(UPLOAD_DIR) / filename
         
         if not video_path.exists():
             raise HTTPException(
@@ -284,17 +319,26 @@ async def download_video_file(filename: str):
 @app.post("/api/v1/transcribe", response_model=TranscribeResponse)
 async def transcribe_video(request: TranscribeRequest):
     """
-    Transcribe speech from video to text with timestamps
+    Transcribe speech from video to text with timestamps (OPTIMIZED)
     
     - **video_filename**: Name of video file in uploads directory
     - **language**: Language code (vi, en, etc.) or None for auto-detect
-    - **model_size**: Whisper model size (tiny/base/small/medium/large)
+    - **model_size**: Whisper model size (tiny/base/small/medium/large-v2/large-v3)
+    - **beam_size**: Decoding quality (1=fastest/greedy, 5=balanced, 10=best)
+    - **vad_filter**: Enable VAD to skip silence (significantly faster)
+    - **compute_type**: Quantization type (int8=fastest CPU, float16=fast GPU, auto=recommended)
+    
+    Performance Tips:
+    - Enable vad_filter=true for 2-3x speedup on videos with silence
+    - Use beam_size=1 for maximum speed (greedy decoding)
+    - Use compute_type="int8" on CPU or "float16" on GPU for best speed
+    - medium model with optimizations is now faster than old base model
     """
     global transcriber
     
     try:
         # Check if video exists
-        video_path = Path("uploads") / request.video_filename
+        video_path = Path(UPLOAD_DIR) / request.video_filename
         
         if not video_path.exists():
             raise HTTPException(
@@ -302,15 +346,24 @@ async def transcribe_video(request: TranscribeRequest):
                 detail=f"Video file '{request.video_filename}' not found in uploads directory"
             )
         
-        # Update transcriber model if different
-        if request.model_size and request.model_size != transcriber.model_name:
-            transcriber = WhisperTranscriber(model_name=request.model_size)
+        # Update transcriber model if different (with compute_type)
+        if request.model_size and (
+            request.model_size != transcriber.model_name or 
+            request.compute_type != transcriber.compute_type
+        ):
+            transcriber = WhisperTranscriber(
+                model_name=request.model_size,
+                device=None,  # Auto-detect
+                compute_type=request.compute_type or "auto"
+            )
         
-        # Transcribe
+        # Transcribe with optimized parameters
         result = transcriber.transcribe_video_with_save(
             str(video_path),
-            output_dir="uploads",
-            language=request.language
+            output_dir=UPLOAD_DIR,
+            language=request.language,
+            beam_size=request.beam_size or 5,
+            vad_filter=request.vad_filter if request.vad_filter is not None else True
         )
         
         if not result.get("success"):
@@ -345,7 +398,7 @@ async def get_saved_transcription(video_name: str):
     - **video_name**: Video filename without extension (e.g., 'username_001_7521704507173227784')
     """
     try:
-        transcription_file = Path("uploads") / f"{video_name}_transcription.json"
+        transcription_file = Path(UPLOAD_DIR) / f"{video_name}_transcription.json"
         
         if not transcription_file.exists():
             raise HTTPException(
@@ -370,7 +423,7 @@ async def list_transcriptions():
     List all saved transcription files
     """
     try:
-        download_path = Path("uploads")
+        download_path = Path(UPLOAD_DIR)
         
         if not download_path.exists():
             return JSONResponse(content={
@@ -440,14 +493,14 @@ if __name__ == "__main__":
     print("=" * 60)
     print("TikTok Scraper API Server")
     print("=" * 60)
-    print("Documentation: http://localhost:8000/docs")
-    print("ReDoc: http://localhost:8000/redoc")
+    print(f"Documentation: http://localhost:{API_PORT}/docs")
+    print(f"ReDoc: http://localhost:{API_PORT}/redoc")
     print("=" * 60)
     
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
+        host=API_HOST,
+        port=API_PORT,
+        reload=API_RELOAD,
+        log_level=API_LOG_LEVEL
     )

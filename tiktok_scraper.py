@@ -1,7 +1,9 @@
 import json
 import sys
+import os
 from pathlib import Path
 from typing import List, Dict, Optional
+from dotenv import load_dotenv
 
 try:
     import yt_dlp
@@ -9,9 +11,18 @@ except ImportError:
     print("Error: yt-dlp not installed. Run: pip install yt-dlp")
     sys.exit(1)
 
+# Load environment variables
+load_dotenv()
+
+# Configuration from environment variables
+DEFAULT_UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
+TIKTOK_DOWNLOAD_FORMAT = os.getenv("TIKTOK_DOWNLOAD_FORMAT", "best")
+TIKTOK_QUIET = os.getenv("TIKTOK_QUIET", "false").lower() == "true"
+
 
 class SimpleTikTokScraper:
-    def __init__(self, download_path: str = "uploads"):
+    def __init__(self, download_path: str = None):
+        download_path = download_path if download_path is not None else DEFAULT_UPLOAD_DIR
         self.download_path = Path(download_path)
         self.download_path.mkdir(parents=True, exist_ok=True)
         self.video_count = 0
@@ -50,8 +61,8 @@ class SimpleTikTokScraper:
             channel_link = f"https://www.tiktok.com/@{username}"
         
         ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
+            'quiet': TIKTOK_QUIET,
+            'no_warnings': TIKTOK_QUIET,
             'extract_flat': True,
             'ignoreerrors': True,
         }
@@ -124,9 +135,9 @@ class SimpleTikTokScraper:
         
         ydl_opts = {
             'outtmpl': str(self.download_path / f'{username}_%(autonumber)03d_%(id)s.%(ext)s'),
-            'format': 'best',
-            'quiet': False,
-            'no_warnings': False,
+            'format': TIKTOK_DOWNLOAD_FORMAT,
+            'quiet': TIKTOK_QUIET,
+            'no_warnings': TIKTOK_QUIET,
             'progress_hooks': [self._download_progress_hook],
             'ignoreerrors': True,
         }
