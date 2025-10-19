@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 export type Profile = {
   id: string;
@@ -28,6 +29,7 @@ export const SessionContextProvider = ({
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const getSession = async () => {
@@ -77,6 +79,7 @@ export const SessionContextProvider = ({
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    navigate("/login");
   };
 
   const value = {
