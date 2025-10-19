@@ -86,11 +86,11 @@ const WorkflowBuilder = ({ projectId }) => {
       
       createTaskMutation.mutate({ name, type, position });
     },
-    [reactFlowInstance]
+    [reactFlowInstance, createTaskMutation]
   );
 
   const createTaskMutation = useMutation({
-    mutationFn: async ({ name, type, position }) => {
+    mutationFn: async ({ name, type, position }: { name: string; type: string; position: { x: number; y: number } }) => {
       if (!user) throw new Error("User not authenticated");
       const { data: maxOrderResult, error: maxOrderError } = await supabase
         .from('tasks')
@@ -119,11 +119,12 @@ const WorkflowBuilder = ({ projectId }) => {
       showSuccess("Task created!");
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
     },
-    onError: (error) => showError(error.message),
+    onError: (error: Error) => showError(error.message),
   });
 
   const saveLayoutMutation = useMutation({
     mutationFn: async () => {
+      if (!tasks) return;
       const updates = nodes.map(node => {
         const task = tasks.find(t => t.id === node.id);
         return supabase
@@ -140,7 +141,7 @@ const WorkflowBuilder = ({ projectId }) => {
       showSuccess("Layout saved!");
       queryClient.invalidateQueries({ queryKey: ['tasks', projectId] });
     },
-    onError: (error) => showError(error.message),
+    onError: (error: Error) => showError(error.message),
   });
 
   return (
