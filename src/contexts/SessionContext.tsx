@@ -29,7 +29,6 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    // The onAuthStateChange listener will handle state cleanup
   };
 
   const fetchProfile = useCallback(async (user: User | null) => {
@@ -44,7 +43,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         .eq('id', user.id)
         .single();
       
-      if (profileError && profileError.code !== 'PGRST116') { // Ignore 'No rows found' error
+      if (profileError && profileError.code !== 'PGRST116') {
         console.error("Lỗi khi lấy thông tin profile:", profileError.message);
         setProfile(null);
       } else {
@@ -63,31 +62,23 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   }, [user, fetchProfile]);
 
   useEffect(() => {
-    setLoading(true);
-    
-    // Fetch the initial session to quickly determine auth state.
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      await fetchProfile(currentUser);
-      setLoading(false); // Set loading to false after the initial fetch is complete.
-    });
-
-    // Listen for auth state changes.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       
-      // Fetch profile on sign-in or when user data is updated.
-      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+      // Fetch profile whenever the user state changes, as long as there is a user.
+      // This simplifies logic for SIGNED_IN, USER_UPDATED, and INITIAL_SESSION with a user.
+      if (currentUser) {
         await fetchProfile(currentUser);
-      }
-      
-      // Clear profile on sign-out.
-      if (event === 'SIGNED_OUT') {
+      } else {
         setProfile(null);
+      }
+
+      // The first event fired is always INITIAL_SESSION. After it fires,
+      // we know the initial auth state has been determined, so we can stop loading.
+      if (event === 'INITIAL_SESSION') {
+        setLoading(false);
       }
     });
 
