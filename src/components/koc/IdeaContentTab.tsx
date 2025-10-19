@@ -33,6 +33,25 @@ type IdeaContentTabProps = {
   isLoading: boolean;
 };
 
+const StatusBadge = ({ status }: { status: string }) => {
+  switch (status) {
+    case 'Đã tạo video':
+      return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Đã tạo video</Badge>;
+    case 'Đã có content':
+      return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Đã có content</Badge>;
+    case 'Đang xử lý':
+      return (
+        <Badge variant="outline" className="text-yellow-800 border-yellow-200">
+          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+          Đang xử lý
+        </Badge>
+      );
+    case 'Chưa sử dụng':
+    default:
+      return <Badge variant="secondary">Chưa sử dụng</Badge>;
+  }
+};
+
 export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps) => {
   const queryClient = useQueryClient();
   const [isAddEditOpen, setAddEditOpen] = useState(false);
@@ -129,9 +148,7 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={idea.status === 'Đã tạo video' ? 'default' : 'secondary'}>
-                        {idea.status}
-                      </Badge>
+                      <StatusBadge status={idea.status} />
                     </TableCell>
                     <TableCell>
                       {idea.koc_files ? (
