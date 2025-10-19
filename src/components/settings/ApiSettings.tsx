@@ -37,7 +37,7 @@ const ApiKeyRow = ({ apiKey }: { apiKey: ApiKey }) => {
   const deleteMutation = useMutation({
     mutationFn: async (keyId: string) => {
       if (!user) throw new Error("User not authenticated");
-      const { error } = await supabase.from("user_api_keys").delete().eq("id", keyId);
+      const { error } = await supabase.from("user_api_keys").delete().match({ id: keyId, user_id: user.id });
       if (error) throw error;
     },
     onSuccess: () => {

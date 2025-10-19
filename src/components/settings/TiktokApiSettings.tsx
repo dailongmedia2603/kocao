@@ -38,7 +38,7 @@ const TiktokTokenRow = ({ token }: { token: TiktokToken }) => {
   const deleteMutation = useMutation({
     mutationFn: async (tokenId: string) => {
       if (!user) throw new Error("User not authenticated");
-      const { error } = await supabase.from("user_tiktok_tokens").delete().eq("id", tokenId);
+      const { error } = await supabase.from("user_tiktok_tokens").delete().match({ id: tokenId, user_id: user.id });
       if (error) throw error;
     },
     onSuccess: () => {

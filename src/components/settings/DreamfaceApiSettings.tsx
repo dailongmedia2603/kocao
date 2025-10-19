@@ -31,7 +31,8 @@ const ApiKeyRow = ({ apiKey }: { apiKey: DreamfaceApiKey }) => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("user_dreamface_api_keys").delete().eq("id", id);
+      if (!user) throw new Error("User not authenticated");
+      const { error } = await supabase.from("user_dreamface_api_keys").delete().match({ id: id, user_id: user.id });
       if (error) throw error;
     },
     onSuccess: () => {
