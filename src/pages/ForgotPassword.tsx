@@ -117,10 +117,10 @@ const ForgotPassword = () => {
       case "enter-code":
         return (
           <form onSubmit={handleVerifyCode} className="space-y-6">
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-start">
               <label className="block text-sm font-bold text-gray-700 mb-2">Nhập mã xác thực</label>
               <InputOTP maxLength={6} value={token} onChange={(value) => setToken(value)}>
-                <InputOTPGroup>
+                <InputOTPGroup className="gap-2">
                   <InputOTPSlot index={0} />
                   <InputOTPSlot index={1} />
                   <InputOTPSlot index={2} />
