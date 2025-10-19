@@ -2,9 +2,9 @@ import { useMemo, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useSession } from "@/contexts/SessionContext";
+import { formatInTimeZone } from 'date-fns-tz';
 
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -101,7 +101,7 @@ const AutomationDetail = () => {
     const groupedActivities = useMemo(() => {
         if (!activities) return {};
         return activities.reduce((acc, activity) => {
-            const date = format(new Date(activity.activity_date), 'PPP', { locale: vi });
+            const date = formatInTimeZone(new Date(activity.idea_created_at), 'Asia/Ho_Chi_Minh', 'PPP', { locale: vi });
             if (!acc[date]) {
                 acc[date] = [];
             }
@@ -168,7 +168,7 @@ const AutomationDetail = () => {
                                                                 <span className="font-semibold text-primary">Lần {index + 1}</span>
                                                                 <p className="text-sm text-muted-foreground truncate max-w-md">{activity.idea_content}</p>
                                                             </div>
-                                                            <Badge variant="outline">{format(new Date(activity.idea_created_at), 'HH:mm')}</Badge>
+                                                            <Badge variant="outline">{formatInTimeZone(new Date(activity.idea_created_at), 'Asia/Ho_Chi_Minh', 'HH:mm')}</Badge>
                                                         </div>
                                                     </AccordionTrigger>
                                                     <AccordionContent className="p-4 border-t space-y-6">
@@ -177,7 +177,7 @@ const AutomationDetail = () => {
                                                         </TimelineStep>
                                                         <TimelineStep icon={Mic} title="Tạo Voice" status={getStatusInfo(activity.voice_status).text} statusColor={getStatusInfo(activity.voice_status).color}>
                                                             {activity.voice_audio_url && <audio controls src={activity.voice_audio_url} className="h-8 w-full" />}
-                                                        </TimelineStep>
+                                                        </Step>
                                                         <TimelineStep icon={Video} title="Tạo Video" status={getStatusInfo(activity.dreamface_status).text} statusColor={getStatusInfo(activity.dreamface_status).color}>
                                                             {activity.video_url ? (
                                                                 <video
