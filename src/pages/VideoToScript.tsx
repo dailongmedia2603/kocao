@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { FileObject } from '@supabase/storage-js';
+import { cn } from "@/lib/utils";
 
 // UI Components
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +53,7 @@ const VideoToScript = () => {
   const { user } = useSession();
   const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedExistingVideo, setSelectedExistingVideo] = useState<FileObject | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<TranscriptionTask | null>(null);
   const [taskToView, setTaskToView] = useState<TranscriptionTask | null>(null);
@@ -74,7 +77,25 @@ const VideoToScript = () => {
     enabled: !!user,
   });
 
-  // Real-time subscription
+  // Fetch already uploaded videos
+  const { data: uploadedVideos = [], isLoading: isLoadingVideos } = useQuery<FileObject[]>({
+    queryKey: ['uploaded_videos', user?.id],
+    queryFn: async () => {
+        if (!user) return [];
+        const { data, error } = await supabase.storage
+            .from('video-uploads')
+            .list(user.id, {
+                limit: 100,
+                offset: 0,
+                sortBy: { column: 'created_at', order: 'desc' },
+            });
+        if (error) throw error;
+        return data.filter(file => file.name !== '.emptyFolderPlaceholder');
+    },
+    enabled: !!user,
+  });
+
+  // Real-time subscription for tasks
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -93,6 +114,51 @@ const VideoToScript = () => {
     };
   }, [user, queryClient, queryKey]);
 
+  // Mutation for creating a task from an existing video
+  const createTaskFromExistingMutation = useMutation({
+    mutationFn: async (video: { name: string; path: string }) => {
+        if (!user) throw new Error("User not authenticated.");
+
+        const { data: existingTask, error: checkError } = await supabase
+            .from('transcription_tasks')
+            .select('id')
+            .eq('video_storage_path', video.path)
+            .maybeSingle();
+
+        if (checkError) throw new Error(`Lỗi kiểm tra tác vụ: ${checkError.message}`);
+        if (existingTask) throw new Error("Đã có tác vụ tách script cho video này.");
+
+        const { data: newTask, error: insertError } = await supabase
+            .from('transcription_tasks')
+            .insert({
+                user_id: user.id,
+                video_name: video.name,
+                video_storage_path: video.path,
+                status: 'pending',
+            })
+            .select()
+            .single();
+        if (insertError) throw new Error(`Lỗi tạo tác vụ: ${insertError.message}`);
+
+        const { error: functionError } = await supabase.functions.invoke('start-transcription', {
+            body: { taskId: newTask.id },
+        });
+        if (functionError) {
+            await supabase.from('transcription_tasks').update({ status: 'failed', error_message: `Lỗi kích hoạt function: ${functionError.message}` }).eq('id', newTask.id);
+            throw new Error(`Lỗi kích hoạt xử lý: ${functionError.message}`);
+        }
+    },
+    onSuccess: () => {
+        showSuccess("Tác vụ tách script đã được tạo!");
+        setSelectedFile(null);
+        setSelectedExistingVideo(null);
+        queryClient.invalidateQueries({ queryKey });
+    },
+    onError: (error: Error) => {
+        showError(error.message);
+    },
+  });
+
   // Upload and create task mutation
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -109,25 +175,7 @@ const VideoToScript = () => {
         });
       if (uploadError) throw new Error(`Lỗi tải video: ${uploadError.message}`);
 
-      const { data: newTask, error: insertError } = await supabase
-        .from('transcription_tasks')
-        .insert({
-          user_id: user.id,
-          video_name: file.name,
-          video_storage_path: filePath,
-          status: 'pending',
-        })
-        .select()
-        .single();
-      if (insertError) throw new Error(`Lỗi tạo tác vụ: ${insertError.message}`);
-
-      const { error: functionError } = await supabase.functions.invoke('start-transcription', {
-        body: { taskId: newTask.id },
-      });
-      if (functionError) {
-        await supabase.from('transcription_tasks').update({ status: 'failed', error_message: `Lỗi kích hoạt function: ${functionError.message}` }).eq('id', newTask.id);
-        throw new Error(`Lỗi kích hoạt xử lý: ${functionError.message}`);
-      }
+      await createTaskFromExistingMutation.mutateAsync({ name: file.name, path: filePath });
     },
     onSuccess: () => {
       showSuccess("Video đã được tải lên và đang chờ xử lý!");
@@ -135,6 +183,7 @@ const VideoToScript = () => {
       setUploadProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ['uploaded_videos', user?.id] });
     },
     onError: (error: Error) => {
       showError(error.message);
@@ -162,14 +211,28 @@ const VideoToScript = () => {
     const file = event.target.files?.[0];
     if (file) {
       setSelectedFile(file);
+      setSelectedExistingVideo(null);
     }
   };
 
-  const handleUpload = () => {
+  const handleSelectExisting = (video: FileObject) => {
+    setSelectedExistingVideo(video);
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleStartTranscription = () => {
     if (selectedFile) {
       uploadMutation.mutate(selectedFile);
+    } else if (selectedExistingVideo && user) {
+      createTaskFromExistingMutation.mutate({
+        name: selectedExistingVideo.name,
+        path: `${user.id}/${selectedExistingVideo.name}`,
+      });
     }
   };
+
+  const isProcessing = uploadMutation.isPending || createTaskFromExistingMutation.isPending;
 
   return (
     <>
@@ -183,26 +246,62 @@ const VideoToScript = () => {
           <div className="lg:col-span-1">
             <Card>
               <CardHeader>
-                <CardTitle>1. Tải lên Video</CardTitle>
-                <CardDescription>Chọn một file video (.mp4, .mov) từ máy tính của bạn.</CardDescription>
+                <CardTitle>1. Chọn Video</CardTitle>
+                <CardDescription>Tải lên file mới hoặc chọn video đã có.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <label htmlFor="video-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted transition-colors">
                   <UploadCloud className="h-8 w-8 text-muted-foreground" />
-                  <p className="mt-2 text-sm text-muted-foreground">Bấm để chọn file</p>
-                  <Input ref={fileInputRef} id="video-upload" type="file" className="hidden" onChange={handleFileChange} accept="video/mp4,video/quicktime" disabled={uploadMutation.isPending} />
+                  <p className="mt-2 text-sm text-muted-foreground">Bấm để chọn file mới</p>
+                  <Input ref={fileInputRef} id="video-upload" type="file" className="hidden" onChange={handleFileChange} accept="video/mp4,video/quicktime" disabled={isProcessing} />
                 </label>
 
-                {selectedFile && (
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">Hoặc</span></div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium mb-2 text-muted-foreground">Chọn video đã tải lên</p>
+                  <ScrollArea className="h-40 w-full rounded-md border">
+                    <div className="p-2 space-y-1">
+                      {isLoadingVideos ? (
+                        [...Array(3)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)
+                      ) : uploadedVideos.length > 0 ? (
+                        uploadedVideos.map(video => (
+                          <button
+                            key={video.id}
+                            onClick={() => handleSelectExisting(video)}
+                            className={cn(
+                              "w-full text-left p-2 rounded-md flex items-center gap-2 transition-colors",
+                              selectedExistingVideo?.id === video.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                            )}
+                          >
+                            <FileVideo className="h-4 w-4 flex-shrink-0" />
+                            <span className="text-sm truncate font-medium">{video.name}</span>
+                          </button>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center p-4">Chưa có video nào.</p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
+
+                {(selectedFile || selectedExistingVideo) && (
                   <div className="flex items-center justify-between p-2 rounded-md bg-muted">
                     <div className="flex items-center gap-3 min-w-0">
-                      <FileVideo className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      <FileVideo className="h-5 w-5 text-primary flex-shrink-0" />
                       <div className="flex-grow min-w-0">
-                        <p className="font-medium truncate text-sm" title={selectedFile.name}>{selectedFile.name}</p>
-                        <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                        <p className="font-medium truncate text-sm" title={selectedFile?.name || selectedExistingVideo?.name}>
+                          {selectedFile?.name || selectedExistingVideo?.name}
+                        </p>
+                        {selectedFile && <p className="text-xs text-muted-foreground">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>}
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => setSelectedFile(null)}><X className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => { setSelectedFile(null); setSelectedExistingVideo(null); }}>
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                 )}
 
@@ -213,8 +312,8 @@ const VideoToScript = () => {
                   </div>
                 )}
 
-                <Button onClick={handleUpload} disabled={!selectedFile || uploadMutation.isPending} className="w-full">
-                  {uploadMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Captions className="mr-2 h-4 w-4" />}
+                <Button onClick={handleStartTranscription} disabled={!selectedFile && !selectedExistingVideo || isProcessing} className="w-full">
+                  {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Captions className="mr-2 h-4 w-4" />}
                   Bắt đầu Tách Script
                 </Button>
               </CardContent>
