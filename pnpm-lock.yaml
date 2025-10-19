@@ -158,6 +158,9 @@ importers:
       sonner:
         specifier: ^1.5.0
         version: 1.7.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      storage:
+        specifier: link:@google-cloud/speech,@google-cloud/storage
+        version: link:@google-cloud/speech,@google-cloud/storage
       tailwind-merge:
         specifier: ^2.5.2
         version: 2.6.0
