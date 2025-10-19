@@ -61,11 +61,11 @@ const UserManagement = () => {
 
   const queryKey = ['all_users'];
 
-  const { data: users = [], isLoading } = useQuery<UserProfile[]>({
+  const { data: users = [], isLoading, error } = useQuery<UserProfile[]>({
     queryKey,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_all_users_with_profiles');
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke('get-all-users');
+      if (error) throw new Error(error.message);
       return data;
     },
   });
@@ -100,6 +100,26 @@ const UserManagement = () => {
     setActionConfirmation({ action, title, description });
   };
 
+  if (error) {
+    return (
+      <div className="p-6 lg:p-8">
+        <header className="mb-6">
+          <h1 className="text-3xl font-bold">Quản lý Người dùng</h1>
+          <p className="text-muted-foreground mt-1">Duyệt, quản lý vai trò và theo dõi tất cả người dùng.</p>
+        </header>
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">Đã xảy ra lỗi</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>Không thể tải danh sách người dùng. Vui lòng thử lại sau.</p>
+            <p className="text-sm text-muted-foreground mt-2">Chi tiết lỗi: {error.message}</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="p-6 lg:p-8">
@@ -128,7 +148,12 @@ const UserManagement = () => {
                 {isLoading ? (
                   [...Array(5)].map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                     </TableRow>
                   ))
                 ) : users.length > 0 ? (
