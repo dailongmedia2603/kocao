@@ -29,9 +29,7 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setSession(null);
-    setUser(null);
-    setProfile(null);
+    // The onAuthStateChange listener will handle state cleanup
   };
 
   const fetchProfile = useCallback(async (user: User | null) => {
@@ -46,14 +44,14 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
         .eq('id', user.id)
         .single();
       
-      if (profileError) {
+      if (profileError && profileError.code !== 'PGRST116') { // Ignore 'No rows found' error
         console.error("Lỗi khi lấy thông tin profile:", profileError.message);
         setProfile(null);
       } else {
         setProfile(profileData);
       }
     } catch (e) {
-      console.error("Lỗi khi lấy thông tin profile:", e);
+      console.error("Exception when fetching profile:", e);
       setProfile(null);
     }
   }, []);
@@ -65,26 +63,30 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
   }, [user, fetchProfile]);
 
   useEffect(() => {
-    const initializeSession = async () => {
-      setLoading(true);
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      setSession(currentSession);
-      const currentUser = currentSession?.user ?? null;
+    setLoading(true);
+    
+    // Fetch the initial session to quickly determine auth state.
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session);
+      const currentUser = session?.user ?? null;
       setUser(currentUser);
       await fetchProfile(currentUser);
-      setLoading(false);
-    };
+      setLoading(false); // Set loading to false after the initial fetch is complete.
+    });
 
-    initializeSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      setSession(newSession);
-      const newUser = newSession?.user ?? null;
-      setUser(newUser);
-      if (_event === 'SIGNED_IN' || _event === 'USER_UPDATED') {
-        await fetchProfile(newUser);
+    // Listen for auth state changes.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setSession(session);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      
+      // Fetch profile on sign-in or when user data is updated.
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        await fetchProfile(currentUser);
       }
-      if (_event === 'SIGNED_OUT') {
+      
+      // Clear profile on sign-out.
+      if (event === 'SIGNED_OUT') {
         setProfile(null);
       }
     });
