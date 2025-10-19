@@ -63,8 +63,8 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
 
   return (
     <Card className="flex flex-col relative group hover:shadow-lg transition-shadow">
-      <Link to={`/automation/${campaign.id}`} className="absolute inset-0 z-0" />
-      <CardHeader className="relative z-10">
+      <Link to={`/automation/${campaign.id}`} className="absolute inset-0 z-10" aria-label={`View details for ${campaign.name}`} />
+      <CardHeader>
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg">{campaign.name}</CardTitle>
           <Badge variant={campaign.status === 'active' ? 'default' : 'secondary'} className={campaign.status === 'active' ? 'bg-green-100 text-green-800' : ''}>
@@ -73,7 +73,7 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
         </div>
         {campaign.description && <CardDescription>{campaign.description}</CardDescription>}
       </CardHeader>
-      <CardContent className="flex-grow space-y-4 relative z-10">
+      <CardContent className="flex-grow space-y-4">
         <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/50">
           <Avatar className="h-10 w-10 border">
             <AvatarImage src={campaign.kocs?.avatar_url || undefined} />
@@ -94,7 +94,7 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
           </div>
         </div>
       </CardContent>
-      <div className="flex items-center justify-between p-4 border-t relative z-10">
+      <div className="flex items-center justify-between p-4 border-t relative z-20">
         <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
           <Switch
             checked={campaign.status === 'active'}
