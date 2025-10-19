@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Trash2, Bot, Mic } from "lucide-react";
+import { Trash2, Mic } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 export type Campaign = {
@@ -21,7 +21,6 @@ export type Campaign = {
     avatar_url: string | null;
   } | null;
   cloned_voice_name: string | null;
-  ai_prompt: string | null;
 };
 
 type CampaignCardProps = {
@@ -90,15 +89,6 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
           <div>
             <p className="text-sm text-muted-foreground">Giọng nói</p>
             <p className="font-semibold">{campaign.cloned_voice_name}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/50">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-blue-100 text-blue-600">
-            <Bot className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">AI Prompt</p>
-            <p className="font-semibold truncate max-w-xs">{campaign.ai_prompt || "Chưa cấu hình"}</p>
           </div>
         </div>
       </CardContent>
