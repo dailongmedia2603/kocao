@@ -74,7 +74,7 @@ const Login = () => {
         <div className="w-full max-w-sm mx-auto">
           <div className="text-left mb-8">
             <h2 className="text-4xl font-bold tracking-tight">Đăng nhập</h2>
-            <p className="text-gray-500 mt-2 text-sm">Dailong Media - Phần mềm xây dựng KOC ảo</p>
+            <p className="text-gray-500 mt-2 text-sm">DrX AI KOC - Phần mềm tạo KOC</p>
           </div>
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
