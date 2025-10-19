@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { useSession } from "@/contexts/SessionContext";
 
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +52,31 @@ const TimelineStep = ({ icon: Icon, title, status, children, statusColor }) => (
 
 const AutomationDetail = () => {
     const { campaignId } = useParams<{ campaignId: string }>();
+    const queryClient = useQueryClient();
+    const { user } = useSession();
+
+    const queryKey = ['campaign_activity_log', campaignId];
+
+    useEffect(() => {
+        if (!user || !campaignId) return;
+
+        const channel = supabase
+            .channel(`campaign-activity:${campaignId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'koc_content_ideas' }, () => {
+                queryClient.invalidateQueries({ queryKey });
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'voice_tasks' }, () => {
+                queryClient.invalidateQueries({ queryKey });
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'dreamface_tasks' }, () => {
+                queryClient.invalidateQueries({ queryKey });
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [queryClient, campaignId, user, queryKey]);
 
     const { data: campaign, isLoading: isLoadingCampaign } = useQuery({
         queryKey: ['automation_campaign', campaignId],
@@ -63,7 +89,7 @@ const AutomationDetail = () => {
     });
 
     const { data: activities, isLoading: isLoadingActivities } = useQuery<ActivityLog[]>({
-        queryKey: ['campaign_activity_log', campaignId],
+        queryKey,
         queryFn: async () => {
             const { data, error } = await supabase.rpc('get_campaign_activity_log', { p_campaign_id: campaignId });
             if (error) throw error;
