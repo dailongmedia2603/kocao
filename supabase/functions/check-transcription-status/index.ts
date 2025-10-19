@@ -45,9 +45,6 @@ serve(async (_req) => {
             throw new Error(operation.error.message);
           }
           
-          // The operation is done, but the result might be in the operation object itself
-          // or you might need to call the original method again with the operation name.
-          // For Speech-to-Text, the result is typically embedded in the 'response' field of the completed operation.
           const response = operation.response;
           const transcription = response.results
             ?.map(result => result.alternatives?.[0].transcript)

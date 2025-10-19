@@ -39,7 +39,6 @@ serve(async (req) => {
 
     if (downloadError) throw new Error(`Failed to download video: ${downloadError.message}`);
     
-    // Await the buffer here
     const videoBuffer = await fileData.arrayBuffer();
 
     // Configure Google Cloud clients
@@ -62,7 +61,6 @@ serve(async (req) => {
     await new Promise((resolve, reject) => {
       stream.on('error', reject);
       stream.on('finish', resolve);
-      // Pass the already-awaited buffer
       stream.end(new Uint8Array(videoBuffer));
     });
 
@@ -70,9 +68,6 @@ serve(async (req) => {
     const gcsUri = `gs://${gcsBucketName}/${gcsFileName}`;
     const [operation] = await speech.longRunningRecognize({
       config: {
-        // Assuming MP4, adjust if needed. For best results, specify the encoding if known.
-        // For MP4, Google often infers it, but being explicit can help.
-        // If you face issues, you might need a function to map file extension to encoding.
         languageCode: 'vi-VN',
         enableAutomaticPunctuation: true,
       },
