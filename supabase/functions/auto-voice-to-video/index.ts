@@ -34,7 +34,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ message: "Không có voice nào hoàn thành để xử lý." }), { status: 200, headers: corsHeaders });
     }
 
-    console.log(`Tìm thấy ${ideas.length} idea đang chờ voice.`);
+    console.log(`Tìm thấy ${ideas.length} idea để xử lý.`);
     let successCount = 0;
 
     for (const idea of ideas) {
@@ -55,14 +55,9 @@ serve(async (req) => {
           // 4. Khóa idea lại
           await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đang tạo video', voice_audio_url: voiceTask.audio_url }).eq('id', idea.id);
 
-          // 5. Tìm một video nguồn của KOC
+          // 5. Lấy một video nguồn NGẪU NHIÊN của KOC bằng RPC
           const { data: sourceVideo, error: videoError } = await supabaseAdmin
-            .from('koc_files')
-            .select('r2_key')
-            .eq('koc_id', idea.koc_id)
-            .like('r2_key', '%/sources/videos/%')
-            .order('created_at', { ascending: false })
-            .limit(1)
+            .rpc('get_random_source_video', { p_koc_id: idea.koc_id })
             .single();
 
           if (videoError || !sourceVideo) {
