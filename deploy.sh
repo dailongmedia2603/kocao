@@ -15,16 +15,8 @@ curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
 apt-get install -y nodejs
 
 # Install PM2
-echo "⚡ Installing PM2..."
+echo "Installing PM2..."
 npm install -g pm2
-
-# Clone repository (if not exists)
-if [ ! -d "kocao" ]; then
-    echo "Cloning repository..."
-    git clone https://github.com/your-username/kocao.git
-fi
-
-cd kocao
 
 # Create virtual environment
 echo "Setting up virtual environment..."
@@ -33,6 +25,7 @@ source venv/bin/activate
 
 # Install dependencies
 echo "Installing Python dependencies..."
+pip install --upgrade pip
 pip install -r requirements.txt
 
 # Create logs directory
@@ -46,7 +39,7 @@ pm2 start ecosystem.config.js
 pm2 save
 
 # Setup PM2 to start on boot
-pm2 startup
+pm2 startup -u root --hp /root
 
 echo "Deployment completed!"
 echo "Check status: pm2 status"
