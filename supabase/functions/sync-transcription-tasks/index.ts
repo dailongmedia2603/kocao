@@ -34,9 +34,13 @@ serve(async (_req) => {
     if (!listResponse.ok) throw new Error("Failed to fetch transcription list from API.");
     
     const listData = await listResponse.json();
-    // **THE FIX IS HERE:** Safely access the array, assuming it's inside a 'videos' property.
-    // Default to an empty array if the structure is not as expected.
-    const completedFiles = Array.isArray(listData?.videos) ? listData.videos : [];
+    
+    // **THE FIX IS HERE:** Handle multiple possible response structures gracefully.
+    const completedFiles = Array.isArray(listData) 
+      ? listData 
+      : (listData && Array.isArray(listData.videos)) 
+          ? listData.videos 
+          : [];
 
     const completedFileNames = new Set(completedFiles.map((f: any) => f.filename));
 
