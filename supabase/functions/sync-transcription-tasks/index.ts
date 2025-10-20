@@ -29,46 +29,49 @@ serve(async (_req) => {
 
     console.log(`Found ${processingTasks.length} tasks to sync.`);
 
-    // 2. Lấy danh sách các bản ghi đã hoàn thành từ API server
-    const listResponse = await fetch(`${API_BASE_URL}/api/v1/transcriptions/list`);
-    if (!listResponse.ok) throw new Error("Failed to fetch transcription list from API.");
-    
-    const listData = await listResponse.json();
-    
-    // **THE FIX IS HERE:** Handle multiple possible response structures gracefully.
-    const completedFiles = Array.isArray(listData) 
-      ? listData 
-      : (listData && Array.isArray(listData.videos)) 
-          ? listData.videos 
-          : [];
-
-    const completedFileNames = new Set(completedFiles.map((f: any) => f.filename));
-
     for (const task of processingTasks) {
-      // 3. Nếu video đã có trong danh sách hoàn thành
-      if (completedFileNames.has(task.video_name)) {
-        try {
-          // 4. Tải nội dung script
+      try {
+        // 2. Với mỗi task, gọi trực tiếp API để kiểm tra trạng thái
+        console.log(`Checking status for ${task.video_name}...`);
+        const statusResponse = await fetch(`${API_BASE_URL}/api/v1/transcription/status/${task.video_name}`);
+        
+        if (!statusResponse.ok) {
+            // Nếu API trả về lỗi (ví dụ: 404 Not Found), có thể tác vụ chưa bắt đầu hoặc đã lỗi
+            console.log(`Status check for ${task.video_name} failed with status ${statusResponse.status}. Assuming it's still processing.`);
+            continue; // Bỏ qua và kiểm tra lại ở lần chạy sau
+        }
+
+        const statusData = await statusResponse.json();
+        console.log(`Status for ${task.video_name} is: ${statusData.status}`);
+
+        // 3. Nếu trạng thái là 'completed', lấy kết quả
+        if (statusData.status === 'completed') {
+          console.log(`Fetching content for completed task ${task.video_name}...`);
           const scriptResponse = await fetch(`${API_BASE_URL}/api/v1/transcription/${task.video_name}`);
           if (!scriptResponse.ok) throw new Error(`Failed to fetch script for ${task.video_name}`);
           
           const scriptResult = await scriptResponse.json();
           const scriptContent = scriptResult.text || JSON.stringify(scriptResult);
 
-          // 5. Cập nhật vào DB
+          // 4. Cập nhật vào DB
           await supabaseAdmin
             .from('transcription_tasks')
-            .update({ status: 'completed', script_content: scriptContent })
+            .update({ status: 'completed', script_content: scriptContent, error_message: null })
             .eq('id', task.id);
           
-          console.log(`Synced task for ${task.video_name}`);
-        } catch (e) {
-          console.error(`Error syncing individual task ${task.video_name}:`, e.message);
-          await supabaseAdmin
+          console.log(`Synced task for ${task.video_name} successfully.`);
+        } else if (statusData.status === 'failed') {
+            await supabaseAdmin
             .from('transcription_tasks')
-            .update({ status: 'failed', error_message: `Sync failed: ${e.message}` })
+            .update({ status: 'failed', error_message: statusData.message || 'Transcription failed on API server.' })
             .eq('id', task.id);
+            console.log(`Task ${task.video_name} failed on API server.`);
         }
+        // Nếu status vẫn là 'processing', không làm gì cả, chờ lần chạy sau.
+
+      } catch (e) {
+        console.error(`Error syncing individual task ${task.video_name}:`, e.message);
+        // Không cập nhật lỗi ở đây để tránh ghi đè lỗi từ API
       }
     }
 
