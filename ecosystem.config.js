@@ -2,8 +2,8 @@ module.exports = {
     apps: [{
         name: 'kocao',
         script: 'main.py',
-        interpreter: 'python3',
-        cwd: '/root/kocao',
+        interpreter: './venv/bin/python',
+        cwd: '/opt/projects/kocao',
         instances: 1,
         autorestart: true,
         watch: false,

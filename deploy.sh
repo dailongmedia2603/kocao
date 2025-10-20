@@ -1,6 +1,10 @@
 # Kocao API - Simple Deploy Script
 echo "Starting Kocao API deployment..."
 
+# Ensure we run from script directory to get correct relative paths
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
 # Update system
 echo "Updating system packages..."
 apt update && apt upgrade -y
@@ -33,7 +37,8 @@ mkdir -p logs
 
 # Start with PM2
 echo "Starting application with PM2..."
-pm2 start ecosystem.config.js
+# Use full path to ecosystem to avoid CWD issues when resurrecting
+pm2 start "$SCRIPT_DIR/ecosystem.config.js"
 
 # Save PM2 configuration
 pm2 save
