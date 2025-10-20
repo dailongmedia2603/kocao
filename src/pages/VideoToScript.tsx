@@ -58,13 +58,13 @@ const VideoToScript = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Queries
-  const { data: downloadedVideos = [], isLoading: isLoadingDownloaded } = useQuery({
+  const { data: downloadedVideos = [], isLoading: isLoadingDownloaded, isFetching: isFetchingDownloaded } = useQuery({
     queryKey: ['downloaded_videos_list'],
     queryFn: () => callApi('/api/v1/videos/list', 'GET'),
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
-  const { data: transcriptions = [], isLoading: isLoadingTranscriptions } = useQuery({
+  const { data: transcriptions = [], isLoading: isLoadingTranscriptions, isFetching: isFetchingTranscriptions } = useQuery({
     queryKey: ['transcriptions_list'],
     queryFn: () => callApi('/api/v1/transcriptions/list', 'GET'),
     refetchInterval: 15000, // Refetch every 15 seconds
@@ -96,12 +96,14 @@ const VideoToScript = () => {
 
   const downloadVideoMutation = useMutation({
     mutationFn: (videoUrl: string) => {
-      const toastId = showLoading(`Đang tải video...`);
+      const toastId = showLoading(`Đang gửi yêu cầu tải video...`);
       return callApi('/api/v1/download', 'POST', { channel_link: videoUrl, max_videos: 1 }).finally(() => dismissToast(toastId));
     },
     onSuccess: () => {
-      showSuccess("Video đã được thêm vào hàng đợi tải về.");
-      queryClient.invalidateQueries({ queryKey: ['downloaded_videos_list'] });
+      showSuccess("Yêu cầu tải video đã được gửi. Video sẽ xuất hiện trong danh sách sau ít phút.");
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['downloaded_videos_list'] });
+      }, 2000); // Trigger a refresh after 2 seconds
     },
     onError: (error: unknown) => handleRobustError(error, "Tải video thất bại."),
   });
@@ -235,9 +237,9 @@ const VideoToScript = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
+                  <div className="flex items-center gap-2">
                     <CardTitle className="flex items-center gap-2"><ListVideo className="h-5 w-5 text-primary" /> Video đã tải về</CardTitle>
-                    <CardDescription>Các video sẵn sàng để tách script.</CardDescription>
+                    {isFetchingDownloaded && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                   </div>
                   <Button size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploadVideoMutation.isPending}>
                     {uploadVideoMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
@@ -246,7 +248,7 @@ const VideoToScript = () => {
                 </CardHeader>
                 <CardContent>
                   <ScrollArea className="h-[28.5rem]">
-                    {isLoadingDownloaded ? <Skeleton className="h-full w-full" /> : (
+                    {isLoadingDownloaded && !isFetchingDownloaded ? <Skeleton className="h-full w-full" /> : (
                       <Table>
                         <TableHeader><TableRow><TableHead>Tên file</TableHead><TableHead className="text-right">Hành động</TableHead></TableRow></TableHeader>
                         <TableBody>
@@ -267,11 +269,11 @@ const VideoToScript = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" /> Kết quả</CardTitle>
-                  <CardDescription>Các script đã được tách thành công.</CardDescription>
+                  {isFetchingTranscriptions && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                 </CardHeader>
                 <CardContent>
                   <ScrollArea className="h-[28.5rem]">
-                    {isLoadingTranscriptions ? <Skeleton className="h-full w-full" /> : (
+                    {isLoadingTranscriptions && !isFetchingTranscriptions ? <Skeleton className="h-full w-full" /> : (
                       <Table>
                         <TableHeader><TableRow><TableHead>Tên file</TableHead><TableHead className="text-right">Hành động</TableHead></TableRow></TableHeader>
                         <TableBody>
