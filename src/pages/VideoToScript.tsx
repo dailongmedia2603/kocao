@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
@@ -18,14 +18,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Checkbox } from "@/components/ui/checkbox";
 
 // Icons
-import { Download, Loader2, Captions, Eye, Search, Play, Heart, MessageSquare, Share2, ExternalLink, FileVideo, History, RefreshCw, AlertCircle } from "lucide-react";
+import { Download, Loader2, Captions, Eye, Search, Play, Heart, MessageSquare, Share2, ExternalLink, FileVideo, History, RefreshCw, AlertCircle, PlusCircle } from "lucide-react";
 import { FaTiktok } from "react-icons/fa";
 
 // Types
 type TranscriptionTask = {
   id: string;
   video_name: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'downloading';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'downloading' | 'new';
   script_content: string | null;
   error_message: string | null;
   created_at: string;
@@ -67,6 +67,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     case 'pending': return <Badge variant="secondary">Chờ tách script</Badge>;
     case 'downloading': return <Badge variant="outline" className="text-orange-800 border-orange-200"><Download className="mr-1 h-3 w-3 animate-spin" /> Đang tải về</Badge>;
     case 'failed': return <Badge variant="destructive">Thất bại</Badge>;
+    case 'new': return <Badge variant="outline">Mới trên server</Badge>;
     default: return <Badge variant="secondary">{status}</Badge>;
   }
 };
@@ -97,6 +98,31 @@ const VideoToScript = () => {
     },
   });
 
+  const { data: serverFiles = [], isLoading: isLoadingServerFiles } = useQuery<string[]>({
+    queryKey: ['server_video_files'],
+    queryFn: async () => {
+        const response = await callApi('/api/v1/videos/list', 'GET');
+        return response?.files || [];
+    },
+    enabled: !!user,
+    refetchInterval: 30000, // Refresh server file list every 30 seconds
+  });
+
+  const combinedTasks = useMemo(() => {
+    const existingTaskNames = new Set(tasks.map(t => t.video_name));
+    const newFilesAsTasks: TranscriptionTask[] = serverFiles
+        .filter(fileName => !existingTaskNames.has(fileName))
+        .map(fileName => ({
+            id: `new-${fileName}`, // temporary ID
+            video_name: fileName,
+            status: 'new', // A new custom status
+            script_content: null,
+            error_message: null,
+            created_at: new Date().toISOString(),
+        }));
+    return [...newFilesAsTasks, ...tasks];
+  }, [tasks, serverFiles]);
+
   // Mutations
   const getMetadataMutation = useMutation({
     mutationFn: (channel: string) => callApi('/api/v1/metadata', 'POST', { channel_link: channel, max_videos: 50 }),
@@ -119,49 +145,52 @@ const VideoToScript = () => {
 
   const downloadVideosMutation = useMutation({
     mutationFn: async (videoUrls: string[]) => {
-      if (!user) throw new Error("User not authenticated");
       const toastId = showLoading(`Đang gửi yêu cầu tải ${videoUrls.length} video...`);
       try {
-        // API chỉ cần channel_link, nên ta gửi từng video một
-        // Hoặc nếu API hỗ trợ tải theo list URL thì cần cập nhật
         const downloadPromises = videoUrls.map(url => callApi('/api/v1/download', 'POST', { channel_link: url, max_videos: 1 }));
         const results = await Promise.all(downloadPromises);
         
-        const allItems = results.flatMap(res => res?.items || []);
-        const downloadedItems = allItems.filter((item: any) => item.status === 'ok' && item.filename);
-        const skippedItems = allItems.filter((item: any) => item.status === 'skipped' && item.filename);
+        console.log("API Download Response:", results);
 
-        if (downloadedItems.length === 0 && skippedItems.length === 0) {
-          throw new Error("API không trả về thông tin file đã tải hoặc bỏ qua.");
+        const failedRequests = results.filter(res => res.success !== true);
+        if (failedRequests.length > 0) {
+          const firstErrorResponse = failedRequests[0];
+          const errorMessage = firstErrorResponse?.message || JSON.stringify(firstErrorResponse) || "Một số yêu cầu tải video thất bại.";
+          throw new Error(errorMessage);
         }
-
-        const itemsToProcess = [...downloadedItems, ...skippedItems];
-        const tasksToInsert = itemsToProcess.map((item: any) => ({
-          user_id: user.id,
-          video_name: item.filename,
-          video_storage_path: `/uploads/${item.filename}`,
-          status: 'pending',
-        }));
         
-        if (tasksToInsert.length > 0) {
-          const { error: dbError } = await supabase.from('transcription_tasks').upsert(tasksToInsert, { onConflict: 'video_name', ignoreDuplicates: true });
-          if (dbError) throw dbError;
-        }
-
-        return { downloaded: downloadedItems.length, skipped: skippedItems.length };
+        return { total: videoUrls.length };
       } finally {
         dismissToast(toastId);
       }
     },
-    onSuccess: ({ downloaded, skipped }) => {
-      let message = '';
-      if (downloaded > 0) message += `Tải thành công ${downloaded} video mới. `;
-      if (skipped > 0) message += `${skipped} video đã tồn tại và được bỏ qua.`;
-      showSuccess(message.trim() + ' Chuyển qua tab "Tách Script" để xem.');
-      queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
+    onSuccess: ({ total }) => {
+      showSuccess(`Yêu cầu tải ${total} video đã được gửi. Vui lòng kiểm tra tab "Tách Script" sau vài phút.`);
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['server_video_files'] });
+      }, 5000);
       setSelectedVideoIds([]);
     },
     onError: (error: unknown) => handleRobustError(error, "Tải video thất bại."),
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: async (videoName: string) => {
+        if (!user) throw new Error("User not authenticated");
+        const { error } = await supabase.from('transcription_tasks').insert({
+            user_id: user.id,
+            video_name: videoName,
+            video_storage_path: `/uploads/${videoName}`,
+            status: 'pending',
+        });
+        if (error) throw error;
+    },
+    onSuccess: (_, videoName) => {
+        showSuccess(`Đã tạo tác vụ cho ${videoName}.`);
+        queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
+        queryClient.invalidateQueries({ queryKey: ['server_video_files'] });
+    },
+    onError: (error: unknown) => handleRobustError(error, "Không thể tạo tác vụ."),
   });
 
   const transcribeMutation = useMutation({
@@ -241,7 +270,7 @@ const VideoToScript = () => {
               <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle>Bảng điều khiển tác vụ</CardTitle>
-                  <Button variant="ghost" size="icon" onClick={() => queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] })} disabled={isFetchingTasks}><RefreshCw className={`h-4 w-4 ${isFetchingTasks ? 'animate-spin' : ''}`} /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => { queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] }); queryClient.invalidateQueries({ queryKey: ['server_video_files'] }); }} disabled={isFetchingTasks || isLoadingServerFiles}><RefreshCw className={`h-4 w-4 ${(isFetchingTasks || isLoadingServerFiles) ? 'animate-spin' : ''}`} /></Button>
                 </div>
                 <CardDescription>Theo dõi trạng thái tải về và tách script của các video.</CardDescription>
               </CardHeader>
@@ -249,12 +278,13 @@ const VideoToScript = () => {
                 <Table>
                   <TableHeader><TableRow><TableHead>Tên Video</TableHead><TableHead>Trạng thái</TableHead><TableHead className="text-right">Hành động</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {isLoadingTasks ? ([...Array(5)].map((_, i) => (<TableRow key={i}><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>)))
-                    : tasks.length > 0 ? (tasks.map((task) => (
+                    {isLoadingTasks || isLoadingServerFiles ? ([...Array(5)].map((_, i) => (<TableRow key={i}><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>)))
+                    : combinedTasks.length > 0 ? (combinedTasks.map((task) => (
                       <TableRow key={task.id}>
                         <TableCell className="font-medium text-xs max-w-xs truncate">{task.video_name}</TableCell>
                         <TableCell><StatusBadge status={task.status} /></TableCell>
                         <TableCell className="text-right space-x-2">
+                          {task.status === 'new' && <Button size="sm" onClick={() => createTaskMutation.mutate(task.video_name)} disabled={createTaskMutation.isPending}><PlusCircle className="h-4 w-4 mr-2" /> Tạo tác vụ</Button>}
                           {task.status === 'pending' && <Button size="sm" onClick={() => transcribeMutation.mutate(task)} disabled={transcribeMutation.isPending}><Captions className="h-4 w-4" /></Button>}
                           {task.status === 'completed' && <Button size="sm" variant="outline" onClick={() => setScriptToView({ title: task.video_name, content: task.script_content || "Không có nội dung." })}><Eye className="h-4 w-4" /></Button>}
                           {task.status === 'failed' && (
