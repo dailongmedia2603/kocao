@@ -15,18 +15,23 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  console.log("--- start-transcription function invoked ---");
+
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
   try {
+    console.log("Parsing request body...");
     const { videoName, userId } = await req.json();
+    console.log(`Received request for video: ${videoName}, user: ${userId}`);
+
     if (!videoName || !userId) {
       throw new Error("videoName and userId are required.");
     }
 
-    // 1. Tạo hoặc cập nhật tác vụ trong DB, đánh dấu là 'processing'
+    console.log(`Upserting task for video: ${videoName}`);
     const { data: taskData, error: upsertError } = await supabaseAdmin
       .from('transcription_tasks')
       .upsert({
@@ -39,13 +44,14 @@ serve(async (req) => {
       .single();
 
     if (upsertError) throw upsertError;
+    console.log(`Task ${taskData.id} is now processing.`);
 
-    // 2. Chuẩn bị payload và log
     const payload = {
       video_filename: videoName,
       language: "vi",
       model_size: "medium",
     };
+    
     const apiLog = {
       apiUrl: `${API_BASE_URL}/api/v1/transcribe`,
       payload: payload,
@@ -53,8 +59,8 @@ serve(async (req) => {
     };
 
     try {
-      // 3. Gọi API tách script
-      const apiResponse = await fetch(`${API_BASE_URL}/api/v1/transcribe`, {
+      console.log("Calling external transcription API with payload:", payload);
+      const apiResponse = await fetch(apiLog.apiUrl, {
         method: 'POST',
         headers: {
           "Content-Type": "application/json",
@@ -62,6 +68,7 @@ serve(async (req) => {
         },
         body: JSON.stringify(payload),
       });
+      console.log(`External API responded with status: ${apiResponse.status}`);
 
       const result = await apiResponse.json();
       apiLog.response = result;
@@ -70,7 +77,7 @@ serve(async (req) => {
         throw new Error(result.detail || JSON.stringify(result));
       }
 
-      // 4. Cập nhật kết quả vào DB khi thành công
+      console.log(`Transcription successful for task ${taskData.id}. Updating database.`);
       const scriptContent = typeof result === 'string' ? result : JSON.stringify(result);
       await supabaseAdmin.from('transcription_tasks').update({
         status: 'completed',
@@ -79,13 +86,14 @@ serve(async (req) => {
         error_message: null
       }).eq('id', taskData.id);
 
+      console.log("Database update successful.");
       return new Response(JSON.stringify({ success: true, message: "Transcription completed successfully." }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
 
     } catch (transcribeError) {
-      // 5. Cập nhật lỗi vào DB nếu thất bại
+      console.error("Error during transcription API call:", transcribeError.message);
       apiLog.response = { error: transcribeError.message };
       await supabaseAdmin.from('transcription_tasks').update({
         status: 'failed',
@@ -93,11 +101,11 @@ serve(async (req) => {
         api_response_log: apiLog,
       }).eq('id', taskData.id);
       
-      // Ném lỗi để client nhận biết
       throw transcribeError;
     }
 
   } catch (err) {
+    console.error("--- Top-level error in start-transcription ---:", err.message);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
