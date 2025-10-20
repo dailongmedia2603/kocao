@@ -32,7 +32,12 @@ serve(async (_req) => {
     // 2. Lấy danh sách các bản ghi đã hoàn thành từ API server
     const listResponse = await fetch(`${API_BASE_URL}/api/v1/transcriptions/list`);
     if (!listResponse.ok) throw new Error("Failed to fetch transcription list from API.");
-    const completedFiles = await listResponse.json();
+    
+    const listData = await listResponse.json();
+    // **THE FIX IS HERE:** Safely access the array, assuming it's inside a 'videos' property.
+    // Default to an empty array if the structure is not as expected.
+    const completedFiles = Array.isArray(listData?.videos) ? listData.videos : [];
+
     const completedFileNames = new Set(completedFiles.map((f: any) => f.filename));
 
     for (const task of processingTasks) {
