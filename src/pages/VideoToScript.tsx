@@ -120,19 +120,19 @@ const VideoToScript = () => {
                   videoMetadata.map((video) => (
                     <Card key={video.video_id} className="flex overflow-hidden">
                       {video.thumbnail_url ? (
-                        <img src={video.thumbnail_url} alt={video.description || 'Video thumbnail'} className="w-24 h-auto object-cover bg-muted" />
+                        <img src={video.thumbnail_url} alt={video.description || 'Video thumbnail'} className="w-24 object-cover bg-muted flex-shrink-0" />
                       ) : (
-                        <div className="w-24 h-full flex items-center justify-center bg-black flex-shrink-0">
+                        <div className="w-24 flex items-center justify-center bg-black flex-shrink-0">
                           <FaTiktok className="h-10 w-10 text-white" />
                         </div>
                       )}
                       <div className="p-4 flex-1">
                         <p className="text-sm font-medium line-clamp-2">{video.description || "Không có mô tả"}</p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
-                          <span className="flex items-center gap-1"><Play className="h-3 w-3" /> {formatStatNumber(video.stats?.play_count)}</span>
-                          <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {formatStatNumber(video.stats?.digg_count)}</span>
+                          <span className="flex items-center gap-1"><Play className="h-3 w-3" /> {formatStatNumber(video.stats?.view_count)}</span>
+                          <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {formatStatNumber(video.stats?.like_count)}</span>
                           <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {formatStatNumber(video.stats?.comment_count)}</span>
-                          <span className="flex items-center gap-1"><Share2 className="h-3 w-3" /> {formatStatNumber(video.stats?.share_count)}</span>
+                          <span className="flex items-center gap-1"><Share2 className="h-3 w-3" /> {formatStatNumber(video.stats?.repost_count)}</span>
                         </div>
                         <div className="flex items-center gap-2 mt-3">
                           <Button size="sm" variant="outline" onClick={() => handleCopyLink(video.video_url)}><Copy className="h-3 w-3 mr-1.5" /> Copy Link</Button>
