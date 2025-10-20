@@ -179,7 +179,7 @@ const VideoToScript = () => {
         </header>
 
         <Tabs defaultValue="get-link">
-          <TabsList className="grid w-full grid-cols-2 gap-3 bg-transparent p-0">
+          <TabsList className="inline-flex gap-3 bg-transparent p-0 mb-6">
             <TabsTrigger value="get-link" className="group h-auto justify-start gap-3 rounded-lg border p-3 shadow-sm transition-colors hover:bg-muted/50 data-[state=active]:border-red-500 data-[state=active]:bg-red-50">
               <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-muted transition-colors group-data-[state=active]:bg-red-500"><Search className="h-5 w-5 text-muted-foreground transition-colors group-data-[state=active]:text-white" /></div>
               <span className="font-semibold text-muted-foreground transition-colors group-data-[state=active]:text-red-600">Lấy Link Video</span>
@@ -189,7 +189,7 @@ const VideoToScript = () => {
               <span className="font-semibold text-muted-foreground transition-colors group-data-[state=active]:text-red-600">Tách Script</span>
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="get-link" className="mt-6">
+          <TabsContent value="get-link">
             <Card>
               <CardHeader>
                 <CardTitle>Lấy danh sách video</CardTitle>
@@ -231,7 +231,7 @@ const VideoToScript = () => {
               </CardContent>
             </Card>
           </TabsContent>
-          <TabsContent value="transcribe" className="mt-6">
+          <TabsContent value="transcribe">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
