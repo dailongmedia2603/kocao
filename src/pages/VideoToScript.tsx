@@ -129,10 +129,10 @@ const VideoToScript = () => {
                       <div className="p-4 flex-1">
                         <p className="text-sm font-medium line-clamp-2">{video.description || "Không có mô tả"}</p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
-                          <span className="flex items-center gap-1"><Play className="h-3 w-3" /> {formatStatNumber(video.stats?.view_count)}</span>
-                          <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {formatStatNumber(video.stats?.like_count)}</span>
-                          <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {formatStatNumber(video.stats?.comment_count)}</span>
-                          <span className="flex items-center gap-1"><Share2 className="h-3 w-3" /> {formatStatNumber(video.stats?.repost_count)}</span>
+                          <span className="flex items-center gap-1"><Play className="h-3 w-3" /> {formatStatNumber(video.view_count)}</span>
+                          <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {formatStatNumber(video.like_count)}</span>
+                          <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {formatStatNumber(video.comment_count)}</span>
+                          <span className="flex items-center gap-1"><Share2 className="h-3 w-3" /> {formatStatNumber(video.repost_count)}</span>
                         </div>
                         <div className="flex items-center gap-2 mt-3">
                           <Button size="sm" variant="outline" onClick={() => handleCopyLink(video.video_url)}><Copy className="h-3 w-3 mr-1.5" /> Copy Link</Button>
