@@ -26,6 +26,7 @@ serve(async (req) => {
       method: method,
       headers: {
         "Content-Type": "application/json",
+        "Origin": "https://kocao.vercel.app", // Thêm Origin header để xác thực
       },
       body: body ? JSON.stringify(body) : undefined,
     };
