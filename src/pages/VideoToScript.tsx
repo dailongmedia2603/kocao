@@ -11,10 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Icons
-import { Download, Loader2, FileVideo, Captions, Eye, RefreshCw, Search, ListVideo, FileText } from "lucide-react";
+import { Download, Loader2, Captions, Eye, Search, ListVideo, FileText } from "lucide-react";
 
 // API Proxy Function
 const callApi = async (path: string, method: 'GET' | 'POST', body?: any) => {
@@ -159,16 +158,22 @@ const VideoToScript = () => {
                     <Table>
                       <TableHeader><TableRow><TableHead>Tên file</TableHead><TableHead className="text-right">Hành động</TableHead></TableRow></TableHeader>
                       <TableBody>
-                        {downloadedVideos.map((filename: string, index: number) => (
-                          <TableRow key={index}>
-                            <TableCell className="text-xs truncate max-w-xs">{filename}</TableCell>
-                            <TableCell className="text-right">
-                              <Button size="sm" onClick={() => transcribeMutation.mutate({ filename, model: 'medium' })} disabled={transcribeMutation.isPending}>
-                                <Captions className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
+                        {Array.isArray(downloadedVideos) && downloadedVideos.length > 0 ? (
+                          downloadedVideos.map((filename: string, index: number) => (
+                            <TableRow key={index}>
+                              <TableCell className="text-xs truncate max-w-xs">{filename}</TableCell>
+                              <TableCell className="text-right">
+                                <Button size="sm" onClick={() => transcribeMutation.mutate({ filename, model: 'medium' })} disabled={transcribeMutation.isPending}>
+                                  <Captions className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">Chưa có video nào.</TableCell>
                           </TableRow>
-                        ))}
+                        )}
                       </TableBody>
                     </Table>
                   )}
@@ -187,16 +192,22 @@ const VideoToScript = () => {
                     <Table>
                       <TableHeader><TableRow><TableHead>Tên file</TableHead><TableHead className="text-right">Hành động</TableHead></TableRow></TableHeader>
                       <TableBody>
-                        {transcriptions.map((filename: string, index: number) => (
-                          <TableRow key={index}>
-                            <TableCell className="text-xs truncate max-w-xs">{filename}</TableCell>
-                            <TableCell className="text-right">
-                              <Button size="sm" variant="outline" onClick={() => viewTranscriptionMutation.mutate(filename)} disabled={viewTranscriptionMutation.isPending}>
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
+                        {Array.isArray(transcriptions) && transcriptions.length > 0 ? (
+                          transcriptions.map((filename: string, index: number) => (
+                            <TableRow key={index}>
+                              <TableCell className="text-xs truncate max-w-xs">{filename}</TableCell>
+                              <TableCell className="text-right">
+                                <Button size="sm" variant="outline" onClick={() => viewTranscriptionMutation.mutate(filename)} disabled={viewTranscriptionMutation.isPending}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">Chưa có script nào.</TableCell>
                           </TableRow>
-                        ))}
+                        )}
                       </TableBody>
                     </Table>
                   )}
