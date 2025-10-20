@@ -92,22 +92,17 @@ const VideoToScript = () => {
       return data;
     },
     enabled: !!user,
-    refetchInterval: (query) => {
-      const data = query.state.data as TranscriptionTask[] | undefined;
-      return data?.some(task => task.status !== 'completed' && task.status !== 'failed') ? 15000 : false;
-    },
   });
 
   const { data: serverFiles = [], isLoading: isLoadingServerFiles } = useQuery<string[]>({
     queryKey: ['server_video_files'],
     queryFn: async () => {
         const response = await callApi('/api/v1/videos/list', 'GET');
-        // Sửa lỗi: API trả về 'videos' thay vì 'files'
         const videos = response?.videos || [];
         return videos.map((video: any) => video.filename);
     },
     enabled: !!user,
-    refetchInterval: 30000, // Refresh server file list every 30 seconds
+    refetchInterval: 30000,
   });
 
   const combinedTasks = useMemo(() => {
@@ -115,9 +110,9 @@ const VideoToScript = () => {
     const newFilesAsTasks: TranscriptionTask[] = serverFiles
         .filter(fileName => !existingTaskNames.has(fileName))
         .map(fileName => ({
-            id: `new-${fileName}`, // temporary ID
+            id: `new-${fileName}`,
             video_name: fileName,
-            status: 'new', // A new custom status
+            status: 'new',
             script_content: null,
             error_message: null,
             created_at: new Date().toISOString(),
@@ -200,21 +195,33 @@ const VideoToScript = () => {
       const toastId = showLoading(`Đang tách script cho video ${task.video_name}...`);
       try {
         await supabase.from('transcription_tasks').update({ status: 'processing' }).eq('id', task.id);
-        await callApi('/api/v1/transcribe', 'POST', {
+        queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
+
+        const result = await callApi('/api/v1/transcribe', 'POST', {
           video_filename: task.video_name,
           language: "vi", model_size: 'medium', beam_size: 5, vad_filter: true, compute_type: "auto"
         });
+
+        const scriptContent = typeof result === 'string' ? result : JSON.stringify(result);
+
+        await supabase.from('transcription_tasks').update({
+          status: 'completed',
+          script_content: scriptContent,
+          error_message: null
+        }).eq('id', task.id);
+
       } finally {
         dismissToast(toastId);
       }
     },
     onSuccess: () => {
-      showSuccess("Yêu cầu tách script đã được gửi đi. Kết quả sẽ được cập nhật tự động.");
+      showSuccess("Tách script thành công!");
       queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
     },
     onError: (error: unknown, task) => {
       handleRobustError(error, "Tách script thất bại.");
       supabase.from('transcription_tasks').update({ status: 'failed', error_message: error instanceof Error ? error.message : String(error) }).eq('id', task.id);
+      queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
     },
   });
 
