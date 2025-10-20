@@ -15,7 +15,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Checkbox } from "@/components/ui/checkbox";
 
 // Icons
 import { Download, Loader2, Captions, Eye, Search, Play, Heart, MessageSquare, Share2, ExternalLink, FileVideo, History, RefreshCw, AlertCircle, PlusCircle } from "lucide-react";
@@ -76,8 +75,8 @@ const VideoToScript = () => {
   const queryClient = useQueryClient();
   const { user } = useSession();
   const [channelLink, setChannelLink] = useState("");
+  const [maxVideos, setMaxVideos] = useState<number | null>(10);
   const [videoMetadata, setVideoMetadata] = useState<any[]>([]);
-  const [selectedVideoIds, setSelectedVideoIds] = useState<string[]>([]);
   const [logData, setLogData] = useState<any | null>(null);
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [scriptToView, setScriptToView] = useState<{ title: string; content: string } | null>(null);
@@ -92,6 +91,10 @@ const VideoToScript = () => {
       return data;
     },
     enabled: !!user,
+    refetchInterval: (query) => {
+      const data = query.state.data as TranscriptionTask[] | undefined;
+      return data?.some(task => task.status !== 'completed' && task.status !== 'failed') ? 15000 : false;
+    },
   });
 
   const { data: serverFiles = [], isLoading: isLoadingServerFiles } = useQuery<string[]>({
@@ -140,33 +143,24 @@ const VideoToScript = () => {
     onError: (error: unknown) => handleRobustError(error, "Lấy danh sách video thất bại."),
   });
 
-  const downloadVideosMutation = useMutation({
-    mutationFn: async (videoUrls: string[]) => {
-      const toastId = showLoading(`Đang gửi yêu cầu tải ${videoUrls.length} video...`);
+  const downloadChannelMutation = useMutation({
+    mutationFn: async ({ channel, count }: { channel: string, count: number | null }) => {
+      const toastId = showLoading(`Đang gửi yêu cầu tải video từ kênh ${channel}...`);
       try {
-        const downloadPromises = videoUrls.map(url => callApi('/api/v1/download', 'POST', { channel_link: url, max_videos: 1 }));
-        const results = await Promise.all(downloadPromises);
-        
-        console.log("API Download Response:", results);
-
-        const failedRequests = results.filter(res => res.success !== true);
-        if (failedRequests.length > 0) {
-          const firstErrorResponse = failedRequests[0];
-          const errorMessage = firstErrorResponse?.message || JSON.stringify(firstErrorResponse) || "Một số yêu cầu tải video thất bại.";
-          throw new Error(errorMessage);
+        const response = await callApi('/api/v1/download', 'POST', { channel_link: channel, max_videos: count });
+        if (response.success !== true) {
+          throw new Error(response.message || "Yêu cầu tải thất bại.");
         }
-        
-        return { total: videoUrls.length };
+        return response;
       } finally {
         dismissToast(toastId);
       }
     },
-    onSuccess: ({ total }) => {
-      showSuccess(`Yêu cầu tải ${total} video đã được gửi. Vui lòng kiểm tra tab "Tách Script" sau vài phút.`);
+    onSuccess: (data) => {
+      showSuccess(data.message || `Yêu cầu tải ${data.downloaded} video đã được gửi. Vui lòng kiểm tra tab "Tách Script" sau vài phút.`);
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['server_video_files'] });
       }, 5000);
-      setSelectedVideoIds([]);
     },
     onError: (error: unknown) => handleRobustError(error, "Tải video thất bại."),
   });
@@ -230,19 +224,11 @@ const VideoToScript = () => {
     if (channelLink) getMetadataMutation.mutate(channelLink);
   };
 
-  const handleDownloadSelected = () => {
-    const urlsToDownload = videoMetadata
-      .filter(v => selectedVideoIds.includes(v.video_id))
-      .map(v => v.video_url);
-    if (urlsToDownload.length > 0) {
-      downloadVideosMutation.mutate(urlsToDownload);
+  const handleDownloadChannel = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (channelLink) {
+      downloadChannelMutation.mutate({ channel: channelLink, count: maxVideos });
     }
-  };
-
-  const handleSelectVideo = (videoId: string) => {
-    setSelectedVideoIds(prev => 
-      prev.includes(videoId) ? prev.filter(id => id !== videoId) : [...prev, videoId]
-    );
   };
 
   return (
@@ -260,17 +246,22 @@ const VideoToScript = () => {
           </TabsList>
           <TabsContent value="get-link">
             <Card>
-              <CardHeader><CardTitle>Lấy danh sách video</CardTitle><CardDescription>Nhập link kênh hoặc username TikTok (ví dụ: @username).</CardDescription></CardHeader>
+              <CardHeader><CardTitle>Tải video từ kênh</CardTitle><CardDescription>Nhập link kênh hoặc username TikTok (ví dụ: @username) để tải video về server.</CardDescription></CardHeader>
               <CardContent>
-                <form onSubmit={handleGetMetadata} className="flex gap-2 mb-6"><Input placeholder="@username hoặc link kênh" value={channelLink} onChange={(e) => setChannelLink(e.target.value)} disabled={getMetadataMutation.isPending} /><Button type="submit" disabled={getMetadataMutation.isPending || !channelLink}>{getMetadataMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Lấy"}</Button></form>
+                <form onSubmit={handleDownloadChannel} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <Input className="md:col-span-2" placeholder="@username hoặc link kênh" value={channelLink} onChange={(e) => setChannelLink(e.target.value)} disabled={downloadChannelMutation.isPending} />
+                  <Input type="number" placeholder="Số video (mặc định 10)" onChange={(e) => setMaxVideos(e.target.value ? parseInt(e.target.value) : null)} disabled={downloadChannelMutation.isPending} />
+                  <Button type="submit" className="w-full md:col-span-3" disabled={downloadChannelMutation.isPending || !channelLink}>
+                    {downloadChannelMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                    Tải Video Về Server
+                  </Button>
+                </form>
                 <div className="flex justify-between items-center mb-4">
-                  <div className="flex items-center gap-4">
-                    <h3 className="text-lg font-semibold">Kết quả</h3>
-                    {selectedVideoIds.length > 0 && <Button size="sm" onClick={handleDownloadSelected} disabled={downloadVideosMutation.isPending}><Download className="h-4 w-4 mr-2" /> Tải {selectedVideoIds.length} video đã chọn</Button>}
-                  </div>
+                  <h3 className="text-lg font-semibold">Xem trước video (tùy chọn)</h3>
                   {logData && <Button variant="outline" size="sm" onClick={() => setIsLogOpen(true)}><History className="h-4 w-4 mr-2" />Xem Log</Button>}
                 </div>
-                <ScrollArea className="h-[60vh] border rounded-md"><div className="p-4 space-y-4">{getMetadataMutation.isPending ? ([...Array(3)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)) : videoMetadata.length > 0 ? (videoMetadata.map((video) => (<Card key={video.video_id} className="flex overflow-hidden relative">{video.thumbnail_url ? <img src={video.thumbnail_url} alt={video.description || 'Video thumbnail'} className="w-24 object-cover bg-muted flex-shrink-0" /> : <div className="w-24 flex items-center justify-center bg-black flex-shrink-0"><FaTiktok className="h-10 w-10 text-white" /></div>}<div className="p-4 flex-1"><p className="text-sm font-medium line-clamp-2">{video.description || "Không có mô tả"}</p><div className="flex items-center gap-4 text-xs text-muted-foreground mt-2"><span className="flex items-center gap-1"><Play className="h-3 w-3" /> {formatStatNumber(video.view_count)}</span><span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {formatStatNumber(video.like_count)}</span><span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {formatStatNumber(video.comment_count)}</span><span className="flex items-center gap-1"><Share2 className="h-3 w-3" /> {formatStatNumber(video.repost_count)}</span></div><div className="flex items-center gap-2 mt-3"><Button size="sm" asChild><a href={video.video_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3 mr-1.5" /> Xem trên TikTok</a></Button></div></div><Checkbox checked={selectedVideoIds.includes(video.video_id)} onCheckedChange={() => handleSelectVideo(video.video_id)} className="absolute top-2 right-2 h-5 w-5" /></Card>))) : (<div className="flex flex-col items-center justify-center h-48 text-muted-foreground"><FileVideo className="h-10 w-10" /><p className="mt-2">Chưa có video nào.</p></div>)}</div></ScrollArea>
+                <form onSubmit={handleGetMetadata} className="flex gap-2 mb-4"><Input placeholder="Nhập link kênh để xem trước" value={channelLink} onChange={(e) => setChannelLink(e.target.value)} disabled={getMetadataMutation.isPending} /><Button type="submit" variant="outline" disabled={getMetadataMutation.isPending || !channelLink}>{getMetadataMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Xem trước"}</Button></form>
+                <ScrollArea className="h-[60vh] border rounded-md"><div className="p-4 space-y-4">{getMetadataMutation.isPending ? ([...Array(3)].map((_, i) => <Skeleton key={i} className="h-32 w-full" />)) : videoMetadata.length > 0 ? (videoMetadata.map((video) => (<Card key={video.video_id} className="flex overflow-hidden relative">{video.thumbnail_url ? <img src={video.thumbnail_url} alt={video.description || 'Video thumbnail'} className="w-24 object-cover bg-muted flex-shrink-0" /> : <div className="w-24 flex items-center justify-center bg-black flex-shrink-0"><FaTiktok className="h-10 w-10 text-white" /></div>}<div className="p-4 flex-1"><p className="text-sm font-medium line-clamp-2">{video.description || "Không có mô tả"}</p><div className="flex items-center gap-4 text-xs text-muted-foreground mt-2"><span className="flex items-center gap-1"><Play className="h-3 w-3" /> {formatStatNumber(video.view_count)}</span><span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {formatStatNumber(video.like_count)}</span><span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {formatStatNumber(video.comment_count)}</span><span className="flex items-center gap-1"><Share2 className="h-3 w-3" /> {formatStatNumber(video.repost_count)}</span></div><div className="flex items-center gap-2 mt-3"><Button size="sm" asChild><a href={video.video_url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3 mr-1.5" /> Xem trên TikTok</a></Button></div></div></Card>))) : (<div className="flex flex-col items-center justify-center h-48 text-muted-foreground"><FileVideo className="h-10 w-10" /><p className="mt-2">Nhập link kênh và bấm "Xem trước" để xem danh sách video.</p></div>)}</div></ScrollArea>
               </CardContent>
             </Card>
           </TabsContent>
