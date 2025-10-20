@@ -1,0 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Documentation
+*.md
+API_DOCS.md
+ENV_CONFIG.md
+README.md
+
+# Environment files (will be provided via docker-compose)
+.env
+.env.*
+env.example
+
+# Uploads and data (mounted as volumes)
+uploads/
+*.mp4
+*.webm
+*.mkv
+*.avi
+*.json
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Testing
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+

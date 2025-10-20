@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
 from pathlib import Path
@@ -31,18 +32,31 @@ CORS_ALLOW_HEADERS = os.getenv("CORS_ALLOW_HEADERS", "*").split(",")
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 MAX_VIDEOS_LIMIT = int(os.getenv("MAX_VIDEOS_LIMIT", "1000"))
 
+# Storage URL configuration for returning public URLs instead of direct file responses
+STORAGE_BASE_URL = os.getenv("STORAGE_BASE_URL", f"http://localhost:{API_PORT}/storage")
+
 WHISPER_MODEL_NAME = os.getenv("WHISPER_MODEL_NAME", "base")
 WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "auto")
 WHISPER_COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE_TYPE", "auto")
 
 app = FastAPI(
     title="TikTok Scraper API",
-    description="RESTful API for scraping TikTok channel videos, metadata, and speech-to-text transcription",
+    description="""
+    RESTful API for scraping TikTok channel videos, metadata, and speech-to-text transcription.
+    
+    **NOTE**: All APIs are currently PUBLIC for easy testing and integration.
+    CORS is configured to allow all origins (*).
+    Future updates will include domain restrictions and authentication.
+    """,
     version=API_VERSION,
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
+# CORS Configuration - Currently PUBLIC
+# NOTE: This allows all origins for easy testing and development.
+# TODO: Restrict CORS_ALLOW_ORIGINS to specific domains in production
+# Example: CORS_ALLOW_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ALLOW_ORIGINS,
@@ -58,6 +72,13 @@ transcriber = WhisperTranscriber(
     device=None if WHISPER_DEVICE == "auto" else WHISPER_DEVICE,
     compute_type=WHISPER_COMPUTE_TYPE
 )
+
+# Mount static files directory for serving uploaded videos and transcriptions
+# This allows direct access to files via /storage/{filename}
+# Note: In production, it's recommended to use Nginx to serve static files
+upload_path = Path(UPLOAD_DIR)
+upload_path.mkdir(parents=True, exist_ok=True)
+app.mount("/storage", StaticFiles(directory=str(upload_path)), name="storage")
 
 class ChannelRequest(BaseModel):
     channel_link: str = Field(..., description="TikTok channel URL or username (e.g., @username or https://www.tiktok.com/@username)")
@@ -90,7 +111,7 @@ class MetadataResponse(BaseModel):
     username: str
     total_videos: int
     videos: List[VideoMetadata]
-    metadata_file: Optional[str] = None
+    metadata_file_url: Optional[str] = None
     timestamp: str
 
 class DownloadResponse(BaseModel):
@@ -98,7 +119,7 @@ class DownloadResponse(BaseModel):
     message: str
     username: str
     downloaded: int
-    download_path: Optional[str] = None
+    videos_list_url: Optional[str] = None
     timestamp: str
 
 class StatusResponse(BaseModel):
@@ -143,7 +164,7 @@ class TranscribeResponse(BaseModel):
     language: str
     num_segments: int
     duration: float
-    transcription_file: Optional[str] = None
+    transcription_file_url: Optional[str] = None
     timestamp: str
 
 download_tasks = {}
@@ -185,13 +206,20 @@ async def get_channel_metadata(request: ChannelRequest):
                 detail=result.get('error', 'Failed to fetch channel metadata')
             )
         
+        # Convert local file path to public storage URL
+        metadata_file = result.get('metadata_file')
+        metadata_file_url = None
+        if metadata_file:
+            filename = Path(metadata_file).name
+            metadata_file_url = f"{STORAGE_BASE_URL}/{filename}"
+        
         return MetadataResponse(
             success=True,
             message=f"Successfully retrieved {result['total_videos']} videos from @{username}",
             username=username,
             total_videos=result['total_videos'],
             videos=result['videos'],
-            metadata_file=result.get('metadata_file'),
+            metadata_file_url=metadata_file_url,
             timestamp=datetime.now().isoformat()
         )
         
@@ -219,12 +247,15 @@ async def download_channel_videos(request: ChannelRequest, background_tasks: Bac
                 detail=result.get('error', 'Failed to download videos')
             )
         
+        # Return URL to videos list endpoint instead of local path
+        videos_list_url = f"{STORAGE_BASE_URL.rsplit('/storage', 1)[0]}/api/v1/videos/list"
+        
         return DownloadResponse(
             success=True,
             message=f"Successfully downloaded {result['downloaded']} videos from @{username}",
             username=username,
             downloaded=result['downloaded'],
-            download_path=result.get('download_path'),
+            videos_list_url=videos_list_url,
             timestamp=datetime.now().isoformat()
         )
         
@@ -235,6 +266,9 @@ async def download_channel_videos(request: ChannelRequest, background_tasks: Bac
 
 @app.get("/api/v1/metadata/{username}")
 async def get_saved_metadata(username: str):
+    """
+    Get metadata for a user's videos as JSON response with storage URL
+    """
     try:
         metadata_file = Path(UPLOAD_DIR) / f"{username}_videos_metadata.json"
         
@@ -244,11 +278,21 @@ async def get_saved_metadata(username: str):
                 detail=f"No metadata found for user @{username}"
             )
         
-        return FileResponse(
-            path=metadata_file,
-            media_type="application/json",
-            filename=f"{username}_videos_metadata.json"
-        )
+        # Read and return JSON content with storage URL
+        with open(metadata_file, 'r', encoding='utf-8') as f:
+            metadata_content = json.load(f)
+        
+        # Generate storage URL for the metadata file
+        metadata_url = f"{STORAGE_BASE_URL}/{metadata_file.name}"
+        
+        return JSONResponse(content={
+            "success": True,
+            "username": username,
+            "total_videos": len(metadata_content),
+            "metadata": metadata_content,
+            "metadata_file_url": metadata_url,
+            "timestamp": datetime.now().isoformat()
+        })
         
     except HTTPException:
         raise
@@ -278,6 +322,7 @@ async def list_downloaded_videos():
         for video_file in sorted(video_files, key=lambda x: x.stat().st_mtime, reverse=True):
             files_info.append({
                 "filename": video_file.name,
+                "url": f"{STORAGE_BASE_URL}/{video_file.name}",
                 "size_mb": round(video_file.stat().st_size / (1024 * 1024), 2),
                 "created": datetime.fromtimestamp(video_file.stat().st_ctime).isoformat(),
                 "modified": datetime.fromtimestamp(video_file.stat().st_mtime).isoformat()
@@ -295,7 +340,11 @@ async def list_downloaded_videos():
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/api/v1/videos/{filename}")
-async def download_video_file(filename: str):
+async def get_video_info(filename: str):
+    """
+    Get video file information and storage URL
+    Returns metadata and public URL instead of direct file download
+    """
     try:
         video_path = Path(UPLOAD_DIR) / filename
         
@@ -305,11 +354,16 @@ async def download_video_file(filename: str):
                 detail=f"Video file '{filename}' not found"
             )
         
-        return FileResponse(
-            path=video_path,
-            media_type="video/mp4",
-            filename=filename
-        )
+        # Return video info with storage URL
+        return JSONResponse(content={
+            "success": True,
+            "filename": filename,
+            "url": f"{STORAGE_BASE_URL}/{filename}",
+            "size_mb": round(video_path.stat().st_size / (1024 * 1024), 2),
+            "created": datetime.fromtimestamp(video_path.stat().st_ctime).isoformat(),
+            "modified": datetime.fromtimestamp(video_path.stat().st_mtime).isoformat(),
+            "timestamp": datetime.now().isoformat()
+        })
         
     except HTTPException:
         raise
@@ -372,6 +426,13 @@ async def transcribe_video(request: TranscribeRequest):
                 detail=result.get("error", "Transcription failed")
             )
         
+        # Convert local file path to public storage URL
+        transcription_file = result.get("transcription_file")
+        transcription_file_url = None
+        if transcription_file:
+            filename = Path(transcription_file).name
+            transcription_file_url = f"{STORAGE_BASE_URL}/{filename}"
+        
         return TranscribeResponse(
             success=True,
             message=f"Successfully transcribed video with {result['num_segments']} segments",
@@ -381,7 +442,7 @@ async def transcribe_video(request: TranscribeRequest):
             language=result["language"],
             num_segments=result["num_segments"],
             duration=result["duration"],
-            transcription_file=result.get("transcription_file"),
+            transcription_file_url=transcription_file_url,
             timestamp=datetime.now().isoformat()
         )
         
@@ -393,7 +454,7 @@ async def transcribe_video(request: TranscribeRequest):
 @app.get("/api/v1/transcription/{video_name}")
 async def get_saved_transcription(video_name: str):
     """
-    Get saved transcription JSON file
+    Get saved transcription with storage URL
     
     - **video_name**: Video filename without extension (e.g., 'username_001_7521704507173227784')
     """
@@ -406,11 +467,20 @@ async def get_saved_transcription(video_name: str):
                 detail=f"No transcription found for video '{video_name}'"
             )
         
-        return FileResponse(
-            path=transcription_file,
-            media_type="application/json",
-            filename=f"{video_name}_transcription.json"
-        )
+        # Read and return transcription content with storage URL
+        with open(transcription_file, 'r', encoding='utf-8') as f:
+            transcription_content = json.load(f)
+        
+        # Generate storage URL for the transcription file
+        transcription_url = f"{STORAGE_BASE_URL}/{transcription_file.name}"
+        
+        return JSONResponse(content={
+            "success": True,
+            "video_name": video_name,
+            "transcription": transcription_content,
+            "transcription_file_url": transcription_url,
+            "timestamp": datetime.now().isoformat()
+        })
         
     except HTTPException:
         raise
@@ -443,6 +513,7 @@ async def list_transcriptions():
                 
                 files_info.append({
                     "filename": trans_file.name,
+                    "url": f"{STORAGE_BASE_URL}/{trans_file.name}",
                     "video_name": trans_file.stem.replace("_transcription", ""),
                     "language": data.get("language", "unknown"),
                     "num_segments": data.get("num_segments", 0),

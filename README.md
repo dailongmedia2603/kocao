@@ -1,27 +1,54 @@
-# TikTok API
+# Kocao API
 
-RESTful API for TikTok.
+A FastAPI-based TikTok scraper and transcription service with **simple deployment**.
+
+## Quick Deploy (Recommended)
+
+### Deploy trực tiếp trên VPS (Không cần Docker)
+
+```bash
+# SSH vào VPS
+ssh root@36.50.54.74
+
+# Clone và deploy
+git clone https://github.com/your-username/kocao.git
+cd kocao
+chmod +x deploy.sh
+./deploy.sh
+```
+
+**Xong!** API sẽ chạy tại `http://36.50.54.74:8000` 🎉
+
+## Manual Deploy
+
+Xem chi tiết tại [DEPLOY_SIMPLE.md](DEPLOY_SIMPLE.md)
 
 ## Requirements
 
 - Python 3.10+
 - pip
 - FFmpeg
+- Node.js (for PM2)
 
 ### Install FFmpeg
 
 **Windows:**
 1. Download from https://ffmpeg.org/download.html
 2. Extract and add to PATH
+
+**Linux (VPS):**
+```bash
+apt update && apt install -y ffmpeg
 ```
 
-## Installation
+## Local Development
 
 ### 1. Create, activate virtual env and install dependencies
 
 ```bash
 python -m venv env
-env\Scripts\activate
+env\Scripts\activate  # Windows
+# source env/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 ```
 
@@ -32,10 +59,19 @@ pip install -r requirements.txt
 Copy `env.example` to `.env` and customize settings:
 
 ```bash
+# Windows
+copy env.example .env
+
+# Linux/Mac
 cp env.example .env
 ```
 
 Edit `.env` file with your preferred settings. All settings are optional and have sensible defaults.
+
+**Important for Production:**
+- Set `API_RELOAD=false` for better stability
+- Update `STORAGE_BASE_URL` with your VPS IP/domain
+- Restrict `CORS_ALLOW_ORIGINS` to specific domains
 
 ## Usage
 
@@ -149,6 +185,29 @@ GET http://localhost:8000/api/v1/transcription/{video_name}
 
 Example: `GET http://localhost:8000/api/v1/transcription/lephianhdev_001_7521704507173227784`
 
+## Production Deployment
+
+### Simple Deploy (Recommended)
+See [DEPLOY_SIMPLE.md](DEPLOY_SIMPLE.md) for complete guide.
+
+### PM2 Management
+```bash
+# Start app
+pm2 start ecosystem.config.js
+
+# Check status
+pm2 status
+
+# View logs
+pm2 logs kocao-api
+
+# Restart
+pm2 restart kocao-api
+
+# Stop
+pm2 stop kocao-api
+```
+
 ## Notes
 
 - First transcription will be slower (downloading and loading Whisper model)
@@ -158,3 +217,8 @@ Example: `GET http://localhost:8000/api/v1/transcription/lephianhdev_001_7521704
 - Auto language detection works well for most cases
 - Transcription files saved permanently until manually deleted
 - Supports 90+ languages including Vietnamese, English, Chinese, Japanese, Korean, etc.
+
+## Documentation
+
+- **Simple Deploy Guide**: See `DEPLOY_SIMPLE.md`
+- **Interactive API Docs**: http://localhost:8000/docs (when running)
