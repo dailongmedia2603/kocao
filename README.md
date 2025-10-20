@@ -1,28 +1,5 @@
 # Kocao API
 
-A FastAPI-based TikTok scraper and transcription service with **simple deployment**.
-
-## Quick Deploy (Recommended)
-
-### Deploy trực tiếp trên VPS (Không cần Docker)
-
-```bash
-# SSH vào VPS
-ssh root@36.50.54.74
-
-# Clone và deploy
-git clone https://github.com/your-username/kocao.git
-cd kocao
-chmod +x deploy.sh
-./deploy.sh
-```
-
-**Xong!** API sẽ chạy tại `http://36.50.54.74:8000` 🎉
-
-## Manual Deploy
-
-Xem chi tiết tại [DEPLOY_SIMPLE.md](DEPLOY_SIMPLE.md)
-
 ## Requirements
 
 - Python 3.10+
@@ -217,8 +194,3 @@ pm2 stop kocao-api
 - Auto language detection works well for most cases
 - Transcription files saved permanently until manually deleted
 - Supports 90+ languages including Vietnamese, English, Chinese, Japanese, Korean, etc.
-
-## Documentation
-
-- **Simple Deploy Guide**: See `DEPLOY_SIMPLE.md`
-- **Interactive API Docs**: http://localhost:8000/docs (when running)

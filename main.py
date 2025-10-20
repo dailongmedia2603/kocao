@@ -1,10 +1,12 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, Request
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict
 from pathlib import Path
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 import uvicorn
 import json
 from datetime import datetime
@@ -29,11 +31,19 @@ CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "true").lower() == 
 CORS_ALLOW_METHODS = os.getenv("CORS_ALLOW_METHODS", "*").split(",")
 CORS_ALLOW_HEADERS = os.getenv("CORS_ALLOW_HEADERS", "*").split(",")
 
+# Domain access restriction
+ENABLE_DOMAIN_RESTRICTION = os.getenv("ENABLE_DOMAIN_RESTRICTION", "false").lower() == "true"
+ALLOWED_DOMAINS = os.getenv("ALLOWED_DOMAINS", "").split(",") if os.getenv("ALLOWED_DOMAINS") else []
+# Clean up domain list
+ALLOWED_DOMAINS = [d.strip().lower() for d in ALLOWED_DOMAINS if d.strip()]
+
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 MAX_VIDEOS_LIMIT = int(os.getenv("MAX_VIDEOS_LIMIT", "1000"))
 
-# Storage URL configuration for returning public URLs instead of direct file responses
-STORAGE_BASE_URL = os.getenv("STORAGE_BASE_URL", f"http://localhost:{API_PORT}/storage")
+# Public URL configuration
+# Set this in production to your server's public IP or domain
+# Example: PUBLIC_URL=http://36.50.54.74:8000 or https://api.yourdomain.com
+PUBLIC_URL = os.getenv("PUBLIC_URL", f"http://localhost:{API_PORT}")
 
 WHISPER_MODEL_NAME = os.getenv("WHISPER_MODEL_NAME", "base")
 WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "auto")
@@ -44,19 +54,75 @@ app = FastAPI(
     description="""
     RESTful API for scraping TikTok channel videos, metadata, and speech-to-text transcription.
     
-    **NOTE**: All APIs are currently PUBLIC for easy testing and integration.
-    CORS is configured to allow all origins (*).
-    Future updates will include domain restrictions and authentication.
+    **Access Control**: This API can be configured to restrict access to specific domains.
+    Set ENABLE_DOMAIN_RESTRICTION=true and configure ALLOWED_DOMAINS in your .env file.
     """,
     version=API_VERSION,
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
-# CORS Configuration - Currently PUBLIC
-# NOTE: This allows all origins for easy testing and development.
-# TODO: Restrict CORS_ALLOW_ORIGINS to specific domains in production
-# Example: CORS_ALLOW_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+# Helper function to get base URL from request
+def get_base_url(request: Request) -> str:
+    """Get base URL from request or use configured PUBLIC_URL"""
+    # If PUBLIC_URL is explicitly set and not localhost, use it
+    if PUBLIC_URL and "localhost" not in PUBLIC_URL and "127.0.0.1" not in PUBLIC_URL:
+        return PUBLIC_URL
+    
+    # Otherwise, construct from request
+    scheme = request.url.scheme
+    host = request.headers.get("host", f"{API_HOST}:{API_PORT}")
+    return f"{scheme}://{host}"
+
+# Domain Restriction Middleware
+class DomainRestrictionMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Skip restriction check for health check and docs endpoints
+        if request.url.path in ["/", "/health", "/docs", "/redoc", "/openapi.json"]:
+            return await call_next(request)
+        
+        # If domain restriction is disabled, allow all
+        if not ENABLE_DOMAIN_RESTRICTION:
+            return await call_next(request)
+        
+        # Get origin and referer
+        origin = request.headers.get("origin", "").lower()
+        referer = request.headers.get("referer", "").lower()
+        
+        # Check if request is from allowed domain
+        allowed = False
+        
+        # Allow if no origin/referer (direct API calls, curl, etc.)
+        if not origin and not referer:
+            allowed = True
+        else:
+            # Check origin
+            for domain in ALLOWED_DOMAINS:
+                if domain in origin or domain in referer:
+                    allowed = True
+                    break
+        
+        if not allowed:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False,
+                    "error": "Access Forbidden",
+                    "detail": f"Access to this API is restricted. Allowed domains: {', '.join(ALLOWED_DOMAINS)}",
+                    "timestamp": datetime.now().isoformat()
+                }
+            )
+        
+        return await call_next(request)
+
+# Add domain restriction middleware first
+if ENABLE_DOMAIN_RESTRICTION:
+    app.add_middleware(DomainRestrictionMiddleware)
+    print(f"Domain restriction ENABLED. Allowed domains: {', '.join(ALLOWED_DOMAINS)}")
+else:
+    print("Domain restriction DISABLED. API is publicly accessible.")
+
+# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ALLOW_ORIGINS,
@@ -188,16 +254,16 @@ async def health_check():
     )
 
 @app.post("/api/v1/metadata", response_model=MetadataResponse)
-async def get_channel_metadata(request: ChannelRequest):
+async def get_channel_metadata(channel_request: ChannelRequest, request: Request):
     try:
-        if not request.channel_link:
+        if not channel_request.channel_link:
             raise HTTPException(status_code=400, detail="Channel link is required")
         
-        username = scraper.extract_username(request.channel_link)
+        username = scraper.extract_username(channel_request.channel_link)
         
         result = scraper.list_videos_with_metadata(
-            request.channel_link,
-            request.max_videos
+            channel_request.channel_link,
+            channel_request.max_videos
         )
         
         if not result['success']:
@@ -206,12 +272,15 @@ async def get_channel_metadata(request: ChannelRequest):
                 detail=result.get('error', 'Failed to fetch channel metadata')
             )
         
+        # Get base URL from request
+        base_url = get_base_url(request)
+        
         # Convert local file path to public storage URL
         metadata_file = result.get('metadata_file')
         metadata_file_url = None
         if metadata_file:
             filename = Path(metadata_file).name
-            metadata_file_url = f"{STORAGE_BASE_URL}/{filename}"
+            metadata_file_url = f"{base_url}/storage/{filename}"
         
         return MetadataResponse(
             success=True,
@@ -229,16 +298,16 @@ async def get_channel_metadata(request: ChannelRequest):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.post("/api/v1/download", response_model=DownloadResponse)
-async def download_channel_videos(request: ChannelRequest, background_tasks: BackgroundTasks):
+async def download_channel_videos(channel_request: ChannelRequest, request: Request, background_tasks: BackgroundTasks):
     try:
-        if not request.channel_link:
+        if not channel_request.channel_link:
             raise HTTPException(status_code=400, detail="Channel link is required")
         
-        username = scraper.extract_username(request.channel_link)
+        username = scraper.extract_username(channel_request.channel_link)
         
         result = scraper.download_all_videos(
-            request.channel_link,
-            request.max_videos
+            channel_request.channel_link,
+            channel_request.max_videos
         )
         
         if not result['success']:
@@ -247,8 +316,11 @@ async def download_channel_videos(request: ChannelRequest, background_tasks: Bac
                 detail=result.get('error', 'Failed to download videos')
             )
         
+        # Get base URL from request
+        base_url = get_base_url(request)
+        
         # Return URL to videos list endpoint instead of local path
-        videos_list_url = f"{STORAGE_BASE_URL.rsplit('/storage', 1)[0]}/api/v1/videos/list"
+        videos_list_url = f"{base_url}/api/v1/videos/list"
         
         return DownloadResponse(
             success=True,
@@ -265,7 +337,7 @@ async def download_channel_videos(request: ChannelRequest, background_tasks: Bac
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/api/v1/metadata/{username}")
-async def get_saved_metadata(username: str):
+async def get_saved_metadata(username: str, request: Request):
     """
     Get metadata for a user's videos as JSON response with storage URL
     """
@@ -282,8 +354,11 @@ async def get_saved_metadata(username: str):
         with open(metadata_file, 'r', encoding='utf-8') as f:
             metadata_content = json.load(f)
         
+        # Get base URL from request
+        base_url = get_base_url(request)
+        
         # Generate storage URL for the metadata file
-        metadata_url = f"{STORAGE_BASE_URL}/{metadata_file.name}"
+        metadata_url = f"{base_url}/storage/{metadata_file.name}"
         
         return JSONResponse(content={
             "success": True,
@@ -300,7 +375,7 @@ async def get_saved_metadata(username: str):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/api/v1/videos/list")
-async def list_downloaded_videos():
+async def list_downloaded_videos(request: Request):
     try:
         download_path = Path(UPLOAD_DIR)
         
@@ -312,6 +387,9 @@ async def list_downloaded_videos():
                 "total": 0
             })
         
+        # Get base URL from request
+        base_url = get_base_url(request)
+        
         video_extensions = ['.mp4', '.webm', '.mkv', '.avi']
         video_files = []
         
@@ -322,7 +400,7 @@ async def list_downloaded_videos():
         for video_file in sorted(video_files, key=lambda x: x.stat().st_mtime, reverse=True):
             files_info.append({
                 "filename": video_file.name,
-                "url": f"{STORAGE_BASE_URL}/{video_file.name}",
+                "url": f"{base_url}/storage/{video_file.name}",
                 "size_mb": round(video_file.stat().st_size / (1024 * 1024), 2),
                 "created": datetime.fromtimestamp(video_file.stat().st_ctime).isoformat(),
                 "modified": datetime.fromtimestamp(video_file.stat().st_mtime).isoformat()
@@ -340,7 +418,7 @@ async def list_downloaded_videos():
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/api/v1/videos/{filename}")
-async def get_video_info(filename: str):
+async def get_video_info(filename: str, request: Request):
     """
     Get video file information and storage URL
     Returns metadata and public URL instead of direct file download
@@ -354,11 +432,14 @@ async def get_video_info(filename: str):
                 detail=f"Video file '{filename}' not found"
             )
         
+        # Get base URL from request
+        base_url = get_base_url(request)
+        
         # Return video info with storage URL
         return JSONResponse(content={
             "success": True,
             "filename": filename,
-            "url": f"{STORAGE_BASE_URL}/{filename}",
+            "url": f"{base_url}/storage/{filename}",
             "size_mb": round(video_path.stat().st_size / (1024 * 1024), 2),
             "created": datetime.fromtimestamp(video_path.stat().st_ctime).isoformat(),
             "modified": datetime.fromtimestamp(video_path.stat().st_mtime).isoformat(),
@@ -371,7 +452,7 @@ async def get_video_info(filename: str):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.post("/api/v1/transcribe", response_model=TranscribeResponse)
-async def transcribe_video(request: TranscribeRequest):
+async def transcribe_video(transcribe_request: TranscribeRequest, request: Request):
     """
     Transcribe speech from video to text with timestamps (OPTIMIZED)
     
@@ -392,32 +473,32 @@ async def transcribe_video(request: TranscribeRequest):
     
     try:
         # Check if video exists
-        video_path = Path(UPLOAD_DIR) / request.video_filename
+        video_path = Path(UPLOAD_DIR) / transcribe_request.video_filename
         
         if not video_path.exists():
             raise HTTPException(
                 status_code=404,
-                detail=f"Video file '{request.video_filename}' not found in uploads directory"
+                detail=f"Video file '{transcribe_request.video_filename}' not found in uploads directory"
             )
         
         # Update transcriber model if different (with compute_type)
-        if request.model_size and (
-            request.model_size != transcriber.model_name or 
-            request.compute_type != transcriber.compute_type
+        if transcribe_request.model_size and (
+            transcribe_request.model_size != transcriber.model_name or 
+            transcribe_request.compute_type != transcriber.compute_type
         ):
             transcriber = WhisperTranscriber(
-                model_name=request.model_size,
+                model_name=transcribe_request.model_size,
                 device=None,  # Auto-detect
-                compute_type=request.compute_type or "auto"
+                compute_type=transcribe_request.compute_type or "auto"
             )
         
         # Transcribe with optimized parameters
         result = transcriber.transcribe_video_with_save(
             str(video_path),
             output_dir=UPLOAD_DIR,
-            language=request.language,
-            beam_size=request.beam_size or 5,
-            vad_filter=request.vad_filter if request.vad_filter is not None else True
+            language=transcribe_request.language,
+            beam_size=transcribe_request.beam_size or 5,
+            vad_filter=transcribe_request.vad_filter if transcribe_request.vad_filter is not None else True
         )
         
         if not result.get("success"):
@@ -426,17 +507,20 @@ async def transcribe_video(request: TranscribeRequest):
                 detail=result.get("error", "Transcription failed")
             )
         
+        # Get base URL from request
+        base_url = get_base_url(request)
+        
         # Convert local file path to public storage URL
         transcription_file = result.get("transcription_file")
         transcription_file_url = None
         if transcription_file:
             filename = Path(transcription_file).name
-            transcription_file_url = f"{STORAGE_BASE_URL}/{filename}"
+            transcription_file_url = f"{base_url}/storage/{filename}"
         
         return TranscribeResponse(
             success=True,
             message=f"Successfully transcribed video with {result['num_segments']} segments",
-            video_filename=request.video_filename,
+            video_filename=transcribe_request.video_filename,
             text=result["text"],
             segments=[TranscriptionSegment(**seg) for seg in result["segments"]],
             language=result["language"],
@@ -452,7 +536,7 @@ async def transcribe_video(request: TranscribeRequest):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/api/v1/transcription/{video_name}")
-async def get_saved_transcription(video_name: str):
+async def get_saved_transcription(video_name: str, request: Request):
     """
     Get saved transcription with storage URL
     
@@ -471,8 +555,11 @@ async def get_saved_transcription(video_name: str):
         with open(transcription_file, 'r', encoding='utf-8') as f:
             transcription_content = json.load(f)
         
+        # Get base URL from request
+        base_url = get_base_url(request)
+        
         # Generate storage URL for the transcription file
-        transcription_url = f"{STORAGE_BASE_URL}/{transcription_file.name}"
+        transcription_url = f"{base_url}/storage/{transcription_file.name}"
         
         return JSONResponse(content={
             "success": True,
@@ -488,7 +575,7 @@ async def get_saved_transcription(video_name: str):
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/api/v1/transcriptions/list")
-async def list_transcriptions():
+async def list_transcriptions(request: Request):
     """
     List all saved transcription files
     """
@@ -503,6 +590,9 @@ async def list_transcriptions():
                 "total": 0
             })
         
+        # Get base URL from request
+        base_url = get_base_url(request)
+        
         transcription_files = list(download_path.glob("*_transcription.json"))
         
         files_info = []
@@ -513,7 +603,7 @@ async def list_transcriptions():
                 
                 files_info.append({
                     "filename": trans_file.name,
-                    "url": f"{STORAGE_BASE_URL}/{trans_file.name}",
+                    "url": f"{base_url}/storage/{trans_file.name}",
                     "video_name": trans_file.stem.replace("_transcription", ""),
                     "language": data.get("language", "unknown"),
                     "num_segments": data.get("num_segments", 0),
