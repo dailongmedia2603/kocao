@@ -91,7 +91,6 @@ const VideoToScript = () => {
     enabled: !!user,
     refetchInterval: (query) => {
       const data = query.state.data as TranscriptionTask[] | undefined;
-      // Refetch if there are any tasks that are not completed or failed
       return data?.some(task => task.status !== 'completed' && task.status !== 'failed') ? 15000 : false;
     },
   });
@@ -132,7 +131,7 @@ const VideoToScript = () => {
           user_id: user.id,
           video_name: item.filename,
           video_storage_path: `/uploads/${item.filename}`,
-          status: 'pending', // Ready for transcription
+          status: 'pending',
         }));
         
         const { error: dbError } = await supabase.from('transcription_tasks').insert(tasksToInsert);
@@ -171,19 +170,6 @@ const VideoToScript = () => {
       handleRobustError(error, "Tách script thất bại.");
       supabase.from('transcription_tasks').update({ status: 'failed', error_message: error instanceof Error ? error.message : String(error) }).eq('id', task.id);
     },
-  });
-
-  const viewTranscriptionMutation = useMutation({
-    mutationFn: async (task: TranscriptionTask) => {
-      if (task.script_content) return { title: task.video_name, content: task.script_content };
-      
-      const content = await callApi(`/api/v1/transcription/${task.video_name.replace('.mp4', '')}`, 'GET');
-      await supabase.from('transcription_tasks').update({ script_content: content, status: 'completed' }).eq('id', task.id);
-      queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
-      return { title: task.video_name, content };
-    },
-    onSuccess: ({ title, content }) => setScriptToView({ title, content }),
-    onError: (error: unknown) => handleRobustError(error, "Không thể xem script."),
   });
 
   const handleGetMetadata = (e: React.FormEvent) => {
@@ -234,7 +220,7 @@ const VideoToScript = () => {
                         <TableCell><StatusBadge status={task.status} /></TableCell>
                         <TableCell className="text-right space-x-2">
                           {task.status === 'pending' && <Button size="sm" onClick={() => transcribeMutation.mutate(task)} disabled={transcribeMutation.isPending}><Captions className="h-4 w-4" /></Button>}
-                          {task.status === 'completed' && <Button size="sm" variant="outline" onClick={() => viewTranscriptionMutation.mutate(task)} disabled={viewTranscriptionMutation.isPending}><Eye className="h-4 w-4" /></Button>}
+                          {task.status === 'completed' && <Button size="sm" variant="outline" onClick={() => setScriptToView({ title: task.video_name, content: task.script_content || "Không có nội dung." })}><Eye className="h-4 w-4" /></Button>}
                           {task.status === 'failed' && (
                             <TooltipProvider>
                               <Tooltip>
