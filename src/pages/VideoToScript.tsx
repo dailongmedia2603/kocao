@@ -24,7 +24,7 @@ import { FaTiktok } from "react-icons/fa";
 type TranscriptionTask = {
   id: string;
   video_name: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'downloading';
   script_content: string | null;
   error_message: string | null;
   created_at: string;
@@ -64,7 +64,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     case 'completed': return <Badge className="bg-green-100 text-green-800">Hoàn thành</Badge>;
     case 'processing': return <Badge variant="outline" className="text-blue-800 border-blue-200"><Loader2 className="mr-1 h-3 w-3 animate-spin" /> Đang xử lý</Badge>;
     case 'pending': return <Badge variant="secondary">Chờ tách script</Badge>;
-    case 'downloading': return <Badge variant="outline" className="text-orange-800 border-orange-200"><Download className="mr-1 h-3 w-3" /> Đang tải về</Badge>;
+    case 'downloading': return <Badge variant="outline" className="text-orange-800 border-orange-200"><Download className="mr-1 h-3 w-3 animate-spin" /> Đang tải về</Badge>;
     case 'failed': return <Badge variant="destructive">Thất bại</Badge>;
     default: return <Badge variant="secondary">{status}</Badge>;
   }
@@ -89,7 +89,11 @@ const VideoToScript = () => {
       return data;
     },
     enabled: !!user,
-    refetchInterval: 30000,
+    refetchInterval: (query) => {
+      const data = query.state.data as TranscriptionTask[] | undefined;
+      // Refetch if there are any tasks that are not completed or failed
+      return data?.some(task => task.status !== 'completed' && task.status !== 'failed') ? 15000 : false;
+    },
   });
 
   // Mutations
@@ -118,14 +122,20 @@ const VideoToScript = () => {
       const toastId = showLoading(`Đang gửi yêu cầu tải video...`);
       try {
         const response = await callApi('/api/v1/download', 'POST', { channel_link: videoUrl, max_videos: 1 });
-        const filename = response?.filename;
-        if (!filename) throw new Error("API không trả về tên file đã tải.");
+        
+        // Robustly find the filename from the response
+        const filename = response?.filename || response?.video_filename || (response?.filenames && response.filenames[0]);
+        
+        if (!filename) {
+          console.error("API response from /download did not contain a filename:", response);
+          throw new Error("API không trả về tên file đã tải.");
+        }
         
         const { error: dbError } = await supabase.from('transcription_tasks').insert({
           user_id: user.id,
           video_name: filename,
           video_storage_path: `/uploads/${filename}`,
-          status: 'pending',
+          status: 'downloading', // Set initial status to downloading
         });
         if (dbError) throw dbError;
 
