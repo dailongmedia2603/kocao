@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 
 // Icons
 import { Download, Loader2, Captions, Eye, Search, ListVideo, FileText, Play, Heart, MessageSquare, Share2, Copy, ExternalLink, FileVideo, History } from "lucide-react";
+import { FaTiktok } from "react-icons/fa";
 
 // API Proxy Function
 const callApi = async (path: string, method: 'GET' | 'POST', body?: any) => {
@@ -121,8 +122,8 @@ const VideoToScript = () => {
                       {video.thumbnail_url ? (
                         <img src={video.thumbnail_url} alt={video.description || 'Video thumbnail'} className="w-24 h-auto object-cover bg-muted" />
                       ) : (
-                        <div className="w-24 h-full flex items-center justify-center bg-muted flex-shrink-0">
-                          <FileVideo className="h-8 w-8 text-muted-foreground" />
+                        <div className="w-24 h-full flex items-center justify-center bg-black flex-shrink-0">
+                          <FaTiktok className="h-10 w-10 text-white" />
                         </div>
                       )}
                       <div className="p-4 flex-1">
