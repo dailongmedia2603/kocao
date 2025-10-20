@@ -104,7 +104,13 @@ const VideoToScript = () => {
               ) : videoMetadata.length > 0 ? (
                 videoMetadata.map((video) => (
                   <Card key={video.video_id} className="flex overflow-hidden">
-                    <img src={video.thumbnail_url} alt={video.description} className="w-24 h-auto object-cover bg-muted" />
+                    {video.thumbnail_url ? (
+                      <img src={video.thumbnail_url} alt={video.description || 'Video thumbnail'} className="w-24 h-auto object-cover bg-muted" />
+                    ) : (
+                      <div className="w-24 h-full flex items-center justify-center bg-muted flex-shrink-0">
+                        <FileVideo className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
                     <div className="p-4 flex-1">
                       <p className="text-sm font-medium line-clamp-2">{video.description || "Không có mô tả"}</p>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
