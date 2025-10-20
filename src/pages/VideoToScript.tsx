@@ -151,9 +151,25 @@ const VideoToScript = () => {
         </header>
 
         <Tabs defaultValue="get-link">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="get-link"><Search className="mr-2 h-4 w-4" /> Lấy Link Video</TabsTrigger>
-            <TabsTrigger value="transcribe"><Captions className="mr-2 h-4 w-4" /> Tách Script</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 gap-3 bg-transparent p-0">
+            <TabsTrigger
+              value="get-link"
+              className="group h-auto justify-start gap-3 rounded-lg border p-3 shadow-sm transition-colors hover:bg-muted/50 data-[state=active]:border-red-500 data-[state=active]:bg-red-50"
+            >
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-muted transition-colors group-data-[state=active]:bg-red-500">
+                <Search className="h-5 w-5 text-muted-foreground transition-colors group-data-[state=active]:text-white" />
+              </div>
+              <span className="font-semibold text-muted-foreground transition-colors group-data-[state=active]:text-red-600">Lấy Link Video</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="transcribe"
+              className="group h-auto justify-start gap-3 rounded-lg border p-3 shadow-sm transition-colors hover:bg-muted/50 data-[state=active]:border-red-500 data-[state=active]:bg-red-50"
+            >
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-muted transition-colors group-data-[state=active]:bg-red-500">
+                <Captions className="h-5 w-5 text-muted-foreground transition-colors group-data-[state=active]:text-white" />
+              </div>
+              <span className="font-semibold text-muted-foreground transition-colors group-data-[state=active]:text-red-600">Tách Script</span>
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="get-link" className="mt-6">
             <Card>
