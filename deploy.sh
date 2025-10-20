@@ -50,5 +50,5 @@ pm2 startup
 
 echo "Deployment completed!"
 echo "Check status: pm2 status"
-echo "View logs: pm2 logs kocao-api"
+echo "View logs: pm2 logs kocao"
 echo "API running at: http://localhost:8000"

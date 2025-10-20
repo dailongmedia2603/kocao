@@ -1,6 +1,6 @@
 module.exports = {
     apps: [{
-        name: 'kocao-api',
+        name: 'kocao',
         script: 'main.py',
         interpreter: 'python3',
         cwd: '/root/kocao',
