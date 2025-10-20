@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Icons
-import { Download, Loader2, Captions, Eye, Search, ListVideo, FileText, Play, Heart, MessageSquare, Share2, Copy, ExternalLink, FileVideo, History } from "lucide-react";
+import { Download, Loader2, Captions, Eye, Search, ListVideo, FileText, Play, Heart, MessageSquare, Share2, Copy, ExternalLink, FileVideo, History, Upload } from "lucide-react";
 import { FaTiktok } from "react-icons/fa";
 
 // API Proxy Function
@@ -55,6 +55,7 @@ const VideoToScript = () => {
   const [logData, setLogData] = useState<any | null>(null);
   const [isLogOpen, setIsLogOpen] = useState(false);
   const [scriptToView, setScriptToView] = useState<{ title: string; content: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Queries
   const { data: downloadedVideos = [], isLoading: isLoadingDownloaded } = useQuery({
@@ -135,10 +136,37 @@ const VideoToScript = () => {
     onError: (error: unknown) => handleRobustError(error, "Không thể xem script."),
   });
 
+  const uploadVideoMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const { data, error } = await supabase.functions.invoke('transcribe-upload-proxy', { body: formData });
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      showSuccess("Tải lên thành công! Video đã sẵn sàng để tách script.");
+      queryClient.invalidateQueries({ queryKey: ['downloaded_videos_list'] });
+    },
+    onError: (error: unknown) => handleRobustError(error, "Tải lên thất bại."),
+  });
+
   const handleGetMetadata = (e: React.FormEvent) => {
     e.preventDefault();
     if (channelLink) {
       getMetadataMutation.mutate(channelLink);
+    }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      uploadVideoMutation.mutate(file);
+    }
+    // Reset file input to allow uploading the same file again
+    if (event.target) {
+      event.target.value = "";
     }
   };
 
@@ -152,22 +180,12 @@ const VideoToScript = () => {
 
         <Tabs defaultValue="get-link">
           <TabsList className="grid w-full grid-cols-2 gap-3 bg-transparent p-0">
-            <TabsTrigger
-              value="get-link"
-              className="group h-auto justify-start gap-3 rounded-lg border p-3 shadow-sm transition-colors hover:bg-muted/50 data-[state=active]:border-red-500 data-[state=active]:bg-red-50"
-            >
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-muted transition-colors group-data-[state=active]:bg-red-500">
-                <Search className="h-5 w-5 text-muted-foreground transition-colors group-data-[state=active]:text-white" />
-              </div>
+            <TabsTrigger value="get-link" className="group h-auto justify-start gap-3 rounded-lg border p-3 shadow-sm transition-colors hover:bg-muted/50 data-[state=active]:border-red-500 data-[state=active]:bg-red-50">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-muted transition-colors group-data-[state=active]:bg-red-500"><Search className="h-5 w-5 text-muted-foreground transition-colors group-data-[state=active]:text-white" /></div>
               <span className="font-semibold text-muted-foreground transition-colors group-data-[state=active]:text-red-600">Lấy Link Video</span>
             </TabsTrigger>
-            <TabsTrigger
-              value="transcribe"
-              className="group h-auto justify-start gap-3 rounded-lg border p-3 shadow-sm transition-colors hover:bg-muted/50 data-[state=active]:border-red-500 data-[state=active]:bg-red-50"
-            >
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-muted transition-colors group-data-[state=active]:bg-red-500">
-                <Captions className="h-5 w-5 text-muted-foreground transition-colors group-data-[state=active]:text-white" />
-              </div>
+            <TabsTrigger value="transcribe" className="group h-auto justify-start gap-3 rounded-lg border p-3 shadow-sm transition-colors hover:bg-muted/50 data-[state=active]:border-red-500 data-[state=active]:bg-red-50">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-muted transition-colors group-data-[state=active]:bg-red-500"><Captions className="h-5 w-5 text-muted-foreground transition-colors group-data-[state=active]:text-white" /></div>
               <span className="font-semibold text-muted-foreground transition-colors group-data-[state=active]:text-red-600">Tách Script</span>
             </TabsTrigger>
           </TabsList>
@@ -216,9 +234,15 @@ const VideoToScript = () => {
           <TabsContent value="transcribe" className="mt-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><ListVideo className="h-5 w-5 text-primary" /> Video đã tải về</CardTitle>
-                  <CardDescription>Các video sẵn sàng để tách script.</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2"><ListVideo className="h-5 w-5 text-primary" /> Video đã tải về</CardTitle>
+                    <CardDescription>Các video sẵn sàng để tách script.</CardDescription>
+                  </div>
+                  <Button size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploadVideoMutation.isPending}>
+                    {uploadVideoMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  </Button>
+                  <input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileChange} />
                 </CardHeader>
                 <CardContent>
                   <ScrollArea className="h-[28.5rem]">
