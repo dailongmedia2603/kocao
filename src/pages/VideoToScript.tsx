@@ -44,6 +44,20 @@ const VideoToScript = () => {
     refetchInterval: 15000, // Refetch every 15 seconds
   });
 
+  const handleRobustError = (error: unknown, defaultMessage: string) => {
+    let message = defaultMessage;
+    if (error instanceof Error) {
+      message = error.message;
+    } else if (typeof error === 'string') {
+      message = error;
+    } else if (error && typeof error === 'object') {
+      if ('message' in error) message = String(error.message);
+      else if ('detail' in error) message = String(error.detail);
+      else message = JSON.stringify(error);
+    }
+    showError(message);
+  };
+
   // Mutations
   const getMetadataMutation = useMutation({
     mutationFn: (channel: string) => callApi('/api/v1/metadata', 'POST', { channel_link: channel, max_videos: 50 }),
@@ -51,7 +65,7 @@ const VideoToScript = () => {
       setVideoMetadata(data.videos || []);
       showSuccess(`Đã tìm thấy ${data.videos?.length || 0} video.`);
     },
-    onError: (error: Error) => showError(error.message),
+    onError: (error: unknown) => handleRobustError(error, "Lấy danh sách video thất bại."),
   });
 
   const downloadVideoMutation = useMutation({
@@ -63,7 +77,7 @@ const VideoToScript = () => {
       showSuccess("Video đã được thêm vào hàng đợi tải về.");
       queryClient.invalidateQueries({ queryKey: ['downloaded_videos_list'] });
     },
-    onError: (error: Error) => showError(error.message),
+    onError: (error: unknown) => handleRobustError(error, "Tải video thất bại."),
   });
 
   const transcribeMutation = useMutation({
@@ -82,7 +96,7 @@ const VideoToScript = () => {
       showSuccess("Yêu cầu tách script đã được gửi đi.");
       queryClient.invalidateQueries({ queryKey: ['transcriptions_list'] });
     },
-    onError: (error: Error) => showError(error.message),
+    onError: (error: unknown) => handleRobustError(error, "Tách script thất bại."),
   });
 
   const viewTranscriptionMutation = useMutation({
@@ -93,7 +107,7 @@ const VideoToScript = () => {
     onSuccess: ({ title, content }) => {
       setScriptToView({ title, content });
     },
-    onError: (error: Error) => showError(error.message),
+    onError: (error: unknown) => handleRobustError(error, "Không thể xem script."),
   });
 
   const handleGetMetadata = (e: React.FormEvent) => {
@@ -134,7 +148,7 @@ const VideoToScript = () => {
                 <div className="space-y-2">
                   {videoMetadata.map((video, index) => (
                     <div key={index} className="flex items-center justify-between p-2 border rounded-md">
-                      <p className="text-sm truncate flex-1 pr-2">{video.desc}</p>
+                      <p className="text-sm truncate flex-1 pr-2">{video.desc || 'Video không có mô tả'}</p>
                       <Button size="sm" variant="outline" onClick={() => downloadVideoMutation.mutate(video.video_url)} disabled={downloadVideoMutation.isPending}>
                         <Download className="h-4 w-4" />
                       </Button>
