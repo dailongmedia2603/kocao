@@ -93,6 +93,10 @@ const VideoToScript = () => {
       return data;
     },
     enabled: !!user,
+    refetchInterval: (query) => {
+      const data = query.state.data as TranscriptionTask[] | undefined;
+      return data?.some(task => task.status === 'processing') ? 15000 : false;
+    },
   });
 
   const { data: serverFiles = [], isLoading: isLoadingServerFiles } = useQuery<string[]>({
@@ -166,7 +170,7 @@ const VideoToScript = () => {
   const startTranscriptionMutation = useMutation({
     mutationFn: async (videoName: string) => {
       if (!user) throw new Error("User not authenticated");
-      const toastId = showLoading(`Đang bắt đầu tách script cho ${videoName}...`);
+      const toastId = showLoading(`Đang gửi yêu cầu tách script cho ${videoName}...`);
       try {
         const { data, error } = await supabase.functions.invoke('start-transcription', {
           body: { videoName, userId: user.id }
@@ -178,12 +182,11 @@ const VideoToScript = () => {
       }
     },
     onSuccess: () => {
-      showSuccess("Tách script thành công!");
+      showSuccess("Yêu cầu tách script đã được gửi đi!");
       queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
     },
     onError: (error: unknown) => {
-      handleRobustError(error, "Tách script thất bại.");
-      queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
+      handleRobustError(error, "Gửi yêu cầu tách script thất bại.");
     },
   });
 
