@@ -15,11 +15,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Checkbox } from "@/components/ui/checkbox";
 import { TranscriptionLogDialog } from "@/components/transcription/TranscriptionLogDialog";
 
 // Icons
-import { Download, Loader2, Captions, Eye, Search, Play, Heart, MessageSquare, Share2, ExternalLink, FileVideo, History, RefreshCw, AlertCircle, PlusCircle } from "lucide-react";
+import { Download, Loader2, Captions, Eye, Search, Play, Heart, MessageSquare, Share2, ExternalLink, FileVideo, History, RefreshCw, AlertCircle } from "lucide-react";
 import { FaTiktok } from "react-icons/fa";
 
 // Types
@@ -164,55 +163,50 @@ const VideoToScript = () => {
     onError: (error: unknown) => handleRobustError(error, "Tải video thất bại."),
   });
 
-  const createTaskMutation = useMutation({
+  const startTranscriptionMutation = useMutation({
     mutationFn: async (videoName: string) => {
-        if (!user) throw new Error("User not authenticated");
-        const { error } = await supabase.from('transcription_tasks').insert({
+      if (!user) throw new Error("User not authenticated");
+      const toastId = showLoading(`Đang bắt đầu tách script cho ${videoName}...`);
+      
+      try {
+        // Step 1: Create or find the task and set it to 'processing'
+        const { data: taskData, error: upsertError } = await supabase
+          .from('transcription_tasks')
+          .upsert({
             user_id: user.id,
             video_name: videoName,
             video_storage_path: `/uploads/${videoName}`,
-            status: 'pending',
-        });
-        if (error) throw error;
-    },
-    onSuccess: (_, videoName) => {
-        showSuccess(`Đã tạo tác vụ cho ${videoName}.`);
-        queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
-        queryClient.invalidateQueries({ queryKey: ['server_video_files'] });
-    },
-    onError: (error: unknown) => handleRobustError(error, "Không thể tạo tác vụ."),
-  });
+            status: 'processing',
+          }, { onConflict: 'video_name' })
+          .select()
+          .single();
 
-  const transcribeMutation = useMutation({
-    mutationFn: async (task: TranscriptionTask) => {
-      const toastId = showLoading(`Đang tách script cho video ${task.video_name}...`);
-      try {
-        await supabase.from('transcription_tasks').update({ status: 'processing' }).eq('id', task.id);
+        if (upsertError) throw upsertError;
         queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
 
+        // Step 2: Call the transcription API
         const payload = {
-          video_filename: task.video_name,
+          video_filename: videoName,
           language: "vi",
           model_size: "medium",
         };
-
         const result = await callApi('/api/v1/transcribe', 'POST', payload);
-
         const scriptContent = typeof result === 'string' ? result : JSON.stringify(result);
 
+        // Step 3: Update the task with the result
         const apiLog = {
           apiUrl: 'http://36.50.54.74:8000/api/v1/transcribe',
           payload: payload,
           response: result,
         };
-
         await supabase.from('transcription_tasks').update({
           status: 'completed',
           script_content: scriptContent,
           api_response_log: apiLog,
           error_message: null
-        }).eq('id', task.id);
+        }).eq('id', taskData.id);
 
+        return taskData;
       } finally {
         dismissToast(toastId);
       }
@@ -221,17 +215,13 @@ const VideoToScript = () => {
       showSuccess("Tách script thành công!");
       queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
     },
-    onError: (error: unknown, task) => {
+    onError: (error: unknown, videoName) => {
       const errorMessage = error instanceof Error ? error.message : String(error);
       handleRobustError(error, "Tách script thất bại.");
-
+      
       const apiLog = {
         apiUrl: 'http://36.50.54.74:8000/api/v1/transcribe',
-        payload: {
-          video_filename: task.video_name,
-          language: "vi",
-          model_size: "medium",
-        },
+        payload: { video_filename: videoName, language: "vi", model_size: "medium" },
         response: { error: errorMessage },
       };
 
@@ -239,7 +229,7 @@ const VideoToScript = () => {
         status: 'failed', 
         error_message: errorMessage,
         api_response_log: apiLog
-      }).eq('id', task.id);
+      }).eq('video_name', videoName);
       
       queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
     },
@@ -315,8 +305,7 @@ const VideoToScript = () => {
                               <History className="h-4 w-4" />
                             </Button>
                           )}
-                          {task.status === 'new' && <Button size="sm" onClick={() => createTaskMutation.mutate(task.video_name)} disabled={createTaskMutation.isPending}><PlusCircle className="h-4 w-4 mr-2" /> Tạo tác vụ</Button>}
-                          {task.status === 'pending' && <Button size="sm" onClick={() => transcribeMutation.mutate(task)} disabled={transcribeMutation.isPending}><Captions className="h-4 w-4" /></Button>}
+                          {(task.status === 'new' || task.status === 'pending') && <Button size="sm" onClick={() => startTranscriptionMutation.mutate(task.video_name)} disabled={startTranscriptionMutation.isPending}><Captions className="h-4 w-4 mr-2" /> Tách Script</Button>}
                           {task.status === 'completed' && <Button size="sm" variant="outline" onClick={() => setScriptToView({ title: task.video_name, content: task.script_content || "Không có nội dung." })}><Eye className="h-4 w-4" /></Button>}
                           {task.status === 'failed' && (
                             <TooltipProvider>
