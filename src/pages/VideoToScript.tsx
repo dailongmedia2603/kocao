@@ -102,7 +102,9 @@ const VideoToScript = () => {
     queryKey: ['server_video_files'],
     queryFn: async () => {
         const response = await callApi('/api/v1/videos/list', 'GET');
-        return response?.files || [];
+        // Sửa lỗi: API trả về 'videos' thay vì 'files'
+        const videos = response?.videos || [];
+        return videos.map((video: any) => video.filename);
     },
     enabled: !!user,
     refetchInterval: 30000, // Refresh server file list every 30 seconds
