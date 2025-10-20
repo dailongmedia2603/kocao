@@ -119,32 +119,32 @@ const VideoToScript = () => {
   const downloadVideoMutation = useMutation({
     mutationFn: async (videoUrl: string) => {
       if (!user) throw new Error("User not authenticated");
-      const toastId = showLoading(`Đang gửi yêu cầu tải video...`);
+      const toastId = showLoading(`Đang tải video...`);
       try {
         const response = await callApi('/api/v1/download', 'POST', { channel_link: videoUrl, max_videos: 1 });
         
-        // Robustly find the filename from the response
-        const filename = response?.filename || response?.video_filename || (response?.filenames && response.filenames[0]);
-        
-        if (!filename) {
-          console.error("API response from /download did not contain a filename:", response);
-          throw new Error("API không trả về tên file đã tải.");
+        const downloadedItems = response?.items?.filter((item: any) => item.status === 'ok' && item.filename);
+        if (!downloadedItems || downloadedItems.length === 0) {
+          throw new Error("API không trả về thông tin file đã tải thành công.");
         }
-        
-        const { error: dbError } = await supabase.from('transcription_tasks').insert({
+
+        const tasksToInsert = downloadedItems.map((item: any) => ({
           user_id: user.id,
-          video_name: filename,
-          video_storage_path: `/uploads/${filename}`,
-          status: 'downloading', // Set initial status to downloading
-        });
+          video_name: item.filename,
+          video_storage_path: `/uploads/${item.filename}`,
+          status: 'pending', // Ready for transcription
+        }));
+        
+        const { error: dbError } = await supabase.from('transcription_tasks').insert(tasksToInsert);
         if (dbError) throw dbError;
 
+        return downloadedItems.length;
       } finally {
         dismissToast(toastId);
       }
     },
-    onSuccess: () => {
-      showSuccess("Yêu cầu tải video đã được gửi. Video sẽ xuất hiện trong danh sách sau ít phút.");
+    onSuccess: (count) => {
+      showSuccess(`Tải thành công ${count} video. Chuyển qua tab "Tách Script" để xem.`);
       queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
     },
     onError: (error: unknown) => handleRobustError(error, "Tải video thất bại."),
