@@ -10,6 +10,7 @@ RESTful API for TikTok.
 
 ### Install FFmpeg
 
+```
 **Windows:**
 1. Download from https://ffmpeg.org/download.html
 2. Extract and add to PATH
