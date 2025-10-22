@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Users, Bot, Video } from "lucide-react";
 import { format } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Define types for the data
 interface KOC {
@@ -91,7 +92,44 @@ const Dashboard = () => {
   }, []);
 
   if (loading) {
-    return <div className="p-8 text-center">Đang tải dữ liệu...</div>;
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card><CardHeader><Skeleton className="h-5 w-24" /></CardHeader><CardContent><Skeleton className="h-8 w-12" /><Skeleton className="h-4 w-32 mt-2" /></CardContent></Card>
+          <Card><CardHeader><Skeleton className="h-5 w-32" /></CardHeader><CardContent><Skeleton className="h-8 w-12" /><Skeleton className="h-4 w-36 mt-2" /></CardContent></Card>
+          <Card><CardHeader><Skeleton className="h-5 w-28" /></CardHeader><CardContent><Skeleton className="h-8 w-12" /><Skeleton className="h-4 w-28 mt-2" /></CardContent></Card>
+        </div>
+        <div>
+          <Skeleton className="h-8 w-64 mb-4" />
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead><Skeleton className="h-5 w-20" /></TableHead>
+                  <TableHead><Skeleton className="h-5 w-24" /></TableHead>
+                  <TableHead className="text-right"><Skeleton className="h-5 w-20 ml-auto" /></TableHead>
+                  <TableHead className="text-right"><Skeleton className="h-5 w-16 ml-auto" /></TableHead>
+                  <TableHead className="text-right"><Skeleton className="h-5 w-24 ml-auto" /></TableHead>
+                  <TableHead className="text-right"><Skeleton className="h-5 w-24 ml-auto" /></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {[...Array(3)].map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -101,26 +139,26 @@ const Dashboard = () => {
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
       {/* Stat Widgets */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng số KOC</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Tổng số KOC</CardTitle>
+            <Users className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.kocCount}</div>
+            <div className="text-3xl font-bold">{stats.kocCount}</div>
             <p className="text-xs text-muted-foreground">Số lượng KOC đã tạo</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Kịch bản Automation
             </CardTitle>
-            <Bot className="h-4 w-4 text-muted-foreground" />
+            <Bot className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.campaignCount}</div>
+            <div className="text-3xl font-bold">{stats.campaignCount}</div>
             <p className="text-xs text-muted-foreground">
               Số lượng automation đã tạo
             </p>
@@ -128,11 +166,11 @@ const Dashboard = () => {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Video đã tạo</CardTitle>
-            <Video className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Video đã tạo</CardTitle>
+            <Video className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.videoCount}</div>
+            <div className="text-3xl font-bold">{stats.videoCount}</div>
             <p className="text-xs text-muted-foreground">
               Tổng số video đã tạo
             </p>
@@ -142,7 +180,7 @@ const Dashboard = () => {
 
       {/* KOC List */}
       <div>
-        <h2 className="text-2xl font-semibold mb-4">Danh sách KOC</h2>
+        <h2 className="text-3xl font-bold mb-4">Danh sách KOC</h2>
         <Card>
           <Table>
             <TableHeader>
