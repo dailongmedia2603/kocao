@@ -40,6 +40,7 @@ function App() {
             <Route element={<AdminRoute />}>
               <Route element={<AppLayout />}>
                 <Route path="/admin/users" element={<UserManagement />} />
+                <Route path="/settings" element={<Settings />} />
               </Route>
             </Route>
 
@@ -48,7 +49,6 @@ function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/automation" element={<Automation />} />
               <Route path="/automation/:campaignId" element={<AutomationDetail />} />
-              <Route path="/settings" element={<Settings />} />
               <Route path="/tao-video" element={<TaoVideo />} />
             </Route>
             <Route element={<KocLayout />}>
