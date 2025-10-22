@@ -49,7 +49,7 @@ export const AddDreamfaceApiKeyDialog = ({ isOpen, onOpenChange }: AddDreamfaceA
       if (error) throw error;
     },
     onSuccess: () => {
-      showSuccess("Thêm API Key Dreamface thành công!");
+      showSuccess("Thêm API Key Tạo Video thành công!");
       queryClient.invalidateQueries({ queryKey: ["dreamface_api_keys", user?.id] });
       onOpenChange(false);
       form.reset();
@@ -63,8 +63,8 @@ export const AddDreamfaceApiKeyDialog = ({ isOpen, onOpenChange }: AddDreamfaceA
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Thêm API Key Dreamface</DialogTitle>
-          <DialogDescription>Nhập các thông tin xác thực để kết nối với Dreamface API.</DialogDescription>
+          <DialogTitle>Thêm API Key Tạo Video</DialogTitle>
+          <DialogDescription>Nhập các thông tin xác thực để kết nối với dịch vụ tạo video.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="pt-4">

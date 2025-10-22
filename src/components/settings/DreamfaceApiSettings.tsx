@@ -75,7 +75,7 @@ const DreamfaceApiSettings = () => {
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <div><CardTitle>Cấu hình API Dreamface</CardTitle><CardDescription>Thêm và quản lý API Key của bạn từ Dreamface.</CardDescription></div>
+          <div><CardTitle>Cấu hình API Tạo Video</CardTitle><CardDescription>Thêm và quản lý API Key để tạo video.</CardDescription></div>
           <Button onClick={() => setAddDialogOpen(true)}><Plus className="mr-2 h-4 w-4" /> Thêm Key</Button>
         </CardHeader>
         <CardContent>

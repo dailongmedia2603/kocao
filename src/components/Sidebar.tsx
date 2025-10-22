@@ -20,7 +20,7 @@ const menuItems = [
   },
   { label: "KOCs Manager", icon: Video, to: "/list-koc" },
   { label: "Automation", icon: Bot, to: "/automation" },
-  { label: "Dreamface Studio", icon: Film, to: "/dreamface-studio" },
+  { label: "Tạo Video", icon: Film, to: "/tao-video" },
   { label: "Settings", icon: Settings, to: "/settings" },
 ];
 

@@ -53,8 +53,8 @@ export const DreamfaceLogDialog = ({ isOpen, onOpenChange }: DreamfaceLogDialogP
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
-          <DialogTitle>Nhật ký API Dreamface</DialogTitle>
-          <DialogDescription>Lịch sử các lần hệ thống tương tác với Dreamface API.</DialogDescription>
+          <DialogTitle>Nhật ký Tạo Video</DialogTitle>
+          <DialogDescription>Lịch sử các lần hệ thống xử lý tác vụ tạo video.</DialogDescription>
         </DialogHeader>
         <ScrollArea className="h-[60vh] pr-4 mt-4">
           {isLoading ? (

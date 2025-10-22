@@ -18,7 +18,7 @@ import { DreamfaceLogDialog } from "@/components/dreamface/DreamfaceLogDialog";
 import { KocVideoSelector } from "@/components/dreamface/KocVideoSelector";
 import { VoiceTaskSelector } from "@/components/dreamface/VoiceTaskSelector";
 
-const DreamfaceStudio = () => {
+const TaoVideo = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [selectedKocId, setSelectedKocId] = useState<string | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -160,8 +160,8 @@ const DreamfaceStudio = () => {
     <>
       <div className="p-6 lg:p-8">
         <header className="mb-8">
-          <h1 className="text-3xl font-bold">Dreamface Studio</h1>
-          <p className="text-muted-foreground mt-1">Tạo video AI và quản lý thư viện của bạn.</p>
+          <h1 className="text-3xl font-bold">Tạo Video</h1>
+          <p className="text-muted-foreground mt-1">Tạo video AI và quản lý thư viện video của bạn.</p>
         </header>
 
         <Tabs defaultValue="library" className="w-full">
@@ -295,4 +295,4 @@ const DreamfaceStudio = () => {
   );
 };
 
-export default DreamfaceStudio;
+export default TaoVideo;
