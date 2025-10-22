@@ -81,7 +81,7 @@ export const VoiceGenerationForm = () => {
             <FormField control={form.control} name="text" render={({ field }) => (
               <FormItem>
                 <FormLabel>Văn bản</FormLabel>
-                <FormControl><Textarea placeholder="Xin chào, đây là GenAIPro..." className="min-h-[150px]" {...field} /></FormControl>
+                <FormControl><Textarea placeholder="Xin chào, đây là..." className="min-h-[150px]" {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
