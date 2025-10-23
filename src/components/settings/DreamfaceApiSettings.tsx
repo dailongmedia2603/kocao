@@ -44,7 +44,11 @@ const ApiKeyRow = ({ apiKey }: { apiKey: DreamfaceApiKey }) => {
 
   return (
     <div className="flex items-center justify-between gap-4 p-4 border rounded-lg bg-background/50">
-      <div className="flex-1 min-w-0"><p className="font-medium truncate">{apiKey.name}</p><p className="text-sm text-muted-foreground">Account ID: {apiKey.account_id}</p></div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium truncate">{apiKey.name}</p>
+        <p className="text-sm text-muted-foreground">Account ID: {apiKey.account_id}</p>
+        <p className="text-xs text-muted-foreground">User ID: {apiKey.user_id_dreamface ? `${apiKey.user_id_dreamface.substring(0, 8)}...` : 'N/A'} | Token ID: ••••</p>
+      </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <AlertDialog>
           <AlertDialogTrigger asChild><Button variant="destructive" size="icon"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>

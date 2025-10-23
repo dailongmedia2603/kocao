@@ -17,6 +17,31 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DreamfaceLogDialog } from "@/components/dreamface/DreamfaceLogDialog";
 import { KocVideoSelector } from "@/components/dreamface/KocVideoSelector";
 import { VoiceTaskSelector } from "@/components/dreamface/VoiceTaskSelector";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+const getStatusBadge = (status: string, errorMessage?: string | null) => {
+  switch (status) {
+    case 'completed': return <Badge className="bg-green-100 text-green-800">Hoàn thành</Badge>;
+    case 'processing': return <Badge variant="outline" className="text-blue-800 border-blue-200"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Đang xử lý</Badge>;
+    case 'failed':
+      if (errorMessage) {
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge variant="destructive" className="cursor-help">Thất bại</Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">{errorMessage}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      }
+      return <Badge variant="destructive">Thất bại</Badge>;
+    default: return <Badge variant="secondary">{status}</Badge>;
+  }
+};
 
 const TaoVideo = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -160,15 +185,6 @@ const TaoVideo = () => {
     if (file) setSelectedAudioUrl(null); // Clear URL if file is selected
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed': return <Badge className="bg-green-100 text-green-800">Hoàn thành</Badge>;
-      case 'processing': return <Badge variant="outline" className="text-blue-800 border-blue-200"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Đang xử lý</Badge>;
-      case 'failed': return <Badge variant="destructive">Thất bại</Badge>;
-      default: return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
-
   return (
     <>
       <div className="p-6 lg:p-8">
@@ -273,7 +289,7 @@ const TaoVideo = () => {
                             }
                           </TableCell>
                           <TableCell className="font-medium">{task.title || 'Không có tiêu đề'}</TableCell>
-                          <TableCell>{getStatusBadge(task.status)}</TableCell>
+                          <TableCell>{getStatusBadge(task.status, task.error_message)}</TableCell>
                           <TableCell>{format(new Date(task.created_at), 'dd/MM/yyyy HH:mm', { locale: vi })}</TableCell>
                           <TableCell className="text-right space-x-2">
                             <Button size="sm" variant="outline" onClick={() => handleViewVideo(task)} disabled={task.status !== 'completed'}>
