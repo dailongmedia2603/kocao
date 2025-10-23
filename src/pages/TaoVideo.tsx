@@ -29,6 +29,15 @@ const TaoVideo = () => {
   const [isLogOpen, setLogOpen] = useState(false);
   const queryClient = useQueryClient();
 
+  const { data: kocs, isLoading: isLoadingKocs } = useQuery({
+    queryKey: ['kocs'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('kocs').select('id, name').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    }
+  });
+
   const { data: tasks, isLoading: isLoadingTasks, refetch: refetchTasks } = useQuery({
     queryKey: ['dreamface_tasks'],
     queryFn: async () => {
@@ -131,9 +140,13 @@ const TaoVideo = () => {
     setVideoPopupOpen(true);
   };
 
-  const handleVideoSelectionChange = (selection: { videoUrl: string | null; kocId: string | null }) => {
-    setVideoUrl(selection.videoUrl);
-    setSelectedKocId(selection.kocId);
+  const handleKocChange = (kocId: string) => {
+    setSelectedKocId(kocId);
+    setVideoUrl(null); // Reset video selection when KOC changes
+  };
+
+  const handleVideoChange = (url: string) => {
+    setVideoUrl(url);
   };
 
   const handleAudioUrlSelect = (url: string | null) => {
@@ -189,7 +202,14 @@ const TaoVideo = () => {
               </CardHeader>
               <CardContent>
                 <form id="create-video-form" onSubmit={handleCreateVideo} className="space-y-6">
-                  <KocVideoSelector onSelectionChange={handleVideoSelectionChange} selectedVideoUrl={videoUrl} />
+                  <KocVideoSelector
+                    kocs={kocs || []}
+                    isLoadingKocs={isLoadingKocs}
+                    selectedKocId={selectedKocId}
+                    onKocChange={handleKocChange}
+                    selectedVideoUrl={videoUrl}
+                    onVideoChange={handleVideoChange}
+                  />
                   <div>
                     <label className="text-sm font-medium mb-2 block">3. Chọn nguồn âm thanh</label>
                     <Tabs defaultValue="library" className="w-full">

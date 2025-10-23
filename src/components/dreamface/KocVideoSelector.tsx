@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -6,9 +5,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Video, CheckCircle, PlayCircle } from 'lucide-react';
 
-interface KocVideoSelectorProps {
-  onSelectionChange: (selection: { videoUrl: string | null; kocId: string | null }) => void;
-  selectedVideoUrl: string | null;
+interface Koc {
+  id: string;
+  name: string;
 }
 
 interface KocVideo {
@@ -18,18 +17,16 @@ interface KocVideo {
   thumbnail_url: string | null;
 }
 
-export const KocVideoSelector = ({ onSelectionChange, selectedVideoUrl }: KocVideoSelectorProps) => {
-  const [selectedKocId, setSelectedKocId] = useState<string | null>(null);
+interface KocVideoSelectorProps {
+  kocs: Koc[];
+  isLoadingKocs: boolean;
+  selectedKocId: string | null;
+  onKocChange: (kocId: string) => void;
+  selectedVideoUrl: string | null;
+  onVideoChange: (videoUrl: string) => void;
+}
 
-  const { data: kocs, isLoading: isLoadingKocs } = useQuery({
-    queryKey: ['kocs'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('kocs').select('id, name').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
-    }
-  });
-
+export const KocVideoSelector = ({ kocs, isLoadingKocs, selectedKocId, onKocChange, selectedVideoUrl, onVideoChange }: KocVideoSelectorProps) => {
   const { data: videos, isLoading: isLoadingVideos } = useQuery({
     queryKey: ['koc_videos', selectedKocId],
     queryFn: async () => {
@@ -44,11 +41,6 @@ export const KocVideoSelector = ({ onSelectionChange, selectedVideoUrl }: KocVid
     enabled: !!selectedKocId,
   });
 
-  const handleKocChange = (kocId: string) => {
-    setSelectedKocId(kocId);
-    onSelectionChange({ videoUrl: null, kocId });
-  };
-
   return (
     <div className="space-y-4">
       <div>
@@ -56,7 +48,7 @@ export const KocVideoSelector = ({ onSelectionChange, selectedVideoUrl }: KocVid
         {isLoadingKocs ? (
           <Skeleton className="h-10 w-full" />
         ) : (
-          <Select onValueChange={handleKocChange} value={selectedKocId || ''}>
+          <Select onValueChange={onKocChange} value={selectedKocId || ''}>
             <SelectTrigger>
               <SelectValue placeholder="Chọn một KOC..." />
             </SelectTrigger>
@@ -81,7 +73,7 @@ export const KocVideoSelector = ({ onSelectionChange, selectedVideoUrl }: KocVid
               {videos.map((video: KocVideo) => (
                 <div
                   key={video.id}
-                  onClick={() => onSelectionChange({ videoUrl: video.url, kocId: selectedKocId })}
+                  onClick={() => onVideoChange(video.url)}
                   className={`relative aspect-video rounded-md overflow-hidden cursor-pointer border-2 group ${selectedVideoUrl === video.url ? 'border-red-500' : 'border-transparent'}`}
                 >
                    {video.thumbnail_url ? (
