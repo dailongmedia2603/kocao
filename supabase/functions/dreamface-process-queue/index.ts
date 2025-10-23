@@ -57,9 +57,9 @@ serve(async (req) => {
     if (lockError) throw lockError;
 
     try {
-      // 3. Get API keys for the user
-      const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.from("user_dreamface_api_keys").select("account_id, user_id_dreamface, token_id, client_id").eq("user_id", lockedTask.user_id).limit(1).single();
-      if (apiKeyError || !apiKeyData) throw new Error(`User ${lockedTask.user_id} has no Dreamface API key configured.`);
+      // 3. Get a shared API key from the system
+      const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.from("user_dreamface_api_keys").select("account_id, user_id_dreamface, token_id, client_id").limit(1).single();
+      if (apiKeyError || !apiKeyData) throw new Error(`Chưa có API Key Dreamface nào được cấu hình trong hệ thống.`);
       const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
       // 4. Fetch video and audio files from their URLs
