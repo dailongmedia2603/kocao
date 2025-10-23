@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, MoreHorizontal, Edit, Trash2, Lightbulb, Loader2, Video, Settings, History } from "lucide-react";
+import { Plus, MoreHorizontal, Edit, Trash2, Lightbulb, Loader2, Video, Settings, History, Wand2 } from "lucide-react";
 import { AddEditIdeaDialog } from "./AddEditIdeaDialog";
 import { showSuccess, showError } from "@/utils/toast";
 import { ViewScriptContentDialog } from "@/components/content/ViewScriptContentDialog";
@@ -78,6 +78,35 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
     },
   });
 
+  const generateContentMutation = useMutation({
+    mutationFn: async (ideaId: string) => {
+        const { error } = await supabase.functions.invoke("generate-idea-content", {
+            body: { ideaId },
+        });
+        if (error) throw new Error(error.message);
+    },
+    onMutate: async (ideaId: string) => {
+        await queryClient.cancelQueries({ queryKey: ["koc_content_ideas", kocId] });
+        const previousIdeas = queryClient.getQueryData<Idea[]>(["koc_content_ideas", kocId]);
+        
+        queryClient.setQueryData<Idea[]>(["koc_content_ideas", kocId], (old) =>
+            old ? old.map(idea => idea.id === ideaId ? { ...idea, status: 'Đang xử lý' } : idea) : []
+        );
+
+        showSuccess("Đã gửi yêu cầu tạo content. Vui lòng chờ trong giây lát.");
+        return { previousIdeas };
+    },
+    onError: (err: Error, ideaId, context: any) => {
+        if (context?.previousIdeas) {
+            queryClient.setQueryData(["koc_content_ideas", kocId], context.previousIdeas);
+        }
+        showError(`Lỗi tạo content: ${err.message}`);
+    },
+    onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: ["koc_content_ideas", kocId] });
+    },
+  });
+
   const handleAddNew = () => {
     setSelectedIdea(null);
     setAddEditOpen(true);
@@ -96,6 +125,10 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
   const handleViewContent = (content: string | null) => {
     setContentToView(content);
     setViewContentOpen(true);
+  };
+
+  const handleGenerateNow = (idea: Idea) => {
+    generateContentMutation.mutate(idea.id);
   };
 
   return (
@@ -168,6 +201,14 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {(idea.status === 'Chưa sử dụng' || !idea.new_content) && (
+                            <DropdownMenuItem 
+                              onClick={() => handleGenerateNow(idea)} 
+                              disabled={generateContentMutation.isPending}
+                            >
+                              <Wand2 className="mr-2 h-4 w-4" /> Tạo ngay
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => handleEdit(idea)}>
                             <Edit className="mr-2 h-4 w-4" /> Sửa
                           </DropdownMenuItem>

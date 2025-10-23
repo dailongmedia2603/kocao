@@ -16,19 +16,37 @@ serve(async (req) => {
   }
 
   try {
+    const { ideaId } = await req.json().catch(() => ({})); // Safely get body
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 1. Find new ideas that need content generation
-    console.log("Fetching ideas to process...");
-    const { data: ideasToProcess, error: fetchError } = await supabaseAdmin
-      .from('koc_content_ideas')
-      .select('id, user_id, idea_content, koc_id')
-      .eq('status', 'Chưa sử dụng')
-      .or('new_content.is.null,new_content.eq.')
-      .limit(5);
+    let ideasToProcess;
+    let fetchError;
+
+    if (ideaId) {
+      // If a specific ideaId is provided, fetch only that one
+      console.log(`Fetching specific idea ID: ${ideaId}`);
+      const { data, error } = await supabaseAdmin
+        .from('koc_content_ideas')
+        .select('id, user_id, idea_content, koc_id')
+        .eq('id', ideaId)
+        .limit(1);
+      ideasToProcess = data;
+      fetchError = error;
+    } else {
+      // Otherwise, fetch the queue as before
+      console.log("Fetching ideas to process from queue...");
+      const { data, error } = await supabaseAdmin
+        .from('koc_content_ideas')
+        .select('id, user_id, idea_content, koc_id')
+        .eq('status', 'Chưa sử dụng')
+        .or('new_content.is.null,new_content.eq.')
+        .limit(5);
+      ideasToProcess = data;
+      fetchError = error;
+    }
 
     if (fetchError) {
       console.error("Error fetching ideas:", fetchError.message);
@@ -36,14 +54,15 @@ serve(async (req) => {
     }
 
     if (!ideasToProcess || ideasToProcess.length === 0) {
-      console.log("No new ideas to process. Exiting.");
-      return new Response(JSON.stringify({ message: "No new ideas to process." }), {
+      const message = ideaId ? `Idea with ID ${ideaId} not found or not eligible for generation.` : "No new ideas to process. Exiting.";
+      console.log(message);
+      return new Response(JSON.stringify({ message }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`Found ${ideasToProcess.length} new ideas to process.`);
+    console.log(`Found ${ideasToProcess.length} ideas to process.`);
     let successCount = 0;
 
     for (const idea of ideasToProcess) {
