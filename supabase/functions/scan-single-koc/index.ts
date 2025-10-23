@@ -34,7 +34,6 @@ serve(async (req) => {
     const { data: tokenData, error: tokenError } = await supabaseAdmin
       .from("user_tiktok_tokens")
       .select("access_token")
-      .eq("user_id", koc.user_id)
       .limit(1)
       .single();
 

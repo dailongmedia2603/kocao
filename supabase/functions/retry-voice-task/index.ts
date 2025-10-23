@@ -46,7 +46,6 @@ serve(async (req) => {
     const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
       .select("api_key")
-      .eq("user_id", user_id)
       .limit(1)
       .single();
     if (apiKeyError || !apiKeyData) throw new Error("Could not find a voice API key for the user.");
