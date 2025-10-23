@@ -32,29 +32,17 @@ serve(async (req) => {
       userId = authUser.id;
     }
 
-    let apiKey;
-    const { data: userApiKeyData } = await supabaseAdmin
+    // Lấy API key đầu tiên có sẵn trong hệ thống để dùng chung
+    const { data: systemApiKeyData, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
       .select("api_key")
-      .eq("user_id", userId)
       .limit(1)
       .single();
-
-    if (userApiKeyData) {
-      apiKey = userApiKeyData.api_key;
-    } else {
-      const { data: systemApiKeyData } = await supabaseAdmin
-        .from("user_voice_api_keys")
-        .select("api_key")
-        .limit(1)
-        .single();
       
-      if (systemApiKeyData) {
-        apiKey = systemApiKeyData.api_key;
-      } else {
-        throw new Error("Chưa có bất kỳ API Key Voice nào được cấu hình trong toàn bộ hệ thống.");
-      }
+    if (apiKeyError || !systemApiKeyData) {
+      throw new Error("Chưa có bất kỳ API Key Voice nào được cấu hình trong toàn bộ hệ thống.");
     }
+    const apiKey = systemApiKeyData.api_key;
 
     const voice_name = body?.voice_name;
     const cloned_voice_id = body?.voice_setting?.voice_id;
