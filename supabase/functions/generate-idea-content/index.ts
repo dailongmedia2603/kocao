@@ -51,9 +51,9 @@ serve(async (req) => {
         console.log(`Processing idea ID: ${idea.id}`);
         await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đang xử lý' }).eq('id', idea.id);
 
-        console.log(`Fetching API key for user ID: ${idea.user_id}`);
-        const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.from("user_api_keys").select("api_key").eq("user_id", idea.user_id).limit(1).single();
-        if (apiKeyError || !apiKeyData) throw new Error("User has no Gemini API key configured.");
+        console.log(`Fetching shared API key...`);
+        const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.from("user_api_keys").select("api_key").limit(1).single();
+        if (apiKeyError || !apiKeyData) throw new Error("No Gemini API key is configured in the system.");
         const geminiApiKey = apiKeyData.api_key;
         console.log("API key found.");
 
