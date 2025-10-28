@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ImageUploadInput } from "./ImageUploadInput";
 
 type Koc = {
   id: string;
@@ -24,7 +23,6 @@ const formSchema = z.object({
   name: z.string().min(1, "Tên KOC không được để trống"),
   field: z.string().min(1, "Lĩnh vực không được để trống"),
   channel_url: z.string().url("Link kênh không hợp lệ").optional().or(z.literal('')),
-  avatar_file: z.instanceof(FileList).optional(),
 });
 
 type EditKocDialogProps = {
@@ -56,38 +54,12 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user || !koc) throw new Error("Dữ liệu không hợp lệ");
 
-      let newAvatarUrl = koc.avatar_url;
-      const avatarFile = values.avatar_file?.[0];
-
-      if (avatarFile) {
-        if (koc.avatar_url) {
-          const oldFilePath = koc.avatar_url.split('/koc_avatars/')[1];
-          if (oldFilePath) {
-            await supabase.storage.from('koc_avatars').remove([oldFilePath]);
-          }
-        }
-
-        const fileExt = avatarFile.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-        const filePath = `${user.id}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('koc_avatars')
-          .upload(filePath, avatarFile);
-
-        if (uploadError) throw new Error(`Lỗi tải ảnh lên: ${uploadError.message}`);
-
-        const { data: urlData } = supabase.storage.from('koc_avatars').getPublicUrl(filePath);
-        newAvatarUrl = urlData.publicUrl;
-      }
-
       const { error } = await supabase
         .from("kocs")
         .update({
           name: values.name,
           field: values.field,
           channel_url: values.channel_url || null,
-          avatar_url: newAvatarUrl,
         })
         .eq("id", koc.id);
 
@@ -127,8 +99,7 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
             <FormField control={form.control} name="channel_url" render={({ field }) => (
               <FormItem><FormLabel>Link Kênh</FormLabel><FormControl><Input placeholder="Ví dụ: https://www.tiktok.com/@channelname" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <ImageUploadInput form={form} name="avatar_file" label="Ảnh đại diện" initialImageUrl={koc.avatar_url} />
-            <DialogFooter>
+            <DialogFooter className="gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
               <Button type="submit" disabled={editKocMutation.isPending}>
                 {editKocMutation.isPending ? "Đang lưu..." : "Lưu thay đổi"}
