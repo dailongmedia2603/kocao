@@ -63,12 +63,12 @@ const ListKoc = () => {
   return (
     <>
       <div className="p-6 lg:p-8">
-        <header className="flex justify-between items-center mb-6">
+        <header className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-bold">Danh sách KOC</h1>
             <p className="text-muted-foreground mt-1">Quản lý tất cả KOC ảo của bạn ở một nơi.</p>
           </div>
-          <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-red-600 hover:bg-red-700 text-white">
+          <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-red-600 hover:bg-red-700 text-white w-full md:w-auto">
             <Plus className="mr-2 h-4 w-4" /> Tạo KOC mới
           </Button>
         </header>

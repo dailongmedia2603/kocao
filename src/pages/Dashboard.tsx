@@ -45,8 +45,8 @@ const CustomLegend = (props) => {
 
 const Dashboard = () => {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">Project Dashboard</h1>
         <div className="flex items-center gap-2">
           <Button variant="outline" className="bg-white">
@@ -60,12 +60,12 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <CardTitle className="text-lg">Recent Projects</CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full md:w-auto">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="bg-white">
+                  <Button variant="outline" className="bg-white flex-1 md:flex-none">
                     Last 30 days <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -75,31 +75,33 @@ const Dashboard = () => {
                   <DropdownMenuItem>Last 90 days</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button className="bg-primary text-primary-foreground">
+              <Button className="bg-primary text-primary-foreground flex-1 md:flex-none">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Project
               </Button>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-4 text-sm font-semibold text-gray-500 px-4 pb-2 border-b">
-              <div>Name</div>
-              <div>Company Name</div>
-              <div>Priority</div>
-              <div>Due Date</div>
-            </div>
-            <div className="divide-y">
-              {recentProjects.map((project, index) => (
-                <div key={index} className="grid grid-cols-4 items-center p-4 hover:bg-gray-50">
-                  <div className="flex items-center gap-3">
-                    <img src={project.logo} alt={project.name} className="h-8 w-8 rounded-full" />
-                    <span className="font-medium">{project.name}</span>
+            <div className="overflow-x-auto">
+              <div className="grid grid-cols-4 text-sm font-semibold text-gray-500 px-4 pb-2 border-b min-w-[600px]">
+                <div>Name</div>
+                <div>Company Name</div>
+                <div>Priority</div>
+                <div>Due Date</div>
+              </div>
+              <div className="divide-y min-w-[600px]">
+                {recentProjects.map((project, index) => (
+                  <div key={index} className="grid grid-cols-4 items-center p-4 hover:bg-gray-50">
+                    <div className="flex items-center gap-3">
+                      <img src={project.logo} alt={project.name} className="h-8 w-8 rounded-full" />
+                      <span className="font-medium">{project.name}</span>
+                    </div>
+                    <div className="font-medium">{project.company}</div>
+                    <div><PriorityBadge priority={project.priority} /></div>
+                    <div>{project.dueDate}</div>
                   </div>
-                  <div className="font-medium">{project.company}</div>
-                  <div><PriorityBadge priority={project.priority} /></div>
-                  <div>{project.dueDate}</div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
