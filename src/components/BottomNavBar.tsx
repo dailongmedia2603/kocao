@@ -34,7 +34,7 @@ const BottomNavBar = () => {
             )}
           >
             <item.icon className="h-6 w-6" />
-            <span>{item.label}</span>
+            <span className="whitespace-nowrap">{item.label}</span>
           </NavLink>
         );
       })}
