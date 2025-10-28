@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, formatDistanceToNow, intervalToDuration } from "date-fns";
 import { vi } from "date-fns/locale";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // UI Components
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,6 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Icons
 import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, CalendarDays, Bot, MoreHorizontal, Loader2, Mic, Lightbulb, FileText } from "lucide-react";
@@ -32,6 +34,7 @@ import { IdeaContentTab } from "@/components/koc/IdeaContentTab";
 
 // Utils
 import { showSuccess, showError } from "@/utils/toast";
+import { cn } from "@/lib/utils";
 
 // Types
 type Koc = {
@@ -180,6 +183,7 @@ const formatStatNumber = (num: number | null | undefined): string => {
 const KocDetail = () => {
   const { kocId } = useParams<{ kocId: string }>();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<KocFile | null>(null);
   const [filesToDelete, setFilesToDelete] = useState<KocFile[]>([]);
@@ -361,11 +365,11 @@ const KocDetail = () => {
 
   if (isKocLoading) {
     return (
-      <div className="p-8 space-y-6">
+      <div className="p-4 md:p-8 space-y-6">
         <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-3 gap-8">
-          <div className="col-span-2 space-y-6"><Skeleton className="h-32 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-24 w-full" /><Skeleton className="h-48 w-full" /></div>
-          <div className="col-span-1"><Skeleton className="h-64 w-full" /></div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6"><Skeleton className="h-32 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-24 w-full" /><Skeleton className="h-48 w-full" /></div>
+          <div className="lg:col-span-1"><Skeleton className="h-64 w-full" /></div>
         </div>
       </div>
     );
@@ -373,13 +377,141 @@ const KocDetail = () => {
 
   if (!koc) {
     return (
-      <div className="p-8">
+      <div className="p-4 md:p-8">
         <Link to="/list-koc" className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"><ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách KOC</Link>
         <h1 className="text-2xl font-bold">KOC không tồn tại</h1><p>Không thể tìm thấy KOC bạn đang tìm kiếm.</p>
       </div>
     );
   }
 
+  if (isMobile) {
+    return (
+      <>
+        <div className="p-4 space-y-6 pb-20">
+          <Link to="/list-koc" className="flex items-center text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách KOC</Link>
+          <header>
+            <h1 className="text-2xl font-bold">Chi tiết KOC</h1>
+            <p className="text-muted-foreground mt-1 text-sm">Quản lý và theo dõi KOC ảo của bạn.</p>
+          </header>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-20 w-20 border-2 border-white shadow-sm"><AvatarImage src={koc.avatar_url || undefined} alt={koc.name} /><AvatarFallback className="text-2xl">{getInitials(koc.name)}</AvatarFallback></Avatar>
+                <div className="flex-1 space-y-1">
+                  <h2 className="text-xl font-bold">{koc.name}</h2>
+                  <p className="text-sm text-muted-foreground">{koc.field || "Virtual KOC"}</p>
+                  {koc.created_at && <p className="text-xs text-muted-foreground">Tham gia {formatDistanceToNow(new Date(koc.created_at), { addSuffix: true, locale: vi })}</p>}
+                </div>
+              </div>
+              <Button onClick={() => setIsEditDialogOpen(true)} className="w-full mt-4 bg-red-600 hover:bg-red-700 text-white"><Edit className="mr-2 h-4 w-4" /> Chỉnh sửa</Button>
+            </CardContent>
+          </Card>
+
+          <Tabs defaultValue="overview" className="w-full">
+            <ScrollArea className="w-full whitespace-nowrap rounded-md">
+              <TabsList className="bg-transparent p-0 gap-x-2">
+                <TabsTrigger value="overview" className="group bg-gray-100 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 text-gray-600 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border border-transparent data-[state=active]:border-red-200">Tổng quan</TabsTrigger>
+                <TabsTrigger value="content" className="group bg-gray-100 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 text-gray-600 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border border-transparent data-[state=active]:border-red-200">Video đã tạo</TabsTrigger>
+                <TabsTrigger value="sources" className="group bg-gray-100 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 text-gray-600 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border border-transparent data-[state=active]:border-red-200">Nguồn Video</TabsTrigger>
+                <TabsTrigger value="auto-scripts" className="group bg-gray-100 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 text-gray-600 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border border-transparent data-[state=active]:border-red-200">Kịch bản</TabsTrigger>
+                <TabsTrigger value="idea-content" className="group bg-gray-100 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 text-gray-600 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border border-transparent data-[state=active]:border-red-200">Idea</TabsTrigger>
+              </TabsList>
+            </ScrollArea>
+            <TabsContent value="overview" className="mt-4 space-y-6">
+              <Card>
+                <CardHeader><CardTitle className="text-lg">Chỉ số hiệu suất</CardTitle></CardHeader>
+                <CardContent className="grid grid-cols-2 gap-4">
+                  {performanceMetrics.map((metric) => (<div key={metric.title} className="flex flex-col items-center justify-center p-3 rounded-lg border bg-gray-50"><div className={`flex h-10 w-10 items-center justify-center rounded-full ${metric.color}`}><metric.icon className="h-5 w-5" /></div><p className="mt-2 text-xl font-bold">{metric.value}</p><p className="text-xs text-muted-foreground text-center">{metric.title}</p></div>))}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader><CardTitle className="text-lg">Thông tin kênh TikTok</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                  {koc.channel_unique_id ? (
+                    <>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="flex flex-col items-center p-2 rounded-lg"><Users className="h-6 w-6 mb-1 text-blue-500" /><p className="font-bold text-base">{formatStatNumber(koc.follower_count)}</p><p className="text-xs text-muted-foreground">Followers</p></div>
+                        <div className="flex flex-col items-center p-2 rounded-lg"><Heart className="h-6 w-6 mb-1 text-red-500" /><p className="font-bold text-base">{formatStatNumber(koc.like_count)}</p><p className="text-xs text-muted-foreground">Likes</p></div>
+                        <div className="flex flex-col items-center p-2 rounded-lg"><Video className="h-6 w-6 mb-1 text-green-500" /><p className="font-bold text-base">{formatStatNumber(koc.video_count)}</p><p className="text-xs text-muted-foreground">Videos</p></div>
+                      </div>
+                      <div className="flex items-center text-sm text-muted-foreground pt-4 border-t"><CalendarDays className="mr-2 h-4 w-4" /><span>Tuổi tài khoản: <span className="font-medium text-foreground">{formatDetailedDistanceToNow(koc.channel_created_at)}</span></span></div>
+                    </>
+                  ) : (<div className="text-center text-muted-foreground py-8"><p>Chưa có dữ liệu kênh.</p></div>)}
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="content" className="mt-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Video đã tạo</h3>
+                <Button variant="outline" size="sm" onClick={() => setUploadOpen(true)} disabled={!koc?.folder_path}><UploadCloud className="mr-2 h-4 w-4" /> Tải lên</Button>
+              </div>
+              {areFilesLoading ? (<div className="grid grid-cols-2 gap-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}</div>)
+              : generatedFiles.length > 0 ? (<div className="grid grid-cols-2 gap-4">{generatedFiles.map((file) => { const { type } = getFileTypeDetails(file.display_name); const dreamfaceThumbnailUrl = dreamfaceThumbnailsMap.get(file.r2_key); const finalThumbnailUrl = file.thumbnail_url || dreamfaceThumbnailUrl; return (<Card key={file.id} className="overflow-hidden group relative" onClick={() => handleFileClick(file)}><div className="aspect-video flex items-center justify-center relative cursor-pointer bg-muted">{finalThumbnailUrl ? (<img src={finalThumbnailUrl} alt={file.display_name} className="w-full h-full object-cover" />) : (<div className="w-full h-full flex items-center justify-center bg-blue-50"><Clapperboard className="h-8 w-8 text-blue-500" /></div>)}{type === 'video' && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><PlayCircle className="h-12 w-12 text-white" /></div>}</div><div className="p-2"><p className="text-xs font-medium truncate">{file.display_name}</p></div></Card>); })}</div>)
+              : (<p className="text-sm text-muted-foreground text-center py-8">Chưa có video nào.</p>)}
+            </TabsContent>
+            <TabsContent value="sources" className="mt-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Nguồn Video</h3>
+                <Button variant="outline" size="sm" onClick={() => setSourceVideoUploadOpen(true)} disabled={!koc?.folder_path}><Plus className="mr-2 h-4 w-4" /> Thêm</Button>
+              </div>
+              {areFilesLoading ? (<div className="grid grid-cols-2 gap-4">{Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}</div>)
+              : sourceVideos.length > 0 ? (<div className="grid grid-cols-2 gap-4">{sourceVideos.map((file) => { const { type } = getFileTypeDetails(file.display_name); return (<Card key={file.id} className="overflow-hidden group relative" onClick={() => handleFileClick(file)}><div className="aspect-video flex items-center justify-center relative cursor-pointer bg-muted">{file.thumbnail_url ? (<img src={file.thumbnail_url} alt={file.display_name} className="w-full h-full object-cover" />) : (<div className="w-full h-full flex items-center justify-center bg-slate-100"><Video className="h-8 w-8 text-slate-500" /></div>)}{type === 'video' && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><PlayCircle className="h-12 w-12 text-white" /></div>}</div><div className="p-2"><p className="text-xs font-medium truncate">{file.display_name}</p></div></Card>); })}</div>)
+              : (<p className="text-sm text-muted-foreground text-center py-8">Chưa có video nguồn.</p>)}
+            </TabsContent>
+            <TabsContent value="auto-scripts" className="mt-4">
+              {areScriptsLoading ? <Skeleton className="h-48 w-full" /> : videoScripts.length > 0 ? (
+                <div className="space-y-3">
+                  {videoScripts.map(script => {
+                    const voiceTaskId = script.news_posts?.voice_task_id;
+                    const voiceTask = voiceTaskId ? voiceTasksMap.get(voiceTaskId) : null;
+                    return (
+                      <Card key={script.id}>
+                        <CardContent className="p-3">
+                          <div className="flex justify-between items-start">
+                            <p className="font-semibold text-sm flex-1 pr-2">{script.name}</p>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild><Button variant="ghost" className="h-7 w-7 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => { setSelectedScript(script); setIsViewScriptOpen(true); }}>Xem kịch bản</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setSelectedScript(script); setIsViewLogOpen(true); }} disabled={!script.ai_prompt}>Xem Log</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setScriptToDelete(script)} className="text-destructive">Xóa</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate mt-1">Nguồn: {script.news_posts?.content || 'N/A'}</p>
+                          {voiceTask && (
+                            <div className="mt-2">
+                              {voiceTask.status === 'done' && voiceTask.audio_url ? <audio controls src={voiceTask.audio_url} className="h-8 w-full" />
+                              : voiceTask.status === 'doing' ? <Badge variant="outline" className="text-blue-800 border-blue-200"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Đang xử lý</Badge>
+                              : <Badge variant="destructive">Lỗi</Badge>}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              ) : (<p className="text-sm text-muted-foreground text-center py-8">Chưa có kịch bản nào.</p>)}
+            </TabsContent>
+            <TabsContent value="idea-content" className="mt-4">
+              <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} />
+            </TabsContent>
+          </Tabs>
+        </div>
+        <EditKocDialog isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} koc={koc} />
+        <VideoPlayerDialog isOpen={isPlayerOpen} onOpenChange={setPlayerOpen} videoUrl={selectedFile?.url} videoName={selectedFile?.display_name} />
+        {koc && koc.folder_path && (<UploadVideoDialog isOpen={isUploadOpen} onOpenChange={setUploadOpen} folderPath={`${koc.folder_path}/generated`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} />)}
+        {koc && koc.folder_path && (<UploadVideoDialog isOpen={isSourceVideoUploadOpen} onOpenChange={setSourceVideoUploadOpen} folderPath={`${koc.folder_path}/sources/videos`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} accept="video/*" />)}
+        <AlertDialog open={filesToDelete.length > 0} onOpenChange={() => setFilesToDelete([])}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. {filesToDelete.length} tệp sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} disabled={deleteFilesMutation.isPending}>{deleteFilesMutation.isPending ? "Đang xóa..." : "Xóa"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+        <ViewScriptContentDialog isOpen={isViewScriptOpen} onOpenChange={setIsViewScriptOpen} title={selectedScript?.name || null} content={selectedScript?.script_content || null} />
+        <ViewScriptLogDialog isOpen={isViewLogOpen} onOpenChange={setIsViewLogOpen} title={selectedScript?.name || null} prompt={selectedScript?.ai_prompt || null} />
+        <AlertDialog open={!!scriptToDelete} onOpenChange={(isOpen) => !isOpen && setScriptToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Kịch bản "{scriptToDelete?.name}" sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => scriptToDelete && deleteScriptMutation.mutate(scriptToDelete.id)} disabled={deleteScriptMutation.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deleteScriptMutation.isPending ? "Đang xóa..." : "Xóa"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      </>
+    );
+  }
+
+  // Desktop View
   return (
     <>
       <div className="p-6 lg:p-8">
@@ -630,23 +762,10 @@ const KocDetail = () => {
       <VideoPlayerDialog isOpen={isPlayerOpen} onOpenChange={setPlayerOpen} videoUrl={selectedFile?.url} videoName={selectedFile?.display_name} />
       {koc && koc.folder_path && (<UploadVideoDialog isOpen={isUploadOpen} onOpenChange={setUploadOpen} folderPath={`${koc.folder_path}/generated`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} />)}
       {koc && koc.folder_path && (<UploadVideoDialog isOpen={isSourceVideoUploadOpen} onOpenChange={setSourceVideoUploadOpen} folderPath={`${koc.folder_path}/sources/videos`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} accept="video/*" />)}
-      <AlertDialog open={filesToDelete.length > 0} onOpenChange={() => setFilesToDelete([])}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. {filesToDelete.length} tệp sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} disabled={deleteFilesMutation.isPending}>{deleteFilesMutation.isPending ? "Đang xóa..." : "Xóa"}</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <AlertDialog open={filesToDelete.length > 0} onOpenChange={() => setFilesToDelete([])}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. {filesToDelete.length} tệp sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} disabled={deleteFilesMutation.isPending}>{deleteFilesMutation.isPending ? "Đang xóa..." : "Xóa"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <ViewScriptContentDialog isOpen={isViewScriptOpen} onOpenChange={setIsViewScriptOpen} title={selectedScript?.name || null} content={selectedScript?.script_content || null} />
       <ViewScriptLogDialog isOpen={isViewLogOpen} onOpenChange={setIsViewLogOpen} title={selectedScript?.name || null} prompt={selectedScript?.ai_prompt || null} />
-      <AlertDialog open={!!scriptToDelete} onOpenChange={(isOpen) => !isOpen && setScriptToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Kịch bản "{scriptToDelete?.name}" sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={() => scriptToDelete && deleteScriptMutation.mutate(scriptToDelete.id)} disabled={deleteScriptMutation.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deleteScriptMutation.isPending ? "Đang xóa..." : "Xóa"}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <AlertDialog open={!!scriptToDelete} onOpenChange={(isOpen) => !isOpen && setScriptToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Kịch bản "{scriptToDelete?.name}" sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => scriptToDelete && deleteScriptMutation.mutate(scriptToDelete.id)} disabled={deleteScriptMutation.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deleteScriptMutation.isPending ? "Đang xóa..." : "Xóa"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </>
   );
 };
