@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { showSuccess, showError } from "@/utils/toast";
 import { ViewScriptContentDialog } from "@/components/content/ViewScriptContentDialog";
 import { ConfigureAiTemplatesDialog } from "@/components/automation/ConfigureAiTemplatesDialog";
 import { IdeaLogDialog } from "./IdeaLogDialog";
+import { useSession } from "@/contexts/SessionContext";
 
 type Idea = {
   id: string;
@@ -40,12 +41,16 @@ const StatusBadge = ({ status }: { status: string }) => {
     case 'Đã có content':
       return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Đã có content</Badge>;
     case 'Đang xử lý':
+    case 'Đang tạo voice':
+    case 'Đang tạo video':
       return (
         <Badge variant="outline" className="text-yellow-800 border-yellow-200">
           <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-          Đang xử lý
+          {status}
         </Badge>
       );
+    case 'Lỗi tạo video':
+      return <Badge variant="destructive">Lỗi tạo video</Badge>;
     case 'Chưa sử dụng':
     default:
       return <Badge variant="secondary">Chưa sử dụng</Badge>;
@@ -54,6 +59,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps) => {
   const queryClient = useQueryClient();
+  const { user } = useSession();
   const [isAddEditOpen, setAddEditOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [isViewContentOpen, setViewContentOpen] = useState(false);
@@ -62,6 +68,35 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
   const [isConfigureOpen, setConfigureOpen] = useState(false);
   const [isLogOpen, setIsLogOpen] = useState(false);
 
+  const queryKey = ["koc_content_ideas", kocId];
+
+  // Realtime Subscription
+  useEffect(() => {
+    if (!user || !kocId) return;
+
+    const channel = supabase
+      .channel(`koc_content_ideas_changes_${kocId}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'koc_content_ideas',
+          filter: `koc_id=eq.${kocId}`
+        },
+        (payload) => {
+          console.log('Idea content change received!', payload);
+          queryClient.invalidateQueries({ queryKey });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, kocId, queryClient, queryKey]);
+
+
   const deleteMutation = useMutation({
     mutationFn: async (ideaId: string) => {
       const { error } = await supabase.from("koc_content_ideas").delete().eq("id", ideaId);
@@ -69,7 +104,7 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
     },
     onSuccess: () => {
       showSuccess("Xóa idea thành công!");
-      queryClient.invalidateQueries({ queryKey: ["koc_content_ideas", kocId] });
+      queryClient.invalidateQueries({ queryKey });
       setDeleteOpen(false);
       setSelectedIdea(null);
     },
@@ -86,10 +121,10 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
         if (error) throw new Error(error.message);
     },
     onMutate: async (ideaId: string) => {
-        await queryClient.cancelQueries({ queryKey: ["koc_content_ideas", kocId] });
-        const previousIdeas = queryClient.getQueryData<Idea[]>(["koc_content_ideas", kocId]);
+        await queryClient.cancelQueries({ queryKey });
+        const previousIdeas = queryClient.getQueryData<Idea[]>(queryKey);
         
-        queryClient.setQueryData<Idea[]>(["koc_content_ideas", kocId], (old) =>
+        queryClient.setQueryData<Idea[]>(queryKey, (old) =>
             old ? old.map(idea => idea.id === ideaId ? { ...idea, status: 'Đang xử lý' } : idea) : []
         );
 
@@ -98,12 +133,12 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
     },
     onError: (err: Error, ideaId, context: any) => {
         if (context?.previousIdeas) {
-            queryClient.setQueryData(["koc_content_ideas", kocId], context.previousIdeas);
+            queryClient.setQueryData(queryKey, context.previousIdeas);
         }
         showError(`Lỗi tạo content: ${err.message}`);
     },
     onSettled: () => {
-        queryClient.invalidateQueries({ queryKey: ["koc_content_ideas", kocId] });
+        queryClient.invalidateQueries({ queryKey });
     },
   });
 
