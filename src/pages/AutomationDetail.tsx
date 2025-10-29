@@ -166,7 +166,7 @@ const AutomationDetail = () => {
                                                 <AccordionItem key={activity.idea_id} value={`run-${index}`} className="border rounded-lg">
                                                     <AccordionTrigger className="p-4 hover:no-underline">
                                                         <div className="flex items-center justify-between w-full gap-2">
-                                                            <div className="flex items-center gap-2 text-left overflow-hidden">
+                                                            <div className="flex items-center gap-2 text-left overflow-hidden min-w-0">
                                                                 <span className="font-semibold text-primary flex-shrink-0">Lần {index + 1}</span>
                                                                 <p className="text-sm text-muted-foreground truncate">{activity.idea_content}</p>
                                                             </div>
