@@ -101,7 +101,7 @@ const AutomationDetail = () => {
     const groupedActivities = useMemo(() => {
         if (!activities) return {};
         return activities.reduce((acc, activity) => {
-            const date = formatInTimeZone(new Date(activity.idea_created_at), 'Asia/Ho_Chi_Minh', 'PPP', { locale: vi });
+            const date = formatInTimeZone(new Date(activity.idea_created_at), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy', { locale: vi });
             if (!acc[date]) {
                 acc[date] = [];
             }
@@ -152,10 +152,12 @@ const AutomationDetail = () => {
                             {Object.entries(groupedActivities).map(([date, activitiesForDate]) => (
                                 <AccordionItem key={date} value={date} className="border rounded-lg bg-gray-50/50">
                                     <AccordionTrigger className="p-4 hover:no-underline">
-                                        <div className="flex items-center gap-3">
-                                            <Calendar className="h-5 w-5 text-primary" />
-                                            <span className="font-semibold">{date}</span>
-                                            <Badge variant="secondary">{activitiesForDate.length} hoạt động</Badge>
+                                        <div className="flex items-center justify-between w-full">
+                                            <div className="flex items-center gap-3">
+                                                <Calendar className="h-5 w-5 text-primary" />
+                                                <span className="font-semibold">{date}</span>
+                                            </div>
+                                            <Badge variant="secondary" className="whitespace-nowrap">{activitiesForDate.length} hoạt động</Badge>
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="p-4 border-t bg-white">
@@ -163,12 +165,12 @@ const AutomationDetail = () => {
                                             {activitiesForDate.map((activity, index) => (
                                                 <AccordionItem key={activity.idea_id} value={`run-${index}`} className="border rounded-lg">
                                                     <AccordionTrigger className="p-4 hover:no-underline">
-                                                        <div className="flex items-center justify-between w-full">
-                                                            <div className="flex items-center gap-3 text-left">
-                                                                <span className="font-semibold text-primary">Lần {index + 1}</span>
-                                                                <p className="text-sm text-muted-foreground truncate max-w-md">{activity.idea_content}</p>
+                                                        <div className="flex items-center justify-between w-full gap-2">
+                                                            <div className="flex items-center gap-2 text-left overflow-hidden">
+                                                                <span className="font-semibold text-primary flex-shrink-0">Lần {index + 1}</span>
+                                                                <p className="text-sm text-muted-foreground truncate">{activity.idea_content}</p>
                                                             </div>
-                                                            <Badge variant="outline">{formatInTimeZone(new Date(activity.idea_created_at), 'Asia/Ho_Chi_Minh', 'HH:mm')}</Badge>
+                                                            <Badge variant="outline" className="flex-shrink-0">{formatInTimeZone(new Date(activity.idea_created_at), 'Asia/Ho_Chi_Minh', 'HH:mm')}</Badge>
                                                         </div>
                                                     </AccordionTrigger>
                                                     <AccordionContent className="p-4 border-t space-y-6">
