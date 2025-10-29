@@ -18,8 +18,8 @@ import AdminRoute from "./components/auth/AdminRoute";
 
 function App() {
   return (
-    <SessionContextProvider>
-      <Router>
+    <Router>
+      <SessionContextProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -50,8 +50,8 @@ function App() {
             />
           </Route>
         </Routes>
-      </Router>
-    </SessionContextProvider>
+      </SessionContextProvider>
+    </Router>
   );
 }
 
