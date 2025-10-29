@@ -85,23 +85,14 @@ const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView, onRetry }: 
             aria-label={`Select task ${task.id}`}
             className="mt-1"
           />
-          <div className="flex-1 min-w-0 space-y-2">
-            <div>
-              <p className="font-semibold truncate text-sm">{task.voice_name}</p>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {getStatusBadge(task.status)}
-                <p className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(task.created_at), { addSuffix: true, locale: vi })}
-                </p>
-              </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold truncate text-sm">{task.voice_name}</p>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {getStatusBadge(task.status)}
+              <p className="text-xs text-muted-foreground">
+                {formatDistanceToNow(new Date(task.created_at), { addSuffix: true, locale: vi })}
+              </p>
             </div>
-            
-            {(task.status === 'done' && task.audio_url) && (
-              <audio controls src={task.audio_url} className="h-8 w-full" />
-            )}
-            {task.status === 'error' && (
-              <p className="text-xs text-destructive">{friendlyErrorMessage(task.error_message)}</p>
-            )}
           </div>
         </div>
 
@@ -119,6 +110,17 @@ const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView, onRetry }: 
           </Button>
         </div>
       </div>
+      
+      {(task.status === 'done' && task.audio_url) && (
+        <div className="mt-2">
+          <audio controls src={task.audio_url} className="h-8 w-full" />
+        </div>
+      )}
+      {task.status === 'error' && (
+        <div className="mt-2">
+          <p className="text-xs text-destructive">{friendlyErrorMessage(task.error_message)}</p>
+        </div>
+      )}
     </div>
   );
 };
