@@ -1,60 +1,37 @@
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useSession } from "@/contexts/SessionContext";
-import Logo from "./Logo";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import {
-  Bot,
-  Menu,
-  Settings,
-} from "lucide-react";
-import { NavLink } from "react-router-dom";
-import UserNav from "./UserNav";
-import { cn } from "@/lib/utils";
+import { Logo } from "./Logo";
 
 const MobileHeader = () => {
-  const { session } = useSession();
+  const { profile, user, signOut } = useSession();
+
+  const getInitials = (firstName?: string | null, lastName?: string | null) => {
+    const first = firstName?.[0] || "";
+    const last = lastName?.[0] || "";
+    return `${first}${last}`.toUpperCase() || user?.email?.[0].toUpperCase() || "??";
+  };
+
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button size="icon" variant="outline" className="sm:hidden">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle Menu</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="sm:max-w-xs">
-          <nav className="grid gap-6 text-lg font-medium">
-            <NavLink
-              to="/"
-              className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base"
-            >
-              <Logo className="h-5 w-5 transition-all group-hover:scale-110" />
-              <span className="sr-only">DrX AI KOC</span>
-            </NavLink>
-            <NavLink
-              to="/dashboard"
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground",
-                  isActive && "text-foreground"
-                )
-              }
-            >
-              <Bot className="h-5 w-5" />
-              Dashboard
-            </NavLink>
-            <NavLink
-              to="#"
-              className="flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground"
-            >
-              <Settings className="h-5 w-5" />
-              Settings
-            </NavLink>
-          </nav>
-        </SheetContent>
-      </Sheet>
-      <div className="relative ml-auto flex-1 md:grow-0"></div>
-      {session && <UserNav />}
+    <header className="flex h-16 items-center justify-between border-b bg-white px-4 flex-shrink-0 z-40">
+      <Logo />
+      <div className="flex items-center">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <div className="cursor-pointer">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={profile?.avatar_url || undefined} />
+                <AvatarFallback>{getInitials(profile?.first_name, profile?.last_name)}</AvatarFallback>
+              </Avatar>
+            </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem>Profile</DropdownMenuItem>
+            <DropdownMenuItem>Settings</DropdownMenuItem>
+            <DropdownMenuItem onClick={signOut}>Logout</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   );
 };
