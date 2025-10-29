@@ -8,6 +8,8 @@ import * as z from "zod";
 import { isToday } from 'date-fns';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useIsMobile } from "@/hooks/use-mobile";
+import KocMobileNav from "@/components/koc/KocMobileNav";
 
 // UI Components
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -92,6 +94,7 @@ const fetchVideoScripts = async (userId: string) => {
 };
 
 const TaoContent = () => {
+  const isMobile = useIsMobile();
   const [isConfigureOpen, setConfigureOpen] = useState(false);
   const [isLogOpen, setLogOpen] = useState(false);
   const [generatedScript, setGeneratedScript] = useState("");
@@ -232,7 +235,8 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
 
   return (
     <>
-      <div className="p-6 lg:p-8">
+      <div className="p-4 md:p-6 lg:p-8">
+        {isMobile && <KocMobileNav />}
         <header className="mb-8"><h1 className="text-3xl font-bold">Công cụ Content</h1><p className="text-muted-foreground mt-1">Sử dụng AI để tạo nội dung mới hoặc cập nhật tin tức từ các nguồn có sẵn.</p></header>
         <Tabs defaultValue="create-content" className="w-full">
           <TabsList className="inline-flex h-auto items-center justify-center gap-1 rounded-none border-b bg-transparent p-0">
@@ -332,15 +336,7 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
       <ConfigureNewsDialog isOpen={isConfigureOpen} onOpenChange={setConfigureOpen} />
       <NewsScanLogDialog isOpen={isLogOpen} onOpenChange={setLogOpen} />
       <ViewScriptContentDialog isOpen={isViewScriptOpen} onOpenChange={setIsViewScriptOpen} title={selectedScript?.name || null} content={selectedScript?.script_content || null} />
-      <AlertDialog open={!!scriptToDelete} onOpenChange={(isOpen) => !isOpen && setScriptToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Kịch bản "{scriptToDelete?.name}" sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={() => scriptToDelete && deleteScriptMutation.mutate(scriptToDelete.id)} disabled={deleteScriptMutation.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deleteScriptMutation.isPending ? "Đang xóa..." : "Xóa"}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <AlertDialog open={!!scriptToDelete} onOpenChange={(isOpen) => !isOpen && setScriptToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Kịch bản "{scriptToDelete?.name}" sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => scriptToDelete && deleteScriptMutation.mutate(scriptToDelete.id)} disabled={deleteScriptMutation.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deleteScriptMutation.isPending ? "Đang xóa..." : "Xóa"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </>
   );
 };

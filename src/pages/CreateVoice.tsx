@@ -4,10 +4,14 @@ import { TaskList } from "@/components/voice/TaskList";
 import { VoiceCloneForm } from "@/components/voice/VoiceCloneForm";
 import { ClonedVoiceList } from "@/components/voice/ClonedVoiceList";
 import { Mic, Copy } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import KocMobileNav from "@/components/koc/KocMobileNav";
 
 const CreateVoicePage = () => {
+  const isMobile = useIsMobile();
   return (
-    <div className="p-6 lg:p-8 bg-gray-50/50 min-h-screen">
+    <div className="p-4 md:p-6 lg:p-8 bg-gray-50/50 min-h-screen">
+      {isMobile && <KocMobileNav />}
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Quản lý Giọng Nói</h1>
         <p className="text-muted-foreground mt-1">Tạo giọng nói từ văn bản hoặc clone giọng nói của riêng bạn.</p>

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
+import { useIsMobile } from "@/hooks/use-mobile";
+import KocMobileNav from "@/components/koc/KocMobileNav";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -39,6 +41,7 @@ const fetchKocs = async (userId: string) => {
 
 const ListKoc = () => {
   const { user } = useSession();
+  const isMobile = useIsMobile();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -62,7 +65,8 @@ const ListKoc = () => {
 
   return (
     <>
-      <div className="p-6 lg:p-8">
+      <div className="p-4 md:p-6 lg:p-8">
+        {isMobile && <KocMobileNav />}
         <header className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
           <div>
             <h1 className="text-3xl font-bold">Danh sách KOC</h1>

@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
 import { useSession } from "@/contexts/SessionContext";
+import { useIsMobile } from "@/hooks/use-mobile";
+import KocMobileNav from "@/components/koc/KocMobileNav";
 
 // UI Components
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,6 +77,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 const VideoToScript = () => {
   const queryClient = useQueryClient();
   const { user } = useSession();
+  const isMobile = useIsMobile();
   const [channelLink, setChannelLink] = useState("");
   const [maxVideos, setMaxVideos] = useState<number | null>(10);
   const [videoMetadata, setVideoMetadata] = useState<any[]>([]);
@@ -204,7 +207,8 @@ const VideoToScript = () => {
 
   return (
     <>
-      <div className="p-6 lg:p-8">
+      <div className="p-4 md:p-6 lg:p-8">
+        {isMobile && <KocMobileNav />}
         <header className="mb-8">
           <h1 className="text-3xl font-bold">Tách Script từ Video TikTok</h1>
           <p className="text-muted-foreground mt-1">Lấy link, tải video và tách script tự động.</p>
