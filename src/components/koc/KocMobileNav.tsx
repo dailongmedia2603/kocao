@@ -1,13 +1,12 @@
 import { NavLink } from "react-router-dom";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { Users, Mic, FileText, Captions, BarChart } from "lucide-react";
+import { Users, Mic, FileText, BarChart } from "lucide-react";
 
 const navItems = [
   { label: "KOCs", to: "/list-koc", icon: Users },
   { label: "Tạo Voice", to: "/create-voice", icon: Mic },
   { label: "Tạo Content", to: "/tao-content", icon: FileText },
-  { label: "Tách Script", to: "/video-to-script", icon: Captions },
   { label: "Report", to: "/reports", icon: BarChart },
 ];
 
