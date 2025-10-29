@@ -30,9 +30,13 @@ const ProtectedRoute = () => {
   // Nếu không phải phiên khôi phục, kiểm tra trạng thái profile
   if (!isRecoverySession) {
     // Nếu profile đã tải và trạng thái là 'pending', chuyển hướng đến trang chờ duyệt
-    // trừ khi họ đã ở trên trang đó.
     if (profile && profile.status === 'pending' && location.pathname !== '/pending-approval') {
       return <Navigate to="/pending-approval" replace />;
+    }
+
+    // Nếu profile đã được duyệt nhưng người dùng vẫn ở trang chờ, chuyển hướng vào trang chính
+    if (profile && profile.status !== 'pending' && location.pathname === '/pending-approval') {
+      return <Navigate to="/" replace />;
     }
   }
 

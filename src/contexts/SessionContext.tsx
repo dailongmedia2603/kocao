@@ -74,6 +74,22 @@ export const SessionContextProvider = ({
         }
       };
       fetchProfile();
+
+      // Lắng nghe thay đổi real-time trên profile của user hiện tại
+      const channel = supabase
+        .channel(`public:profiles:id=eq.${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
+          (payload) => {
+            setProfile(payload.new as Profile);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     } else {
       setProfile(null);
     }
