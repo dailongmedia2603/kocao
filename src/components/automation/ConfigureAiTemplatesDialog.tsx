@@ -5,20 +5,20 @@ import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, MoreHorizontal, Edit, Trash2, CheckCircle, Star, Loader2 } from "lucide-react";
-import { AddEditPromptTemplateDialog } from "./AddEditPromptTemplateDialog";
+import { Plus, MoreHorizontal, Edit, Trash2, Check, Star, Lightbulb, Loader2 } from "lucide-react";
+import { AddEditAiTemplateDialog } from "./AddEditAiTemplateDialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
-type PromptTemplate = {
+type Template = {
   id: string;
   name: string;
+  model: string | null;
+  word_count: number | null;
   is_default: boolean;
-  model?: string | null;
-  word_count?: number | null;
+  [key: string]: any; 
 };
 
 type ConfigureAiTemplatesDialogProps = {
@@ -27,15 +27,15 @@ type ConfigureAiTemplatesDialogProps = {
 };
 
 export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange }: ConfigureAiTemplatesDialogProps) => {
-  const queryClient = useQueryClient();
   const { user } = useSession();
+  const queryClient = useQueryClient();
   const [isAddEditOpen, setAddEditOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
 
   const queryKey = ["ai_prompt_templates", user?.id];
 
-  const { data: templates = [], isLoading } = useQuery<PromptTemplate[]>({
+  const { data: templates = [], isLoading } = useQuery<Template[]>({
     queryKey,
     queryFn: async () => {
       if (!user) return [];
@@ -44,6 +44,18 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange }: ConfigureAi
       return data;
     },
     enabled: !!user && isOpen,
+  });
+
+  const setDefaultMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      const { error } = await supabase.rpc('set_default_prompt_template', { template_id_to_set: templateId });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showSuccess("Đặt template mặc định thành công!");
+      queryClient.invalidateQueries({ queryKey });
+    },
+    onError: (error: Error) => showError(error.message),
   });
 
   const deleteMutation = useMutation({
@@ -55,21 +67,8 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange }: ConfigureAi
       showSuccess("Xóa template thành công!");
       queryClient.invalidateQueries({ queryKey });
       setDeleteOpen(false);
-      setSelectedTemplate(null);
     },
-    onError: (error: Error) => showError(`Lỗi: ${error.message}`),
-  });
-
-  const setDefaultMutation = useMutation({
-    mutationFn: async (templateId: string) => {
-      const { error } = await supabase.rpc('set_default_prompt_template', { template_id_to_set: templateId });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      showSuccess("Đặt làm template mặc định thành công!");
-      queryClient.invalidateQueries({ queryKey });
-    },
-    onError: (error: Error) => showError(`Lỗi: ${error.message}`),
+    onError: (error: Error) => showError(error.message),
   });
 
   const handleAddNew = () => {
@@ -77,12 +76,12 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange }: ConfigureAi
     setAddEditOpen(true);
   };
 
-  const handleEdit = (template: PromptTemplate) => {
+  const handleEdit = (template: Template) => {
     setSelectedTemplate(template);
     setAddEditOpen(true);
   };
 
-  const handleDelete = (template: PromptTemplate) => {
+  const handleDelete = (template: Template) => {
     setSelectedTemplate(template);
     setDeleteOpen(true);
   };
@@ -90,57 +89,87 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange }: ConfigureAi
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <div className="flex justify-between items-start">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div>
-                <DialogTitle>Quản lý Template AI</DialogTitle>
-                <DialogDescription>Quản lý Prompt AI để tạo kịch bản thoại</DialogDescription>
+                <DialogTitle className="text-2xl font-bold">Quản lý Template AI</DialogTitle>
+                <DialogDescription className="mt-1">
+                  Quản lý các prompt mẫu để tự động tạo kịch bản.
+                </DialogDescription>
               </div>
-              <Button onClick={handleAddNew} className="flex-shrink-0"><Plus className="mr-2 h-4 w-4" /> Thêm Template mới</Button>
+              <Button onClick={handleAddNew} className="w-full sm:w-auto bg-red-600 hover:bg-red-700">
+                <Plus className="mr-2 h-4 w-4" /> Thêm Template mới
+              </Button>
             </div>
           </DialogHeader>
-          <div className="pt-4">
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-              {isLoading ? (
-                [...Array(3)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
-              ) : templates.length > 0 ? (
-                templates.map((template) => (
-                  <Card key={template.id} className={template.is_default ? "border-primary" : ""}>
-                    <CardHeader className="flex flex-row items-start justify-between p-4">
+          <div className="mt-4 space-y-3 max-h-[60vh] overflow-y-auto pr-2 -mr-2">
+            {isLoading ? (
+              [...Array(2)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
+            ) : templates.length > 0 ? (
+              templates.map((template) => (
+                <Card key={template.id} className="relative group border-2 border-transparent hover:border-red-500 data-[default=true]:border-green-500 transition-colors" data-default={template.is_default}>
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start">
                       <div>
-                        <CardTitle className="flex items-center gap-2">{template.name}{template.is_default && <Badge variant="default" className="bg-green-600"><CheckCircle className="mr-1 h-3 w-3" /> Mặc định</Badge>}</CardTitle>
-                        <CardDescription className="text-xs mt-1">Model: {template.model || 'N/A'} | Tối đa: {template.word_count || 'N/A'} từ</CardDescription>
+                        <h3 className="text-lg font-semibold">{template.name}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Model: {template.model || 'N/A'} | Tối đa: {template.word_count || 'N/A'} từ
+                        </p>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(template)}><Edit className="mr-2 h-4 w-4" /> Sửa</DropdownMenuItem>
-                          {!template.is_default && <DropdownMenuItem onClick={() => setDefaultMutation.mutate(template.id)}><Star className="mr-2 h-4 w-4" /> Đặt làm mặc định</DropdownMenuItem>}
-                          <DropdownMenuItem onClick={() => handleDelete(template)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Xóa</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </CardHeader>
-                  </Card>
-                ))
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>Chưa có template nào.</p>
-                  <p className="text-sm">Hãy tạo template đầu tiên của bạn!</p>
-                </div>
-              )}
-            </div>
+                      {template.is_default && (
+                        <div className="bg-green-600 text-white rounded-full px-3 py-1 text-xs font-semibold flex items-center">
+                          <Check className="h-3 w-3 mr-1" /> Mặc định
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {!template.is_default && (
+                          <DropdownMenuItem onClick={() => setDefaultMutation.mutate(template.id)}>
+                            <Star className="mr-2 h-4 w-4" /> Đặt làm mặc định
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => handleEdit(template)}>
+                          <Edit className="mr-2 h-4 w-4" /> Sửa
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(template)}>
+                          <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </Card>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground border-2 border-dashed rounded-lg">
+                <Lightbulb className="h-10 w-10" />
+                <p className="mt-2 font-semibold">Chưa có template nào</p>
+                <p className="text-sm">Hãy tạo template đầu tiên của bạn.</p>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
 
-      <AddEditPromptTemplateDialog isOpen={isAddEditOpen} onOpenChange={setAddEditOpen} template={selectedTemplate} />
+      <AddEditAiTemplateDialog
+        isOpen={isAddEditOpen}
+        onOpenChange={setAddEditOpen}
+        template={selectedTemplate}
+      />
 
       <AlertDialog open={isDeleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
-            <AlertDialogDescription>Hành động này không thể hoàn tác. Template "{selectedTemplate?.name}" sẽ bị xóa vĩnh viễn.</AlertDialogDescription>
+            <AlertDialogDescription>Hành động này không thể hoàn tác. Template sẽ bị xóa vĩnh viễn.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setSelectedTemplate(null)}>Hủy</AlertDialogCancel>

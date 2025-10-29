@@ -184,7 +184,7 @@ const mobileTabs = [
     { value: "overview", label: "Tổng quan", icon: LayoutDashboard },
     { value: "content", label: "Video đã tạo", icon: Clapperboard },
     { value: "sources", label: "Nguồn Video", icon: FileArchive },
-    { value: "auto-scripts", label: "Kịch bản", icon: Bot },
+    { value: "auto-scripts", label: "Automation", icon: Bot },
     { value: "idea-content", label: "Idea", icon: Lightbulb },
 ];
 
@@ -554,7 +554,7 @@ const KocDetail = () => {
                   <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><FileArchive className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Nguồn Video</span></div>
                 </TabsTrigger>
                 <TabsTrigger value="auto-scripts" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
-                  <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Bot className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Kịch bản tự động</span></div>
+                  <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Bot className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Automation</span></div>
                 </TabsTrigger>
                 <TabsTrigger value="idea-content" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
                   <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Lightbulb className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Idea Content</span></div>
@@ -595,7 +595,7 @@ const KocDetail = () => {
               <TabsContent value="auto-scripts" className="mt-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Danh sách kịch bản tự động</CardTitle>
+                    <CardTitle>Automation</CardTitle>
                     <CardDescription>Các kịch bản được tạo tự động cho KOC này.</CardDescription>
                   </CardHeader>
                   <CardContent>
