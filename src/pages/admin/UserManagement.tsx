@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 
@@ -70,6 +70,24 @@ const UserManagement = () => {
       return data;
     },
   });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:profiles')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        (payload) => {
+          console.log('User profile change received!', payload);
+          queryClient.invalidateQueries({ queryKey: ['all_users'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, field, value }: { userId: string, field: 'role' | 'status', value: string }) => {
