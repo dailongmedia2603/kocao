@@ -10,7 +10,6 @@ import { Toaster } from "sonner";
 import ListKoc from "./pages/ListKoc";
 import KocDetail from "./pages/KocDetail";
 import KocLayout from "./components/koc/KocLayout";
-import Reports from "./pages/Reports";
 import CreateVoicePage from "./pages/CreateVoice";
 import TaoContent from "./pages/TaoContent";
 import Automation from "./pages/Automation";
@@ -54,7 +53,6 @@ function App() {
             <Route element={<KocLayout />}>
               <Route path="/list-koc" element={<ListKoc />} />
               <Route path="/list-koc/:kocId" element={<KocDetail />} />
-              <Route path="/reports" element={<Reports />} />
               <Route path="/create-voice" element={<CreateVoicePage />} />
               <Route path="/tao-content" element={<TaoContent />} />
               <Route path="/video-to-script" element={<VideoToScript />} />

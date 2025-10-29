@@ -1,4 +1,4 @@
-import { Users, BarChart3, Video, Mic, PenSquare, Captions } from "lucide-react";
+import { Users, Video, Mic, PenSquare, Captions } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -78,17 +78,6 @@ const KocHeader = () => {
                 <Captions className="h-4 w-4" />
               </div>
               <span className="ml-2">Tách Script</span>
-            </>
-          )}
-        </NavLink>
-
-        <NavLink to="/reports" className={navLinkClasses}>
-          {({ isActive }) => (
-            <>
-              <div className={iconContainerClasses(isActive)}>
-                <BarChart3 className="h-4 w-4" />
-              </div>
-              <span className="ml-2">Report</span>
             </>
           )}
         </NavLink>
