@@ -35,8 +35,9 @@ const Sidebar = () => {
 
   const isKocSectionActive =
     location.pathname.startsWith("/list-koc") ||
-    location.pathname.startsWith("/projects") ||
-    location.pathname.startsWith("/reports");
+    location.pathname.startsWith("/create-voice") ||
+    location.pathname.startsWith("/tao-content") ||
+    location.pathname.startsWith("/video-to-script");
 
   const renderMenuItem = (item: typeof menuItems[0]) => (
     <Tooltip key={item.label}>

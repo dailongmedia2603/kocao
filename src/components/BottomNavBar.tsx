@@ -8,7 +8,7 @@ const BottomNavBar = () => {
   const location = useLocation();
 
   const allMenuItems = [
-    { label: "KOC", icon: Video, to: "/list-koc", paths: ["/list-koc", "/create-voice", "/tao-content", "/video-to-script", "/reports"] },
+    { label: "KOC", icon: Video, to: "/list-koc", paths: ["/list-koc", "/create-voice", "/tao-content", "/video-to-script"] },
     { label: "Automation", icon: Bot, to: "/automation", paths: ["/automation"] },
     { label: "Tạo Video", icon: Film, to: "/tao-video", paths: ["/tao-video"] },
   ];
