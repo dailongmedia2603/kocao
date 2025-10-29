@@ -80,7 +80,7 @@ const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView, onRetry }: 
       <div className="flex items-center gap-4 flex-1 min-w-0">
         <Checkbox checked={isSelected} onCheckedChange={() => onSelect(task.id)} aria-label={`Select task ${task.id}`} />
         <div className="flex-1 min-w-0">
-          <p className="font-semibold truncate">{task.voice_name}</p>
+          <p className="font-semibold truncate text-sm">{task.voice_name}</p>
           <div className="flex items-center gap-2 mt-1">
             {getStatusBadge(task.status)}
             <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(task.created_at), { addSuffix: true, locale: vi })}</p>
@@ -196,13 +196,13 @@ export const TaskList = () => {
                 <AccordionItem key={voiceName} value={voiceName} className="border rounded-lg bg-background/50">
                   <AccordionTrigger className="p-4 hover:no-underline">
                     <div className="flex items-center justify-between w-full">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-purple-100 text-purple-600">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-purple-100 text-purple-600">
                           <Mic className="h-5 w-5" />
                         </div>
-                        <span className="font-semibold">{voiceName}</span>
+                        <span className="font-semibold text-sm truncate">{voiceName}</span>
                       </div>
-                      <Badge variant="secondary">{taskGroup.length} task</Badge>
+                      <Badge variant="secondary" className="flex-shrink-0 ml-2 text-xs">{taskGroup.length} task</Badge>
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="p-4 pt-0"><div className="space-y-3 border-t pt-4">{taskGroup.map((task) => (<TaskItem key={task.id} task={task} onSelect={handleSelectTask} isSelected={selectedTaskIds.includes(task.id)} onDelete={(id) => handleDelete([id])} onLogView={(id) => setLogTaskId(id)} onRetry={(id) => retryTaskMutation.mutate(id)} />))}</div></AccordionContent>

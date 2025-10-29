@@ -10,31 +10,23 @@ import KocMobileNav from "@/components/koc/KocMobileNav";
 const CreateVoicePage = () => {
   const isMobile = useIsMobile();
   return (
-    <div className="p-4 md:p-6 lg:p-8 bg-gray-50/50 min-h-screen">
+    <div className="p-4 md:p-6 lg:p-8">
       {isMobile && <KocMobileNav />}
       <header className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Quản lý Giọng Nói</h1>
         <p className="text-muted-foreground mt-1">Tạo giọng nói từ văn bản hoặc clone giọng nói của riêng bạn.</p>
       </header>
       <Tabs defaultValue="tts" className="w-full">
-        <TabsList className="inline-flex h-auto items-center justify-center gap-1 rounded-none border-b bg-transparent p-0">
-          <TabsTrigger
-            value="tts"
-            className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-muted-foreground ring-offset-background transition-all hover:bg-muted/50 focus-visible:outline-none data-[state=active]:border-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-muted-foreground transition-colors group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white">
-              <Mic className="h-5 w-5" />
-            </div>
-            Tạo Voice (Text-to-Speech)
+        <TabsList className="grid w-full grid-cols-2 h-auto p-1">
+          <TabsTrigger value="tts" className="py-2.5 flex items-center gap-2">
+            <Mic className="h-4 w-4" />
+            <span className="hidden sm:inline">Tạo Voice</span>
+            <span className="sm:hidden">TTS</span>
           </TabsTrigger>
-          <TabsTrigger
-            value="clone"
-            className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-muted-foreground ring-offset-background transition-all hover:bg-muted/50 focus-visible:outline-none data-[state=active]:border-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-muted-foreground transition-colors group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white">
-              <Copy className="h-5 w-5" />
-            </div>
-            Clone Voice
+          <TabsTrigger value="clone" className="py-2.5 flex items-center gap-2">
+            <Copy className="h-4 w-4" />
+            <span className="hidden sm:inline">Clone Voice</span>
+            <span className="sm:hidden">Clone</span>
           </TabsTrigger>
         </TabsList>
         <TabsContent value="tts" className="mt-6">
