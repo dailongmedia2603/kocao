@@ -180,6 +180,14 @@ const formatStatNumber = (num: number | null | undefined): string => {
   return (num / 1000000).toFixed(1).replace('.0', '') + "M";
 };
 
+const mobileTabs = [
+    { value: "overview", label: "Tổng quan", icon: LayoutDashboard },
+    { value: "content", label: "Video đã tạo", icon: Clapperboard },
+    { value: "sources", label: "Nguồn Video", icon: FileArchive },
+    { value: "auto-scripts", label: "Kịch bản", icon: Bot },
+    { value: "idea-content", label: "Idea", icon: Lightbulb },
+];
+
 const KocDetail = () => {
   const { kocId } = useParams<{ kocId: string }>();
   const queryClient = useQueryClient();
@@ -411,11 +419,12 @@ const KocDetail = () => {
           <Tabs defaultValue="overview" className="w-full">
             <ScrollArea className="w-full whitespace-nowrap rounded-md">
               <TabsList className="bg-transparent p-0 gap-x-2">
-                <TabsTrigger value="overview" className="group bg-gray-100 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 text-gray-600 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border border-transparent data-[state=active]:border-red-200">Tổng quan</TabsTrigger>
-                <TabsTrigger value="content" className="group bg-gray-100 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 text-gray-600 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border border-transparent data-[state=active]:border-red-200">Video đã tạo</TabsTrigger>
-                <TabsTrigger value="sources" className="group bg-gray-100 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 text-gray-600 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border border-transparent data-[state=active]:border-red-200">Nguồn Video</TabsTrigger>
-                <TabsTrigger value="auto-scripts" className="group bg-gray-100 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 text-gray-600 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border border-transparent data-[state=active]:border-red-200">Kịch bản</TabsTrigger>
-                <TabsTrigger value="idea-content" className="group bg-gray-100 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 text-gray-600 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border border-transparent data-[state=active]:border-red-200">Idea</TabsTrigger>
+                {mobileTabs.map(tab => (
+                  <TabsTrigger key={tab.value} value={tab.value} className="group bg-gray-100 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 text-gray-600 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border border-transparent data-[state=active]:border-red-200">
+                    <tab.icon className="h-4 w-4 mr-2" />
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
               </TabsList>
               <ScrollBar orientation="horizontal" className="h-2" />
             </ScrollArea>
@@ -496,7 +505,7 @@ const KocDetail = () => {
               ) : (<p className="text-sm text-muted-foreground text-center py-8">Chưa có kịch bản nào.</p>)}
             </TabsContent>
             <TabsContent value="idea-content" className="mt-4">
-              <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} />
+              <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} isMobile={isMobile} />
             </TabsContent>
           </Tabs>
         </div>

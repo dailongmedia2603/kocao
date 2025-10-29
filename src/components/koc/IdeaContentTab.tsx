@@ -32,6 +32,7 @@ type IdeaContentTabProps = {
   kocId: string;
   ideas: Idea[] | undefined;
   isLoading: boolean;
+  isMobile?: boolean;
 };
 
 const StatusBadge = ({ status }: { status: string }) => {
@@ -57,7 +58,47 @@ const StatusBadge = ({ status }: { status: string }) => {
   }
 };
 
-export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps) => {
+const IdeaCardMobile = ({ idea, onGenerate, onEdit, onDelete, onViewContent, isGenerating }: { idea: Idea, onGenerate: (idea: Idea) => void, onEdit: (idea: Idea) => void, onDelete: (idea: Idea) => void, onViewContent: (content: string | null) => void, isGenerating: boolean }) => {
+    return (
+        <Card>
+            <CardContent className="p-3">
+                <div className="flex justify-between items-start">
+                    <p className="font-semibold text-sm flex-1 pr-2 line-clamp-2">{idea.idea_content}</p>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" className="h-7 w-7 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {(idea.status === 'Chưa sử dụng' || !idea.new_content) && (
+                                <DropdownMenuItem onClick={() => onGenerate(idea)} disabled={isGenerating}>
+                                    <Wand2 className="mr-2 h-4 w-4" /> Tạo ngay
+                                </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem onClick={() => onEdit(idea)}>
+                                <Edit className="mr-2 h-4 w-4" /> Sửa
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => onDelete(idea)} className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+                <div className="mt-2 flex items-center justify-between">
+                    <StatusBadge status={idea.status} />
+                    {idea.new_content && (
+                        <Button variant="link" className="p-0 h-auto text-xs" onClick={() => onViewContent(idea.new_content)}>Xem content</Button>
+                    )}
+                </div>
+                {idea.koc_files && (
+                     <a href={idea.koc_files.url} target="_blank" rel="noopener noreferrer" className="flex items-center text-blue-600 hover:underline text-xs mt-2">
+                        <Video className="mr-1 h-3 w-3" />
+                        <span className="truncate max-w-[150px]">{idea.koc_files.display_name}</span>
+                    </a>
+                )}
+            </CardContent>
+        </Card>
+    );
+};
+
+export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile }: IdeaContentTabProps) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
   const [isAddEditOpen, setAddEditOpen] = useState(false);
@@ -166,9 +207,51 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
     generateContentMutation.mutate(idea.id);
   };
 
-  return (
-    <>
-      <Card>
+  const renderMobile = () => (
+    <Card>
+        <CardHeader>
+            <div className="flex justify-between items-center">
+                <CardTitle>Idea Content</CardTitle>
+                <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => setIsLogOpen(true)}><History className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => setConfigureOpen(true)}><Settings className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={handleAddNew} className="text-red-600"><Plus className="h-5 w-5" /></Button>
+                </div>
+            </div>
+            <CardDescription>Quản lý các ý tưởng và nội dung đã phát triển.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            {isLoading ? (
+                <div className="space-y-3">
+                    <Skeleton className="h-20 w-full" />
+                    <Skeleton className="h-20 w-full" />
+                </div>
+            ) : ideas && ideas.length > 0 ? (
+                <div className="space-y-3">
+                    {ideas.map(idea => (
+                        <IdeaCardMobile 
+                            key={idea.id}
+                            idea={idea}
+                            onGenerate={handleGenerateNow}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                            onViewContent={handleViewContent}
+                            isGenerating={generateContentMutation.isPending}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                    <Lightbulb className="mx-auto h-8 w-8" />
+                    <p className="mt-2 text-sm">Chưa có idea content nào.</p>
+                </div>
+            )}
+        </CardContent>
+    </Card>
+  );
+
+  const renderDesktop = () => (
+    <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Danh sách Idea Content</CardTitle>
@@ -267,14 +350,17 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
           </Table>
         </CardContent>
       </Card>
+  );
 
+  return (
+    <>
+      {isMobile ? renderMobile() : renderDesktop()}
       <AddEditIdeaDialog
         isOpen={isAddEditOpen}
         onOpenChange={setAddEditOpen}
         kocId={kocId}
         idea={selectedIdea}
       />
-
       <AlertDialog open={isDeleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -289,7 +375,6 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading }: IdeaContentTabProps)
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
       <ViewScriptContentDialog
         isOpen={isViewContentOpen}
         onOpenChange={setViewContentOpen}
