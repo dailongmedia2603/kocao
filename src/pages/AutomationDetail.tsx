@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { vi } from "date-fns/locale";
 import { useSession } from "@/contexts/SessionContext";
 import { formatInTimeZone } from 'date-fns-tz';
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,6 +55,7 @@ const AutomationDetail = () => {
     const { campaignId } = useParams<{ campaignId: string }>();
     const queryClient = useQueryClient();
     const { user } = useSession();
+    const isMobile = useIsMobile();
 
     const queryKey = ['campaign_activity_log', campaignId];
 
@@ -168,7 +170,11 @@ const AutomationDetail = () => {
                                                         <div className="flex items-center justify-between w-full gap-2">
                                                             <div className="flex items-center gap-2 text-left overflow-hidden min-w-0">
                                                                 <span className="font-semibold text-primary flex-shrink-0">Lần {index + 1}</span>
-                                                                <p className="text-sm text-muted-foreground truncate min-w-0">{activity.idea_content}</p>
+                                                                <p className="text-sm text-muted-foreground truncate min-w-0">
+                                                                    {isMobile && activity.idea_content.length > 13
+                                                                        ? `${activity.idea_content.substring(0, 13)}...`
+                                                                        : activity.idea_content}
+                                                                </p>
                                                             </div>
                                                             <Badge variant="outline" className="flex-shrink-0">{formatInTimeZone(new Date(activity.idea_created_at), 'Asia/Ho_Chi_Minh', 'HH:mm')}</Badge>
                                                         </div>
