@@ -1,13 +1,57 @@
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ApiSettings from "@/components/settings/ApiSettings";
 import TiktokApiSettings from "@/components/settings/TiktokApiSettings";
 import FacebookApiSettings from "@/components/settings/FacebookApiSettings";
 import VoiceApiSettings from "@/components/settings/VoiceApiSettings";
 import DreamfaceApiSettings from "@/components/settings/DreamfaceApiSettings";
-import { Bot, KeyRound, Mic, Film } from "lucide-react";
+import { Bot, Mic, Film } from "lucide-react";
 import { FaTiktok, FaFacebook } from "react-icons/fa";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+
+const TABS_CONFIG = [
+  { value: "gemini-api", label: "API Gemini", icon: Bot, component: <ApiSettings /> },
+  { value: "tiktok-api", label: "API TikTok", icon: FaTiktok, component: <TiktokApiSettings /> },
+  { value: "facebook-api", label: "API Facebook", icon: FaFacebook, component: <FacebookApiSettings /> },
+  { value: "voice-api", label: "API Voice", icon: Mic, component: <VoiceApiSettings /> },
+  { value: "dreamface-api", label: "API Tạo Video", icon: Film, component: <DreamfaceApiSettings /> },
+];
 
 const Settings = () => {
+  const isMobile = useIsMobile();
+  const [activeTab, setActiveTab] = useState("gemini-api");
+
+  if (isMobile) {
+    const activeComponent = TABS_CONFIG.find(tab => tab.value === activeTab)?.component;
+    return (
+      <div className="p-4">
+        <header className="mb-6">
+          <h1 className="text-2xl font-bold">Cài đặt</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Quản lý API Keys và các cấu hình hệ thống khác.</p>
+        </header>
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {TABS_CONFIG.map((tab) => (
+            <Button
+              key={tab.value}
+              variant="outline"
+              className={cn(
+                "justify-start h-auto p-3 gap-2",
+                activeTab === tab.value && "bg-red-50 border-red-200 text-red-700"
+              )}
+              onClick={() => setActiveTab(tab.value)}
+            >
+              <tab.icon className="h-5 w-5 flex-shrink-0" />
+              <span className="font-semibold text-sm">{tab.label}</span>
+            </Button>
+          ))}
+        </div>
+        <div>{activeComponent}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 lg:p-8">
       <header className="mb-6">

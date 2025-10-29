@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { showSuccess, showError } from "@/utils/toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,9 +13,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Icons
 import { MoreHorizontal, Trash2, Loader2, AlertCircle, Users } from "lucide-react";
@@ -36,10 +38,20 @@ const getInitials = (firstName?: string | null, lastName?: string | null) => {
   return `${first}${last}`.toUpperCase() || "??";
 };
 
+const StatusBadge = ({ status }: { status: string }) => {
+  switch (status) {
+    case 'active': return <Badge className="bg-green-100 text-green-800">Active</Badge>;
+    case 'pending': return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
+    case 'banned': return <Badge variant="destructive">Banned</Badge>;
+    default: return <Badge variant="secondary">{status}</Badge>;
+  }
+};
+
 const UserManagement = () => {
   const queryClient = useQueryClient();
   const { user: adminUser } = useSession();
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  const isMobile = useIsMobile();
 
   const { data: users = [], isLoading, error } = useQuery<UserProfile[]>({
     queryKey: ['all_users'],
@@ -87,14 +99,73 @@ const UserManagement = () => {
     onError: (error: Error) => showError(`Lỗi: ${error.message}`),
   });
 
-  const StatusBadge = ({ status }: { status: string }) => {
-    switch (status) {
-      case 'active': return <Badge className="bg-green-100 text-green-800">Active</Badge>;
-      case 'pending': return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>;
-      case 'banned': return <Badge variant="destructive">Banned</Badge>;
-      default: return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
+  if (isMobile) {
+    return (
+      <>
+        <div className="p-4 space-y-4">
+          <header className="mb-2">
+            <h1 className="text-2xl font-bold">Quản lý Người dùng</h1>
+            <p className="text-muted-foreground mt-1 text-sm">Tổng số {users.length} người dùng.</p>
+          </header>
+          {isLoading ? (
+            <div className="space-y-3">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-lg" />)}</div>
+          ) : error ? (
+            <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{(error as Error).message}</AlertDescription></Alert>
+          ) : users.length > 0 ? (
+            <div className="space-y-3">
+              {users.map((user) => (
+                <Card key={user.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <Avatar><AvatarFallback>{getInitials(user.first_name, user.last_name)}</AvatarFallback></Avatar>
+                        <div>
+                          <p className="font-semibold">{user.first_name} {user.last_name}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0" disabled={user.id === adminUser?.id}><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setUserToDelete(user)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Xóa</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">Vai trò</label>
+                        <Select value={user.role} onValueChange={(newRole) => updateRoleMutation.mutate({ userId: user.id, newRole })} disabled={updateRoleMutation.isPending || user.id === adminUser?.id}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent><SelectItem value="user">User</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-muted-foreground">Trạng thái</label>
+                        <Select value={user.status} onValueChange={(newStatus) => updateStatusMutation.mutate({ userId: user.id, newStatus })} disabled={updateStatusMutation.isPending || user.id === adminUser?.id}>
+                          <SelectTrigger><StatusBadge status={user.status} /></SelectTrigger>
+                          <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="banned">Banned</SelectItem></SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16 text-muted-foreground"><Users className="mx-auto h-12 w-12" /><p className="mt-2">Không có người dùng nào.</p></div>
+          )}
+        </div>
+        <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Người dùng "{userToDelete?.email}" sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => userToDelete && deleteUserMutation.mutate(userToDelete.id)} disabled={deleteUserMutation.isPending} className="bg-destructive hover:bg-destructive/90">{deleteUserMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Xóa"}</AlertDialogAction></AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </>
+    );
+  }
 
   return (
     <>
@@ -131,7 +202,7 @@ const UserManagement = () => {
                     </TableRow>
                   ))
                 ) : error ? (
-                  <TableRow><TableCell colSpan={5} className="h-24 text-center text-destructive"><AlertCircle className="mx-auto h-6 w-6" /><p className="mt-2">Lỗi tải dữ liệu: {error.message}</p></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="h-24 text-center text-destructive"><AlertCircle className="mx-auto h-6 w-6" /><p className="mt-2">Lỗi tải dữ liệu: {(error as Error).message}</p></TableCell></TableRow>
                 ) : users.length > 0 ? (
                   users.map((user) => (
                     <TableRow key={user.id}>
