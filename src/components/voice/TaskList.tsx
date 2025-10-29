@@ -77,35 +77,48 @@ const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView, onRetry }: 
 
   return (
     <div className="p-3 rounded-md border bg-background">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex items-center gap-4 flex-1 min-w-[200px]">
-          <Checkbox checked={isSelected} onCheckedChange={() => onSelect(task.id)} aria-label={`Select task ${task.id}`} />
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold truncate text-sm">{task.voice_name}</p>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              {getStatusBadge(task.status)}
-              <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(task.created_at), { addSuffix: true, locale: vi })}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-4 flex-1 min-w-0">
+          <Checkbox 
+            checked={isSelected} 
+            onCheckedChange={() => onSelect(task.id)} 
+            aria-label={`Select task ${task.id}`}
+            className="mt-1"
+          />
+          <div className="flex-1 min-w-0 space-y-2">
+            <div>
+              <p className="font-semibold truncate text-sm">{task.voice_name}</p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {getStatusBadge(task.status)}
+                <p className="text-xs text-muted-foreground">
+                  {formatDistanceToNow(new Date(task.created_at), { addSuffix: true, locale: vi })}
+                </p>
+              </div>
             </div>
+            
+            {(task.status === 'done' && task.audio_url) && (
+              <audio controls src={task.audio_url} className="h-8 w-full" />
+            )}
+            {task.status === 'error' && (
+              <p className="text-xs text-destructive">{friendlyErrorMessage(task.error_message)}</p>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center">
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-blue-500" onClick={() => onLogView(task.id)} title="Xem Log"><FileText className="h-4 w-4" /></Button>
-          {task.status === 'error' && (<Button variant="ghost" size="icon" className="text-muted-foreground hover:text-green-500" onClick={() => onRetry(task.id)} title="Thử lại"><RefreshCcw className="h-4 w-4" /></Button>)}
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => onDelete(task.id)} title="Xóa Task"><Trash2 className="h-4 w-4" /></Button>
+        <div className="flex flex-col -mt-1 -mr-2">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-blue-500" onClick={() => onLogView(task.id)} title="Xem Log">
+            <FileText className="h-4 w-4" />
+          </Button>
+          {task.status === 'error' && (
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-green-500" onClick={() => onRetry(task.id)} title="Thử lại">
+              <RefreshCcw className="h-4 w-4" />
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => onDelete(task.id)} title="Xóa Task">
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
-
-      {(task.status === 'done' && task.audio_url) && (
-        <div className="pl-10 mt-2">
-          <audio controls src={task.audio_url} className="h-8 w-full" />
-        </div>
-      )}
-      {task.status === 'error' && (
-        <div className="pl-10 mt-2">
-          <p className="text-xs text-destructive">{friendlyErrorMessage(task.error_message)}</p>
-        </div>
-      )}
     </div>
   );
 };
