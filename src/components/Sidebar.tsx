@@ -25,6 +25,7 @@ const menuItems = [
 
 const adminMenuItems = [
   { label: "Quản lý Users", icon: Users, to: "/admin/users" },
+  { label: "Settings", icon: Settings, to: "/settings" },
 ];
 
 const Sidebar = () => {
@@ -102,7 +103,7 @@ const Sidebar = () => {
         <TooltipProvider delayDuration={100}>
           <div className="space-y-1">
             {menuItems.map(renderMenuItem)}
-            {profile?.role === 'admin' && adminMenuItems.length > 0 && (
+            {profile?.role === 'admin' && (
               <>
                 <div className="px-2 pt-4 pb-2">
                   <span className={cn("text-xs font-semibold text-muted-foreground", isCollapsed && "hidden")}>Admin</span>

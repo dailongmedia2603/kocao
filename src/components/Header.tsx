@@ -1,7 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useSession } from "@/contexts/SessionContext";
-import { Link } from "react-router-dom";
 
 const Header = () => {
   const { profile, user, signOut } = useSession();
@@ -25,9 +24,8 @@ const Header = () => {
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <Link to="/profile">Profile</Link>
-            </DropdownMenuItem>
+            <DropdownMenuItem>Profile</DropdownMenuItem>
+            <DropdownMenuItem>Settings</DropdownMenuItem>
             <DropdownMenuItem onClick={signOut}>Logout</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

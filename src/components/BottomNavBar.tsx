@@ -15,6 +15,7 @@ const BottomNavBar = () => {
 
   const adminMenuItems = [
     { label: "Users", icon: Users, to: "/admin/users", paths: ["/admin/users"] },
+    { label: "Cài đặt", icon: Settings, to: "/settings", paths: ["/settings"] },
   ];
 
   const itemsToShow = profile?.role === 'admin' ? [...allMenuItems, ...adminMenuItems] : allMenuItems;
