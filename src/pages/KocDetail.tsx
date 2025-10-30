@@ -19,7 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Icons
 import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, CalendarDays, Bot, MoreHorizontal, Loader2, Mic, Lightbulb, FileText } from "lucide-react";
@@ -426,7 +426,6 @@ const KocDetail = () => {
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <ScrollBar orientation="horizontal" className="h-2" />
             </ScrollArea>
             <TabsContent value="overview" className="mt-4 space-y-6">
               <Card>
