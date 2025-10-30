@@ -41,11 +41,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Icons
-import { Plus, MoreHorizontal, Edit, Trash2, Users, User as UserIcon, ShieldCheck, CheckCircle2, Hourglass, XCircle } from "lucide-react";
+import { Plus, MoreHorizontal, Trash2, Users, User as UserIcon, ShieldCheck, CheckCircle2, Hourglass, XCircle } from "lucide-react";
 
 // Custom Components
 import { AddUserDialog } from "./AddUserDialog";
-import { EditUserDialog } from "./EditUserDialog";
 import { showSuccess, showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
 
@@ -112,8 +111,6 @@ const UserManagement = () => {
   const { user: adminUser } = useSession();
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setEditDialogOpen] = useState(false);
-  const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   const { data: users = [], isLoading } = useQuery<User[]>({
@@ -172,11 +169,6 @@ const UserManagement = () => {
       setUserToDelete(null);
     },
   });
-
-  const handleEdit = (user: User) => {
-    setUserToEdit(user);
-    setEditDialogOpen(true);
-  };
 
   const handleDelete = (user: User) => {
     setUserToDelete(user);
@@ -238,9 +230,6 @@ const UserManagement = () => {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Hành động</DropdownMenuLabel>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleEdit(user)}>
-                            <Edit className="mr-2 h-4 w-4" /> Sửa
-                          </DropdownMenuItem>
                           <DropdownMenuSub>
                             <DropdownMenuSubTrigger>Đổi vai trò</DropdownMenuSubTrigger>
                             <DropdownMenuPortal>
@@ -283,7 +272,6 @@ const UserManagement = () => {
       </div>
 
       <AddUserDialog isOpen={isAddDialogOpen} onOpenChange={setAddDialogOpen} />
-      <EditUserDialog isOpen={isEditDialogOpen} onOpenChange={setEditDialogOpen} user={userToEdit} />
       <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
