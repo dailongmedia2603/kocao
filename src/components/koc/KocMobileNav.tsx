@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Users, Mic, FileText, Captions } from "lucide-react";
 
@@ -34,7 +34,6 @@ const KocMobileNav = () => {
             </NavLink>
           ))}
         </div>
-        <ScrollBar orientation="horizontal" className="h-2" />
       </ScrollArea>
     </div>
   );
