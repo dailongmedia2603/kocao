@@ -41,9 +41,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 // Icons
-import { MoreHorizontal, Trash2, Users, User as UserIcon, ShieldCheck, CheckCircle2, Hourglass, XCircle } from "lucide-react";
+import { Plus, MoreHorizontal, Edit, Trash2, Users, User as UserIcon, ShieldCheck, CheckCircle2, Hourglass, XCircle } from "lucide-react";
 
 // Custom Components
+import { AddUserDialog } from "./AddUserDialog";
+import { EditUserDialog } from "./EditUserDialog";
 import { showSuccess, showError } from "@/utils/toast";
 import { cn } from "@/lib/utils";
 
@@ -109,6 +111,9 @@ const StatusBadge = ({ status }: { status: 'active' | 'pending' | 'banned' }) =>
 const UserManagement = () => {
   const { user: adminUser } = useSession();
   const queryClient = useQueryClient();
+  const [isAddDialogOpen, setAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setEditDialogOpen] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   const { data: users = [], isLoading } = useQuery<User[]>({
@@ -168,6 +173,15 @@ const UserManagement = () => {
     },
   });
 
+  const handleEdit = (user: User) => {
+    setUserToEdit(user);
+    setEditDialogOpen(true);
+  };
+
+  const handleDelete = (user: User) => {
+    setUserToDelete(user);
+  };
+
   const confirmDelete = () => {
     if (userToDelete) {
       deleteUserMutation.mutate(userToDelete.id);
@@ -177,9 +191,14 @@ const UserManagement = () => {
   return (
     <>
       <div className="p-6 lg:p-8">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold">Quản lý Người dùng</h1>
-          <p className="text-muted-foreground mt-1">Xem, chỉnh sửa và quản lý tất cả người dùng trong hệ thống.</p>
+        <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold">Quản lý Người dùng</h1>
+            <p className="text-muted-foreground mt-1">Xem, chỉnh sửa và quản lý tất cả người dùng trong hệ thống.</p>
+          </div>
+          <Button onClick={() => setAddDialogOpen(true)} className="bg-red-600 hover:bg-red-700 text-white w-full md:w-auto">
+            <Plus className="mr-2 h-4 w-4" /> Thêm người dùng
+          </Button>
         </header>
 
         <div className="rounded-lg bg-card text-card-foreground shadow-sm">
@@ -219,6 +238,9 @@ const UserManagement = () => {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Hành động</DropdownMenuLabel>
                           <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleEdit(user)}>
+                            <Edit className="mr-2 h-4 w-4" /> Sửa
+                          </DropdownMenuItem>
                           <DropdownMenuSub>
                             <DropdownMenuSubTrigger>Đổi vai trò</DropdownMenuSubTrigger>
                             <DropdownMenuPortal>
@@ -239,7 +261,7 @@ const UserManagement = () => {
                             </DropdownMenuPortal>
                           </DropdownMenuSub>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive" onClick={() => setUserToDelete(user)}>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(user)}>
                             <Trash2 className="mr-2 h-4 w-4" /> Xóa người dùng
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -260,6 +282,8 @@ const UserManagement = () => {
         </div>
       </div>
 
+      <AddUserDialog isOpen={isAddDialogOpen} onOpenChange={setAddDialogOpen} />
+      <EditUserDialog isOpen={isEditDialogOpen} onOpenChange={setEditDialogOpen} user={userToEdit} />
       <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
