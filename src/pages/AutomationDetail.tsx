@@ -93,8 +93,11 @@ const AutomationDetail = () => {
     const { data: activities, isLoading: isLoadingActivities } = useQuery<ActivityLog[]>({
         queryKey,
         queryFn: async () => {
-            const { data, error } = await supabase.rpc('get_campaign_activity_log', { p_campaign_id: campaignId });
+            const { data, error } = await supabase.functions.invoke('get-campaign-activity-log-edge', {
+                body: { campaignId }
+            });
             if (error) throw error;
+            if (data.error) throw new Error(data.error);
             return data || [];
         },
         enabled: !!campaignId,
