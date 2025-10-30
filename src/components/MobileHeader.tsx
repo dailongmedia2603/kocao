@@ -2,6 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useSession } from "@/contexts/SessionContext";
 import { Logo } from "./Logo";
+import { Link } from "react-router-dom";
 
 const MobileHeader = () => {
   const { profile, user, signOut } = useSession();
@@ -26,8 +27,9 @@ const MobileHeader = () => {
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem>Settings</DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/profile">Profile</Link>
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={signOut}>Logout</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

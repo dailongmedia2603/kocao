@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
 import Dashboard from "./pages/Dashboard";
-import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -20,6 +19,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import PendingApproval from "./pages/PendingApproval";
 import AdminRoute from "./components/AdminRoute";
 import UserManagement from "./pages/admin/UserManagement";
+import ProfilePage from "./pages/Profile";
 
 function App() {
   return (
@@ -39,13 +39,13 @@ function App() {
             <Route element={<AdminRoute />}>
               <Route element={<AppLayout />}>
                 <Route path="/admin/users" element={<UserManagement />} />
-                <Route path="/settings" element={<Settings />} />
               </Route>
             </Route>
 
             {/* Các Route cho người dùng đã được duyệt */}
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/profile" element={<ProfilePage />} />
               <Route path="/automation" element={<Automation />} />
               <Route path="/automation/:campaignId" element={<AutomationDetail />} />
               <Route path="/tao-video" element={<TaoVideo />} />
