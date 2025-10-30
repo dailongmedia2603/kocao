@@ -40,7 +40,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MoreHorizontal, Trash2, UserCog, ShieldCheck, CheckCircle, XCircle, Hourglass, Loader2 } from "lucide-react";
+import { MoreHorizontal, Trash2, UserCog, ShieldCheck, CheckCircle, XCircle, Hourglass, Loader2, Plus } from "lucide-react";
+import { AddUserDialog } from "./AddUserDialog";
 
 // Type definition for a user
 type UserProfile = {
@@ -83,6 +84,7 @@ const UserManagement = () => {
   const queryClient = useQueryClient();
   const { user: adminUser } = useSession();
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
 
   // Fetch all users
   const { data: users, isLoading } = useQuery<UserProfile[]>({
@@ -154,9 +156,15 @@ const UserManagement = () => {
   return (
     <>
       <div className="p-6 lg:p-8">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold">Quản lý Người dùng</h1>
-          <p className="text-muted-foreground mt-1">Xem, chỉnh sửa và quản lý tất cả người dùng trong hệ thống.</p>
+        <header className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold">Quản lý Người dùng</h1>
+            <p className="text-muted-foreground mt-1">Xem, chỉnh sửa và quản lý tất cả người dùng trong hệ thống.</p>
+          </div>
+          <Button onClick={() => setIsAddUserOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Thêm người dùng
+          </Button>
         </header>
 
         <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
@@ -264,6 +272,8 @@ const UserManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <AddUserDialog isOpen={isAddUserOpen} onOpenChange={setIsAddUserOpen} />
     </>
   );
 };
