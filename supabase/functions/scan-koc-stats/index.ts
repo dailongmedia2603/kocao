@@ -39,6 +39,13 @@ serve(async (_req) => {
         }
 
         const apiData = await response.json();
+
+        // Xử lý lỗi cụ thể từ API
+        if (apiData.data && apiData.data.statusCode) {
+            console.error(`Lỗi API cho KOC ${koc.id} (statusCode: ${apiData.data.statusCode}): ${apiData.data.statusMsg || 'No status message'}`);
+            return { id: koc.id, status: 'failed', reason: `API Error ${apiData.data.statusCode}` };
+        }
+
         const userInfo = apiData?.data?.userInfo?.user;
         const statsData = apiData?.data?.userInfo?.statsV2;
 
@@ -52,6 +59,7 @@ serve(async (_req) => {
           }
           return { id: koc.id, status: 'success' };
         } else {
+          console.error(`Dữ liệu API không đầy đủ cho KOC ${koc.id}:`, JSON.stringify(apiData));
           return { id: koc.id, status: 'skipped', reason: 'Incomplete API data' };
         }
       } catch (e) {

@@ -51,6 +51,14 @@ serve(async (req) => {
     }
 
     const apiData = await response.json();
+
+    // Xử lý lỗi cụ thể từ API ngay cả khi response success
+    if (apiData.success === true && apiData.data && apiData.data.statusCode) {
+      if (apiData.data.statusCode === 10221) {
+        throw new Error("Không thể lấy thông tin. Kênh có thể không tồn tại, riêng tư, hoặc yêu cầu xác thực captcha. Vui lòng kiểm tra lại link kênh.");
+      }
+      throw new Error(`API báo lỗi với mã: ${apiData.data.statusCode}. Vui lòng thử lại sau.`);
+    }
     
     const userInfo = apiData?.data?.userInfo?.user;
     const statsData = apiData?.data?.userInfo?.statsV2;
