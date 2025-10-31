@@ -449,7 +449,7 @@ const KocDetail = () => {
           </Card>
 
           <Tabs defaultValue="overview" className="w-full">
-            <div className="overflow-x-auto pb-2 -mb-2">
+            <div className="overflow-x-auto pb-2 -mb-2 no-scrollbar">
               <TabsList className="bg-transparent p-0 gap-x-2">
                 {mobileTabs.map(tab => (
                   <TabsTrigger key={tab.value} value={tab.value} className="group bg-gray-100 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 text-gray-600 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border border-transparent data-[state=active]:border-red-200 whitespace-nowrap">

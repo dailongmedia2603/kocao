@@ -11,7 +11,7 @@ const navItems = [
 
 const KocMobileNav = () => {
   return (
-    <div className="mb-6 overflow-x-auto pb-2 -mb-2">
+    <div className="mb-6 overflow-x-auto pb-2 -mb-2 no-scrollbar">
         <div className="flex items-center gap-2">
           {navItems.map((item) => (
             <NavLink
