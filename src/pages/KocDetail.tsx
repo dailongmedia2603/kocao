@@ -296,24 +296,19 @@ const KocDetail = () => {
 
   const downloadFileMutation = useMutation({
     mutationFn: async (file: KocFile) => {
-      const toastId = showLoading(`Đang tải xuống ${file.display_name}...`);
+      const toastId = showLoading(`Đang chuẩn bị tải xuống ${file.display_name}...`);
       try {
-        const response = await fetch(file.url);
-        if (!response.ok) {
-          throw new Error(`Không thể tải tệp. Lỗi: ${response.statusText}`);
-        }
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = file.display_name;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        a.remove();
+        const { data, error } = await supabase.functions.invoke("get-download-url", {
+          body: { r2_key: file.r2_key, display_name: file.display_name },
+        });
+
+        if (error) throw new Error(error.message);
+        if (data.error) throw new Error(data.error);
+        if (!data.downloadUrl) throw new Error("Không thể lấy link tải xuống.");
+
+        window.open(data.downloadUrl, '_self');
+        
         dismissToast(toastId);
-        showSuccess("Tải xuống thành công!");
       } catch (error) {
         dismissToast(toastId);
         if (error instanceof Error) {
