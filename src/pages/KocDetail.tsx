@@ -52,6 +52,7 @@ type Koc = {
   channel_nickname: string | null;
   channel_unique_id: string | null;
   channel_created_at: string | null;
+  default_prompt_template_id: string | null;
 };
 
 type KocFile = {
@@ -103,7 +104,7 @@ type Idea = {
 const fetchKocDetails = async (kocId: string) => {
   const { data, error } = await supabase
     .from("kocs")
-    .select("*, follower_count, like_count, video_count, channel_nickname, channel_unique_id, channel_created_at")
+    .select("*, follower_count, like_count, video_count, channel_nickname, channel_unique_id, channel_created_at, default_prompt_template_id")
     .eq("id", kocId)
     .single();
   if (error) throw error;
@@ -536,7 +537,7 @@ const KocDetail = () => {
               ) : (<p className="text-sm text-muted-foreground text-center py-8">Chưa có kịch bản nào.</p>)}
             </TabsContent>
             <TabsContent value="idea-content" className="mt-4">
-              <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} isMobile={isMobile} />
+              <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} isMobile={isMobile} defaultTemplateId={koc.default_prompt_template_id} />
             </TabsContent>
           </Tabs>
         </div>
@@ -741,7 +742,7 @@ const KocDetail = () => {
                 </Card>
               </TabsContent>
               <TabsContent value="idea-content" className="mt-6">
-                <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} />
+                <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} defaultTemplateId={koc.default_prompt_template_id} />
               </TabsContent>
             </Tabs>
           </div>

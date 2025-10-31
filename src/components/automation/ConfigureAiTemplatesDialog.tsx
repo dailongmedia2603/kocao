@@ -24,9 +24,11 @@ type Template = {
 type ConfigureAiTemplatesDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  kocId: string;
+  defaultTemplateIdForKoc: string | null;
 };
 
-export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange }: ConfigureAiTemplatesDialogProps) => {
+export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange, kocId, defaultTemplateIdForKoc }: ConfigureAiTemplatesDialogProps) => {
   const { user } = useSession();
   const queryClient = useQueryClient();
   const [isAddEditOpen, setAddEditOpen] = useState(false);
@@ -48,12 +50,15 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange }: ConfigureAi
 
   const setDefaultMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      const { error } = await supabase.rpc('set_default_prompt_template', { template_id_to_set: templateId });
+      const { error } = await supabase.rpc('set_default_prompt_for_koc', {
+        p_koc_id: kocId,
+        p_template_id: templateId,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
-      showSuccess("Đặt template mặc định thành công!");
-      queryClient.invalidateQueries({ queryKey });
+      showSuccess("Đặt template mặc định cho KOC này thành công!");
+      queryClient.invalidateQueries({ queryKey: ["koc", kocId] });
     },
     onError: (error: Error) => showError(error.message),
   });
@@ -107,47 +112,50 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange }: ConfigureAi
             {isLoading ? (
               [...Array(2)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
             ) : templates.length > 0 ? (
-              templates.map((template) => (
-                <Card key={template.id} className="relative group border-2 border-transparent hover:border-red-500 data-[default=true]:border-green-500 transition-colors" data-default={template.is_default}>
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-lg font-semibold">{template.name}</h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Model: {template.model || 'N/A'} | Tối đa: {template.word_count || 'N/A'} từ
-                        </p>
-                      </div>
-                      {template.is_default && (
-                        <div className="bg-green-600 text-white rounded-full px-3 py-1 text-xs font-semibold flex items-center">
-                          <Check className="h-3 w-3 mr-1" /> Mặc định
+              templates.map((template) => {
+                const isDefaultForKoc = template.id === defaultTemplateIdForKoc;
+                return (
+                  <Card key={template.id} className="relative group border-2 border-transparent hover:border-red-500 data-[default=true]:border-green-500 transition-colors" data-default={isDefaultForKoc}>
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="text-lg font-semibold">{template.name}</h3>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Model: {template.model || 'N/A'} | Tối đa: {template.word_count || 'N/A'} từ
+                          </p>
                         </div>
-                      )}
-                    </div>
-                  </CardContent>
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {!template.is_default && (
-                          <DropdownMenuItem onClick={() => setDefaultMutation.mutate(template.id)}>
-                            <Star className="mr-2 h-4 w-4" /> Đặt làm mặc định
-                          </DropdownMenuItem>
+                        {isDefaultForKoc && (
+                          <div className="bg-green-600 text-white rounded-full px-3 py-1 text-xs font-semibold flex items-center">
+                            <Check className="h-3 w-3 mr-1" /> Mặc định
+                          </div>
                         )}
-                        <DropdownMenuItem onClick={() => handleEdit(template)}>
-                          <Edit className="mr-2 h-4 w-4" /> Sửa
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(template)}>
-                          <Trash2 className="mr-2 h-4 w-4" /> Xóa
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </Card>
-              ))
+                      </div>
+                    </CardContent>
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {!isDefaultForKoc && (
+                            <DropdownMenuItem onClick={() => setDefaultMutation.mutate(template.id)}>
+                              <Star className="mr-2 h-4 w-4" /> Đặt làm mặc định
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => handleEdit(template)}>
+                            <Edit className="mr-2 h-4 w-4" /> Sửa
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(template)}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </Card>
+                )
+              })
             ) : (
               <div className="flex flex-col items-center justify-center h-48 text-muted-foreground border-2 border-dashed rounded-lg">
                 <Lightbulb className="h-10 w-10" />

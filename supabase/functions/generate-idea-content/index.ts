@@ -76,15 +76,41 @@ serve(async (req) => {
         const geminiApiKey = apiKeyData.api_key;
         console.log("API key found.");
 
-        console.log("Fetching default prompt template...");
-        const { data: template, error: templateError } = await supabaseAdmin.from('ai_prompt_templates').select('*').eq('user_id', idea.user_id).eq('is_default', true).single();
-        if (templateError || !template) throw new Error("User has no default AI prompt template set.");
-        console.log(`Found default template: "${template.name}"`);
-
-        console.log(`Fetching KOC name for ID: ${idea.koc_id}`);
-        const { data: koc, error: kocError } = await supabaseAdmin.from('kocs').select('name').eq('id', idea.koc_id).single();
+        console.log(`Fetching KOC data for ID: ${idea.koc_id}`);
+        const { data: koc, error: kocError } = await supabaseAdmin
+          .from('kocs')
+          .select('name, default_prompt_template_id')
+          .eq('id', idea.koc_id)
+          .single();
         if (kocError || !koc) throw new Error(`KOC with id ${idea.koc_id} not found.`);
         console.log(`Found KOC name: "${koc.name}"`);
+
+        let template;
+        let templateError;
+
+        if (koc.default_prompt_template_id) {
+          console.log(`Fetching KOC-specific default template ID: ${koc.default_prompt_template_id}`);
+          ({ data: template, error: templateError } = await supabaseAdmin
+            .from('ai_prompt_templates')
+            .select('*')
+            .eq('id', koc.default_prompt_template_id)
+            .single());
+        }
+
+        if (!template) {
+          console.log("No KOC-specific template found, falling back to user default.");
+          ({ data: template, error: templateError } = await supabaseAdmin
+            .from('ai_prompt_templates')
+            .select('*')
+            .eq('user_id', idea.user_id)
+            .eq('is_default', true)
+            .single());
+        }
+
+        if (templateError || !template) {
+          throw new Error("No default AI prompt template found for this KOC or user.");
+        }
+        console.log(`Using template: "${template.name}"`);
 
         const fullPrompt = `
           Bạn là một chuyên gia sáng tạo nội dung cho KOC tên là "${koc.name}".

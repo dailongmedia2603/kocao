@@ -33,6 +33,7 @@ type IdeaContentTabProps = {
   ideas: Idea[] | undefined;
   isLoading: boolean;
   isMobile?: boolean;
+  defaultTemplateId: string | null;
 };
 
 const StatusBadge = ({ status }: { status: string }) => {
@@ -98,7 +99,7 @@ const IdeaCardMobile = ({ idea, onGenerate, onEdit, onDelete, onViewContent, isG
     );
 };
 
-export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile }: IdeaContentTabProps) => {
+export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTemplateId }: IdeaContentTabProps) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
   const [isAddEditOpen, setAddEditOpen] = useState(false);
@@ -381,7 +382,7 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile }: IdeaConten
         title="Content mới"
         content={contentToView}
       />
-      <ConfigureAiTemplatesDialog isOpen={isConfigureOpen} onOpenChange={setConfigureOpen} />
+      <ConfigureAiTemplatesDialog isOpen={isConfigureOpen} onOpenChange={setConfigureOpen} kocId={kocId} defaultTemplateIdForKoc={defaultTemplateId} />
       <IdeaLogDialog isOpen={isLogOpen} onOpenChange={setIsLogOpen} kocId={kocId} />
     </>
   );
