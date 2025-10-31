@@ -1,5 +1,4 @@
 import { NavLink } from "react-router-dom";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Users, Mic, FileText, Captions } from "lucide-react";
 
@@ -12,8 +11,7 @@ const navItems = [
 
 const KocMobileNav = () => {
   return (
-    <div className="mb-6">
-      <ScrollArea className="w-full whitespace-nowrap">
+    <div className="mb-6 overflow-x-auto pb-2 -mb-2">
         <div className="flex items-center gap-2">
           {navItems.map((item) => (
             <NavLink
@@ -22,7 +20,7 @@ const KocMobileNav = () => {
               end={item.to === "/list-koc"}
               className={({ isActive }) =>
                 cn(
-                  "inline-flex items-center gap-2 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border transition-colors",
+                  "inline-flex items-center gap-2 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border transition-colors whitespace-nowrap",
                   isActive
                     ? "bg-red-50 text-red-600 border-red-200"
                     : "bg-gray-100 text-gray-600 border-transparent hover:bg-gray-200"
@@ -34,7 +32,6 @@ const KocMobileNav = () => {
             </NavLink>
           ))}
         </div>
-      </ScrollArea>
     </div>
   );
 };
