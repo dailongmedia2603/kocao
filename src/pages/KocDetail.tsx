@@ -450,7 +450,7 @@ const KocDetail = () => {
 
           <Tabs defaultValue="overview" className="w-full">
             <ScrollArea className="w-full whitespace-nowrap rounded-md">
-              <TabsList className="bg-transparent p-0 gap-x-2">
+              <TabsList className="bg-transparent p-0 gap-x-2 flex-nowrap">
                 {mobileTabs.map(tab => (
                   <TabsTrigger key={tab.value} value={tab.value} className="group bg-gray-100 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 text-gray-600 rounded-lg p-2 px-3 text-sm font-semibold shadow-none border border-transparent data-[state=active]:border-red-200">
                     <tab.icon className="h-4 w-4 mr-2" />
