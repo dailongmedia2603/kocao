@@ -56,7 +56,8 @@ serve(async (req) => {
     const statsData = apiData?.data?.userInfo?.statsV2;
 
     if (!userInfo || !statsData) {
-      throw new Error("Dữ liệu trả về từ API không hợp lệ.");
+      const apiErrorMessage = apiData?.message || apiData?.error || JSON.stringify(apiData);
+      throw new Error(`Dữ liệu trả về từ API không hợp lệ. Phản hồi: ${apiErrorMessage}`);
     }
 
     const { followerCount, heartCount, videoCount } = statsData;
