@@ -154,11 +154,15 @@ export const VoiceGenerationForm = () => {
         throw new Error("Nội dung để tạo voice không được để trống.");
       }
 
+      const selectedVoice = voices?.find(v => v.voice_id === values.voice_id);
+      const clonedVoiceName = selectedVoice ? selectedVoice.voice_name : undefined;
+
       const body = {
         voice_name: values.voice_name,
         text: textToGenerate,
         model: values.model,
-        voice_setting: { voice_id: values.voice_id }
+        voice_setting: { voice_id: values.voice_id },
+        cloned_voice_name: clonedVoiceName,
       };
       return callVoiceApi({ path: "v1m/task/text-to-speech", method: "POST", body });
     },

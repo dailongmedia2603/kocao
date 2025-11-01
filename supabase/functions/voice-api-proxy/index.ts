@@ -45,7 +45,9 @@ serve(async (req) => {
 
     const voice_name = body?.voice_name;
     const cloned_voice_id = body?.voice_setting?.voice_id;
-    const { voice_name: _removed, ...apiBody } = body || {};
+    const cloned_voice_name = body?.cloned_voice_name;
+
+    const { voice_name: _removed, cloned_voice_name: _removed2, ...apiBody } = body || {};
 
     const apiUrl = `https://gateway.vivoo.work/${path}`;
     const fetchOptions = {
@@ -63,19 +65,6 @@ serve(async (req) => {
       await supabaseAdmin.from("tts_logs").insert(logPayload);
 
       if (taskId && apiResponse.ok) {
-        let cloned_voice_name = 'Không rõ';
-        if (cloned_voice_id) {
-            const { data: voiceData } = await supabaseAdmin
-                .from('cloned_voices')
-                .select('voice_name')
-                .eq('voice_id', cloned_voice_id)
-                .eq('user_id', userId)
-                .single();
-            if (voiceData) {
-                cloned_voice_name = voiceData.voice_name;
-            }
-        }
-
         await supabaseAdmin.from("voice_tasks").insert({ 
           id: taskId,
           user_id: userId, 
@@ -83,7 +72,7 @@ serve(async (req) => {
           status: 'doing', 
           task_type: 'minimax_tts',
           cloned_voice_id: cloned_voice_id,
-          cloned_voice_name: cloned_voice_name
+          cloned_voice_name: cloned_voice_name || 'Không rõ'
         });
       }
     }
