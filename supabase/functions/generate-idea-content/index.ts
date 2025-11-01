@@ -36,13 +36,12 @@ serve(async (req) => {
       ideasToProcess = data;
       fetchError = error;
     } else {
-      // Otherwise, fetch the queue as before
+      // Otherwise, fetch the queue as before, but with corrected logic
       console.log("Fetching ideas to process from queue...");
       const { data, error } = await supabaseAdmin
         .from('koc_content_ideas')
         .select('id, user_id, idea_content, koc_id')
-        .eq('status', 'Chưa sử dụng')
-        .or('new_content.is.null,new_content.eq.')
+        .eq('status', 'Chưa sử dụng') // Only process ideas that are explicitly in 'Chưa sử dụng' state
         .limit(5);
       ideasToProcess = data;
       fetchError = error;
@@ -170,7 +169,7 @@ serve(async (req) => {
 
       } catch (processingError) {
         console.error(`Failed to process idea ${idea.id}:`, processingError.message);
-        await supabaseAdmin.from('koc_content_ideas').update({ status: 'Chưa sử dụng' }).eq('id', idea.id);
+        await supabaseAdmin.from('koc_content_ideas').update({ status: 'Chưa sử dụng', error_message: processingError.message }).eq('id', idea.id);
       }
     }
 
