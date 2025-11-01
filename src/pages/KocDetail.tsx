@@ -529,7 +529,7 @@ const KocDetail = () => {
               : (<p className="text-sm text-muted-foreground text-center py-8">Chưa có video nguồn.</p>)}
             </TabsContent>
             <TabsContent value="auto-scripts" className="mt-4">
-              {areScriptsLoading ? <Skeleton className="h-48 w-full" /> : videoScripts.length > 0 ? (
+              {areScriptsLoading ? <Skeleton className="h-48 w-full" /> : videoScripts && videoScripts.length > 0 ? (
                 <div className="space-y-3">
                   {videoScripts.map(script => {
                     const voiceTaskId = script.news_posts?.voice_task_id;
@@ -758,7 +758,7 @@ const KocDetail = () => {
                   </Card>
                 </TabsContent>
                 <TabsContent value="idea-content" className="mt-6">
-                  <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} defaultTemplateId={koc.default_prompt_template_id} />
+                  <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} isMobile={false} defaultTemplateId={koc.default_prompt_template_id} />
                 </TabsContent>
               </Tabs>
             </div>
