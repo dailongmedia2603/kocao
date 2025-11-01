@@ -5,9 +5,6 @@ import { useSession } from "@/contexts/SessionContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { isToday } from 'date-fns';
-import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
 import { useIsMobile } from "@/hooks/use-mobile";
 import KocMobileNav from "@/components/koc/KocMobileNav";
 
@@ -15,7 +12,6 @@ import KocMobileNav from "@/components/koc/KocMobileNav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -29,27 +25,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Icons
-import { Bot, Newspaper, Settings, History, FileText, CalendarClock, Voicemail, Wand2, ChevronDown, FileSignature, UserCircle, Sigma, MessageSquare, Loader2, Hash, AlignLeft, Settings2, Trash2, Edit, MoreHorizontal, Check, ChevronsUpDown, CheckSquare, Eye } from "lucide-react";
+import { Bot, Settings, Wand2, ChevronDown, FileSignature, UserCircle, Sigma, MessageSquare, Loader2, Hash, AlignLeft, Settings2, Trash2, Edit, MoreHorizontal, Check, ChevronsUpDown, CheckSquare, Eye } from "lucide-react";
 
 // Custom Components
-import { ConfigureNewsDialog } from "@/components/content/ConfigureNewsDialog";
-import { NewsTable } from "@/components/content/NewsTable";
-import { NewsScanLogDialog } from "@/components/content/NewsScanLogDialog";
-import { StatCard } from "@/components/content/StatCard";
 import { ViewScriptContentDialog } from "@/components/content/ViewScriptContentDialog";
 import { cn } from "@/lib/utils";
 import { showSuccess, showError } from "@/utils/toast";
 
 // Type Definitions
-type NewsPost = {
-  id: string;
-  content: string | null;
-  created_time: string;
-  status: string;
-  source_name: string | null;
-  voice_script: string | null;
-  post_url: string | null;
-};
 type Koc = { id: string; name: string; };
 type VideoScript = {
   id: string;
@@ -57,15 +40,13 @@ type VideoScript = {
   script_content: string | null;
   created_at: string;
   kocs: { name: string } | null;
-  news_posts: { content: string | null } | null;
 };
 
 // Form Schema
 const scriptFormSchema = z.object({
   name: z.string().min(1, "Tên kịch bản không được để trống."),
   kocId: z.string().min(1, "Vui lòng chọn KOC."),
-  newsProcessingRequest: z.string().optional(),
-  newsPostId: z.string().min(1, "Vui lòng chọn tin tức."),
+  content: z.string().min(1, "Nội dung gốc không được để trống."),
   model: z.string().min(1, "Vui lòng chọn model AI."),
   maxWords: z.coerce.number().positive("Số từ phải là số dương.").optional(),
   toneOfVoice: z.string().optional(),
@@ -77,26 +58,19 @@ const scriptFormSchema = z.object({
 });
 
 // Data Fetching Functions
-const fetchNewsPosts = async (userId: string) => {
-  const { data, error } = await supabase.from('news_posts').select('id, content, created_time, status, source_name, voice_script, post_url').eq('user_id', userId).order('created_time', { ascending: false }).limit(100);
-  if (error) throw error;
-  return data as NewsPost[];
-};
 const fetchKocs = async (userId: string) => {
   const { data, error } = await supabase.from('kocs').select('id, name').eq('user_id', userId).order('name', { ascending: true });
   if (error) throw error;
   return data as Koc[];
 };
 const fetchVideoScripts = async (userId: string) => {
-  const { data, error } = await supabase.from('video_scripts').select('*, kocs(name), news_posts(content)').eq('user_id', userId).order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('video_scripts').select('*, kocs(name)').eq('user_id', userId).order('created_at', { ascending: false });
   if (error) throw error;
   return data as VideoScript[];
 };
 
 const TaoContent = () => {
   const isMobile = useIsMobile();
-  const [isConfigureOpen, setConfigureOpen] = useState(false);
-  const [isLogOpen, setLogOpen] = useState(false);
   const [generatedScript, setGeneratedScript] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedScript, setSelectedScript] = useState<VideoScript | null>(null);
@@ -106,11 +80,6 @@ const TaoContent = () => {
   const { user } = useSession();
   const queryClient = useQueryClient();
 
-  const { data: news = [], isLoading: isLoadingNews } = useQuery<NewsPost[]>({
-    queryKey: ['news_posts_for_script', user?.id],
-    queryFn: () => fetchNewsPosts(user!.id),
-    enabled: !!user,
-  });
   const { data: kocs = [], isLoading: isLoadingKocs } = useQuery<Koc[]>({
     queryKey: ['kocs_for_script', user?.id],
     queryFn: () => fetchKocs(user!.id),
@@ -140,8 +109,7 @@ const TaoContent = () => {
     defaultValues: { 
       name: "", 
       kocId: "", 
-      newsProcessingRequest: "",
-      newsPostId: "", 
+      content: "",
       model: "gemini-2.5-pro",
       toneOfVoice: "hài hước",
       writingStyle: "kể chuyện, sử dụng văn nói",
@@ -156,15 +124,13 @@ const TaoContent = () => {
     mutationFn: async (values: z.infer<typeof scriptFormSchema>) => {
       if (!user) throw new Error("User not authenticated");
 
-      const selectedNews = news.find(post => post.id === values.newsPostId);
       const selectedKoc = kocs.find(koc => koc.id === values.kocId);
 
-      if (!selectedNews || !selectedKoc) {
-        throw new Error("Không tìm thấy tin tức hoặc KOC đã chọn.");
+      if (!selectedKoc) {
+        throw new Error("Không tìm thấy KOC đã chọn.");
       }
 
       const detailedPrompt = `
-${values.newsProcessingRequest ? `- Yêu cầu xử lý tin tức: ${values.newsProcessingRequest}` : ''}
 - Tông giọng: ${values.toneOfVoice || 'chuyên nghiệp, hấp dẫn'}
 - Văn phong: ${values.writingStyle || 'kể chuyện, sử dụng văn nói'}
 - Cách viết: ${values.writingMethod || 'sử dụng câu ngắn, đi thẳng vào vấn đề'}
@@ -177,7 +143,7 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
         body: {
           userId: user.id,
           prompt: detailedPrompt,
-          newsContent: selectedNews.content,
+          newsContent: values.content,
           kocName: selectedKoc.name,
           maxWords: values.maxWords,
           model: values.model,
@@ -202,7 +168,6 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
           user_id: user.id,
           name: values.name,
           koc_id: values.kocId,
-          news_post_id: values.newsPostId,
           script_content: scriptContent,
           ai_prompt: prompt,
         });
@@ -229,10 +194,6 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
     generateScriptMutation.mutate(values);
   };
 
-  const totalPosts = news.length;
-  const todayPosts = news.filter(post => isToday(new Date(post.created_time))).length;
-  const voiceGeneratedPosts = news.filter(post => post.status === 'voice_generated').length;
-
   const renderDesktopScripts = () => (
     <Table>
       <TableHeader>
@@ -240,19 +201,17 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
           <TableHead className="w-[50px]"><Checkbox /></TableHead>
           <TableHead>Tên kịch bản</TableHead>
           <TableHead>KOC</TableHead>
-          <TableHead>Nguồn tin tức</TableHead>
           <TableHead>Nội dung</TableHead>
           <TableHead className="text-right">Hành động</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {isLoadingScripts ? <TableRow><TableCell colSpan={6} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
+        {isLoadingScripts ? <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
         : scripts.length > 0 ? scripts.map((script) => (
           <TableRow key={script.id}>
             <TableCell><Checkbox /></TableCell>
             <TableCell className="font-medium">{script.name}</TableCell>
             <TableCell>{script.kocs?.name || 'N/A'}</TableCell>
-            <TableCell><p className="max-w-xs truncate">{script.news_posts?.content || 'N/A'}</p></TableCell>
             <TableCell><Button variant="link" className="p-0 h-auto" onClick={() => { setSelectedScript(script); setIsViewScriptOpen(true); }}>Xem chi tiết</Button></TableCell>
             <TableCell className="text-right">
               <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -263,7 +222,7 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
               </DropdownMenu>
             </TableCell>
           </TableRow>
-        )) : <TableRow><TableCell colSpan={6} className="h-24 text-center">Chưa có kịch bản nào được tạo.</TableCell></TableRow>}
+        )) : <TableRow><TableCell colSpan={5} className="h-24 text-center">Chưa có kịch bản nào được tạo.</TableCell></TableRow>}
       </TableBody>
     </Table>
   );
@@ -280,7 +239,6 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
                 <div className="flex-1 space-y-1">
                   <p className="font-semibold">{script.name}</p>
                   <p className="text-sm text-muted-foreground">KOC: {script.kocs?.name || 'N/A'}</p>
-                  <p className="text-xs text-muted-foreground truncate">Nguồn: {script.news_posts?.content || 'N/A'}</p>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -316,71 +274,56 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
     <>
       <div className="p-4 md:p-6 lg:p-8">
         {isMobile && <KocMobileNav />}
-        <header className="mb-8"><h1 className="text-3xl font-bold">Công cụ Content</h1><p className="text-muted-foreground mt-1">Sử dụng AI để tạo nội dung mới hoặc cập nhật tin tức từ các nguồn có sẵn.</p></header>
-        <Tabs defaultValue="create-content" className="w-full">
-          <TabsList className="inline-flex h-auto items-center justify-center gap-1 rounded-none border-b bg-transparent p-0">
-            <TabsTrigger value="create-content" className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-muted-foreground ring-offset-background transition-all hover:bg-muted/50 focus-visible:outline-none data-[state=active]:border-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600"><div className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-muted-foreground transition-colors group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white"><Bot className="h-5 w-5" /></div>Tạo content</TabsTrigger>
-            <TabsTrigger value="news" className="group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-muted-foreground ring-offset-background transition-all hover:bg-muted/50 focus-visible:outline-none data-[state=active]:border-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600"><div className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-muted-foreground transition-colors group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white"><Newspaper className="h-5 w-5" /></div>Tin tức mới</TabsTrigger>
-          </TabsList>
-          <TabsContent value="create-content" className="mt-6">
-            <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
-              <AccordionItem value="item-1">
-                <AccordionTrigger className="text-lg font-semibold p-4 bg-card rounded-lg border hover:no-underline data-[state=open]:rounded-b-none"><div className="flex items-center gap-3"><Wand2 className="h-5 w-5 text-primary" />Tạo kịch bản video</div></AccordionTrigger>
-                <AccordionContent className="p-6 border border-t-0 rounded-b-lg">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-lg">Cấu hình</h3>
-                      <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                          <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><FileSignature className="h-4 w-4 mr-2" />Tên kịch bản</FormLabel><FormControl><Input placeholder="Ví dụ: Kịch bản tin tức Campuchia" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          <FormField control={form.control} name="kocId" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel className="flex items-center"><UserCircle className="h-4 w-4 mr-2" />Tạo cho KOC</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>{field.value ? kocs.find((koc) => koc.id === field.value)?.name : "Chọn KOC"}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Tìm KOC..." /><CommandList><CommandEmpty>Không tìm thấy KOC.</CommandEmpty><CommandGroup>{kocs.map((koc) => (<CommandItem value={koc.name} key={koc.id} onSelect={() => { form.setValue("kocId", koc.id);}}><Check className={cn("mr-2 h-4 w-4", koc.id === field.value ? "opacity-100" : "opacity-0")}/>{koc.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                          <FormField control={form.control} name="newsProcessingRequest" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Settings2 className="h-4 w-4 mr-2" />Yêu cầu xử lý tin tức</FormLabel><FormControl><Textarea placeholder="Ví dụ: Tóm tắt lại tin tức, chỉ lấy ý chính, không lấy các chi tiết rườm rà." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          <FormField control={form.control} name="newsPostId" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel className="flex items-center"><Newspaper className="h-4 w-4 mr-2" />Tin tức</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" role="combobox" className={cn("w-full justify-between text-left", !field.value && "text-muted-foreground")}>{field.value ? <span className="truncate">{news.find((post) => post.id === field.value)?.content}</span> : "Chọn tin tức"}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Tìm tin tức..." /><CommandList><CommandEmpty>Không tìm thấy tin tức.</CommandEmpty><CommandGroup>{news.map((post) => (<CommandItem value={post.content || ""} key={post.id} onSelect={() => { form.setValue("newsPostId", post.id);}}><Check className={cn("mr-2 h-4 w-4", post.id === field.value ? "opacity-100" : "opacity-0")}/><span className="truncate">{post.content}</span></CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Model AI</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem><SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem><SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem><SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
-                            <FormField control={form.control} name="maxWords" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Sigma className="h-4 w-4 mr-2" />Số từ tối đa</FormLabel><FormControl><Input type="number" placeholder="Ví dụ: 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          </div>
-                          <FormField control={form.control} name="toneOfVoice" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Voicemail className="h-4 w-4 mr-2" />Tông giọng</FormLabel><FormControl><Input placeholder="Ví dụ: hài hước, chuyên nghiệp..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          <FormField control={form.control} name="writingStyle" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><FileSignature className="h-4 w-4 mr-2" />Văn phong</FormLabel><FormControl><Textarea placeholder="Ví dụ: kể chuyện, sử dụng văn nói..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          <FormField control={form.control} name="writingMethod" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><AlignLeft className="h-4 w-4 mr-2" />Cách viết</FormLabel><FormControl><Textarea placeholder="Ví dụ: Sử dụng câu ngắn, đi thẳng vào vấn đề..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          <FormField control={form.control} name="aiRole" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Vai trò AI</FormLabel><FormControl><Textarea placeholder="Ví dụ: Đóng vai là 1 người tự quay video tiktok để nói chuyện..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          <FormField control={form.control} name="mandatoryRequirements" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><CheckSquare className="h-4 w-4 mr-2" />Yêu cầu bắt buộc</FormLabel><FormControl><Textarea placeholder="Ví dụ: Không nhắc đến đối thủ cạnh tranh..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          <FormField control={form.control} name="exampleDialogue" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><MessageSquare className="h-4 w-4 mr-2" />Lời thoại ví dụ</FormLabel><FormControl><Textarea placeholder="Ví dụ: 'Hello mọi người, lại là mình đây! Hôm nay có tin gì hot hòn họt nè...'" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                          
-                          <Button type="submit" className="w-full" disabled={generateScriptMutation.isPending}>{generateScriptMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang xử lý...</> : <><Wand2 className="mr-2 h-4 w-4" /> Tạo kịch bản</>}</Button>
-                        </form>
-                      </Form>
-                    </div>
-                    <div className="space-y-4">
-                      <h3 className="font-semibold text-lg">Kịch bản</h3>
-                      <Card className="min-h-[400px] flex items-center justify-center">
-                        <CardContent className="p-4 w-full">
-                          {isGenerating ? <div className="space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-1/2" /></div>
-                          : generatedScript ? <pre className="whitespace-pre-wrap text-sm font-sans">{generatedScript}</pre>
-                          : <p className="text-center text-muted-foreground">Kết quả kịch bản sẽ hiển thị ở đây.</p>}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-            <Card className="mt-8">
-              <CardHeader><CardTitle>Kịch bản đã tạo</CardTitle><CardDescription>Danh sách các kịch bản đã được tạo bằng AI.</CardDescription></CardHeader>
-              <CardContent>
-                {isMobile ? renderMobileScripts() : renderDesktopScripts()}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="news" className="mt-6">
-            <div className="grid gap-4 md:grid-cols-3 mb-6"><StatCard title="Tổng Post" value={isLoadingNews ? '...' : totalPosts} icon={FileText} color="bg-blue-100 text-blue-600" /><StatCard title="Post Hôm Nay" value={isLoadingNews ? '...' : todayPosts} icon={CalendarClock} color="bg-green-100 text-green-600" /><StatCard title="Đã Tạo Voice" value={isLoadingNews ? '...' : voiceGeneratedPosts} icon={Voicemail} color="bg-purple-100 text-purple-600" /></div>
-            <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-semibold">Hộp thư tin tức</h2><div className="flex items-center gap-2"><Button variant="outline" onClick={() => setLogOpen(true)} className="bg-red-100 hover:bg-red-200 text-red-700 border-red-200"><History className="mr-2 h-4 w-4" />Nhật ký</Button><Button onClick={() => setConfigureOpen(true)} className="bg-red-700 hover:bg-red-800 text-white"><Settings className="mr-2 h-4 w-4" />Cấu hình</Button></div></div>
-            <NewsTable news={news} isLoading={isLoadingNews} />
-          </TabsContent>
-        </Tabs>
+        <header className="mb-8"><h1 className="text-3xl font-bold">Công cụ Content</h1><p className="text-muted-foreground mt-1">Sử dụng AI để tạo nội dung video từ nội dung có sẵn.</p></header>
+        
+        <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
+          <AccordionItem value="item-1">
+            <AccordionTrigger className="text-lg font-semibold p-4 bg-card rounded-lg border hover:no-underline data-[state=open]:rounded-b-none"><div className="flex items-center gap-3"><Wand2 className="h-5 w-5 text-primary" />Tạo kịch bản video</div></AccordionTrigger>
+            <AccordionContent className="p-6 border border-t-0 rounded-b-lg">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-lg">Cấu hình</h3>
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                      <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><FileSignature className="h-4 w-4 mr-2" />Tên kịch bản</FormLabel><FormControl><Input placeholder="Ví dụ: Kịch bản tin tức Campuchia" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="kocId" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel className="flex items-center"><UserCircle className="h-4 w-4 mr-2" />Tạo cho KOC</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>{field.value ? kocs.find((koc) => koc.id === field.value)?.name : "Chọn KOC"}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Tìm KOC..." /><CommandList><CommandEmpty>Không tìm thấy KOC.</CommandEmpty><CommandGroup>{kocs.map((koc) => (<CommandItem value={koc.name} key={koc.id} onSelect={() => { form.setValue("kocId", koc.id);}}><Check className={cn("mr-2 h-4 w-4", koc.id === field.value ? "opacity-100" : "opacity-0")}/>{koc.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="content" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><AlignLeft className="h-4 w-4 mr-2" />Nội dung gốc</FormLabel><FormControl><Textarea placeholder="Nhập nội dung bạn muốn AI chuyển thành kịch bản video..." {...field} rows={5} /></FormControl><FormMessage /></FormItem>)} />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Model AI</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem><SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem><SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem><SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="maxWords" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Sigma className="h-4 w-4 mr-2" />Số từ tối đa</FormLabel><FormControl><Input type="number" placeholder="Ví dụ: 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      </div>
+                      <FormField control={form.control} name="toneOfVoice" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><MessageSquare className="h-4 w-4 mr-2" />Tông giọng</FormLabel><FormControl><Input placeholder="Ví dụ: hài hước, chuyên nghiệp..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="writingStyle" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><FileSignature className="h-4 w-4 mr-2" />Văn phong</FormLabel><FormControl><Textarea placeholder="Ví dụ: kể chuyện, sử dụng văn nói..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="writingMethod" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><AlignLeft className="h-4 w-4 mr-2" />Cách viết</FormLabel><FormControl><Textarea placeholder="Ví dụ: Sử dụng câu ngắn, đi thẳng vào vấn đề..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="aiRole" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Vai trò AI</FormLabel><FormControl><Textarea placeholder="Ví dụ: Đóng vai là 1 người tự quay video tiktok để nói chuyện..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="mandatoryRequirements" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><CheckSquare className="h-4 w-4 mr-2" />Yêu cầu bắt buộc</FormLabel><FormControl><Textarea placeholder="Ví dụ: Không nhắc đến đối thủ cạnh tranh..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="exampleDialogue" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><MessageSquare className="h-4 w-4 mr-2" />Lời thoại ví dụ</FormLabel><FormControl><Textarea placeholder="Ví dụ: 'Hello mọi người, lại là mình đây! Hôm nay có tin gì hot hòn họt nè...'" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      
+                      <Button type="submit" className="w-full" disabled={generateScriptMutation.isPending}>{generateScriptMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang xử lý...</> : <><Wand2 className="mr-2 h-4 w-4" /> Tạo kịch bản</>}</Button>
+                    </form>
+                  </Form>
+                </div>
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-lg">Kịch bản</h3>
+                  <Card className="min-h-[400px] flex items-center justify-center">
+                    <CardContent className="p-4 w-full">
+                      {isGenerating ? <div className="space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-1/2" /></div>
+                      : generatedScript ? <pre className="whitespace-pre-wrap text-sm font-sans">{generatedScript}</pre>
+                      : <p className="text-center text-muted-foreground">Kết quả kịch bản sẽ hiển thị ở đây.</p>}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+        <Card className="mt-8">
+          <CardHeader><CardTitle>Kịch bản đã tạo</CardTitle><CardDescription>Danh sách các kịch bản đã được tạo bằng AI.</CardDescription></CardHeader>
+          <CardContent>
+            {isMobile ? renderMobileScripts() : renderDesktopScripts()}
+          </CardContent>
+        </Card>
       </div>
-      <ConfigureNewsDialog isOpen={isConfigureOpen} onOpenChange={setConfigureOpen} />
-      <NewsScanLogDialog isOpen={isLogOpen} onOpenChange={setLogOpen} />
       <ViewScriptContentDialog isOpen={isViewScriptOpen} onOpenChange={setIsViewScriptOpen} title={selectedScript?.name || null} content={selectedScript?.script_content || null} />
       <AlertDialog open={!!scriptToDelete} onOpenChange={(isOpen) => !isOpen && setScriptToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Kịch bản "{scriptToDelete?.name}" sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => scriptToDelete && deleteScriptMutation.mutate(scriptToDelete.id)} disabled={deleteScriptMutation.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deleteScriptMutation.isPending ? "Đang xóa..." : "Xóa"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </>
