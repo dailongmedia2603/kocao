@@ -15,6 +15,7 @@ import { Loader2, Wand2 } from "lucide-react";
 import { Skeleton } from "../ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useSession } from "@/contexts/SessionContext";
 
 const formSchema = z.object({
   voice_name: z.string().min(1, "Tên voice không được để trống."),
@@ -80,6 +81,7 @@ const fetchContentIdeas = async (kocId: string) => {
 
 export const VoiceGenerationForm = () => {
   const queryClient = useQueryClient();
+  const { user } = useSession();
   const [contentType, setContentType] = useState<"text" | "koc">("text");
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -169,7 +171,7 @@ export const VoiceGenerationForm = () => {
     },
     onSuccess: (data, values) => {
       showSuccess("Đã gửi yêu cầu tạo voice! Vui lòng chờ trong giây lát.");
-      queryClient.invalidateQueries({ queryKey: ["voice_tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["voice_tasks_grouped", user?.id] });
       
       const voiceTaskId = data?.task_id;
       if (values.contentType === "koc" && values.idea_id && voiceTaskId) {
