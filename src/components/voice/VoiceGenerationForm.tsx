@@ -70,9 +70,10 @@ const fetchContentIdeas = async (kocId: string) => {
   if (!kocId) return [];
   const { data, error } = await supabase
     .from("koc_content_ideas")
-    .select("id, idea_content")
+    .select("id, new_content")
     .eq("koc_id", kocId)
-    .eq("status", "Chưa sử dụng");
+    .eq("status", "Đã có content")
+    .not("new_content", "is", null);
   if (error) throw new Error(error.message);
   return data;
 };
@@ -122,12 +123,13 @@ export const VoiceGenerationForm = () => {
     mutationFn: async (ideaId: string) => {
       const { error } = await supabase
         .from("koc_content_ideas")
-        .update({ status: "Đã sử dụng" })
+        .update({ status: "Đang tạo voice" })
         .eq("id", ideaId);
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["content_ideas", watchedKocId] });
+      queryClient.invalidateQueries({ queryKey: ["koc_content_ideas", watchedKocId] });
     },
     onError: (error: Error) => {
       showError(`Lỗi cập nhật trạng thái nội dung: ${error.message}`);
@@ -141,8 +143,8 @@ export const VoiceGenerationForm = () => {
         textToGenerate = values.text!;
       } else if (values.contentType === "koc" && values.idea_id) {
         const selectedIdea = contentIdeas?.find(idea => idea.id === values.idea_id);
-        if (selectedIdea) {
-          textToGenerate = selectedIdea.idea_content;
+        if (selectedIdea && selectedIdea.new_content) {
+          textToGenerate = selectedIdea.new_content;
         } else {
           throw new Error("Không tìm thấy nội dung đã chọn.");
         }
@@ -274,7 +276,7 @@ export const VoiceGenerationForm = () => {
                         <SelectContent>
                           {contentIdeas && contentIdeas.length > 0 ? (
                             contentIdeas.map((idea: any) => (
-                              <SelectItem key={idea.id} value={idea.id}>{idea.idea_content.substring(0, 100)}{idea.idea_content.length > 100 ? '...' : ''}</SelectItem>
+                              <SelectItem key={idea.id} value={idea.id}>{idea.new_content.substring(0, 100)}{idea.new_content.length > 100 ? '...' : ''}</SelectItem>
                             ))
                           ) : (
                             <div className="p-4 text-center text-sm text-muted-foreground">

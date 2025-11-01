@@ -85,7 +85,7 @@ const IdeaCardMobile = ({ idea, onGenerate, onEdit, onDelete, onViewContent, isG
                 <div className="mt-2 flex items-center justify-between">
                     <StatusBadge status={idea.status} />
                     {idea.new_content && (
-                        <Button variant="link" className="p-0 h-auto text-xs" onClick={() => onViewContent(idea.new_content)}>Xem content</Button>
+                        <Button variant="link" className="p-0 h-auto text-xs" onClick={() => onViewContent(idea.new_content)}>Xem kịch bản</Button>
                     )}
                 </div>
                 {idea.koc_files && (
@@ -275,7 +275,7 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
             <TableHeader>
               <TableRow>
                 <TableHead>Idea Content</TableHead>
-                <TableHead>Content mới</TableHead>
+                <TableHead>Kịch bản</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead>Video đã tạo</TableHead>
                 <TableHead className="text-right">Thao tác</TableHead>
