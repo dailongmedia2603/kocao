@@ -215,13 +215,13 @@ const KocDetail = () => {
       .on(
         'postgres_changes',
         { 
-          event: '*', 
+          event: 'INSERT', 
           schema: 'public', 
           table: 'koc_files',
           filter: `koc_id=eq.${kocId}`
         },
         (payload) => {
-          console.log('KOC file change received!', payload);
+          console.log('New KOC file inserted!', payload);
           queryClient.invalidateQueries({ queryKey: filesQueryKey });
         }
       )
