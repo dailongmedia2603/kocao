@@ -120,11 +120,11 @@ export const VoiceGenerationForm = () => {
   }, [watchedKocId, form]);
 
   const updateIdeaStatusMutation = useMutation({
-    mutationFn: async (ideaId: string) => {
-      // Cập nhật trạng thái sang 'Đang tạo voice' để cron job không xử lý lại
+    mutationFn: async ({ ideaId, voiceTaskId }: { ideaId: string, voiceTaskId: string }) => {
+      // Cập nhật trạng thái và liên kết voice_task_id
       const { error } = await supabase
         .from("koc_content_ideas")
-        .update({ status: "Đang tạo voice" })
+        .update({ status: "Đang tạo voice", voice_task_id: voiceTaskId })
         .eq("id", ideaId);
       if (error) throw new Error(error.message);
     },
@@ -167,12 +167,13 @@ export const VoiceGenerationForm = () => {
       };
       return callVoiceApi({ path: "v1m/task/text-to-speech", method: "POST", body });
     },
-    onSuccess: (_, values) => {
+    onSuccess: (data, values) => {
       showSuccess("Đã gửi yêu cầu tạo voice! Vui lòng chờ trong giây lát.");
       queryClient.invalidateQueries({ queryKey: ["voice_tasks"] });
       
-      if (values.contentType === "koc" && values.idea_id) {
-        updateIdeaStatusMutation.mutate(values.idea_id);
+      const voiceTaskId = data?.task_id;
+      if (values.contentType === "koc" && values.idea_id && voiceTaskId) {
+        updateIdeaStatusMutation.mutate({ ideaId: values.idea_id, voiceTaskId });
       }
 
       form.reset({
