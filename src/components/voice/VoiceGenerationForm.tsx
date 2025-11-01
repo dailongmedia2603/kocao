@@ -121,6 +121,7 @@ export const VoiceGenerationForm = () => {
 
   const updateIdeaStatusMutation = useMutation({
     mutationFn: async (ideaId: string) => {
+      // Cập nhật trạng thái sang 'Đang tạo voice' để cron job không xử lý lại
       const { error } = await supabase
         .from("koc_content_ideas")
         .update({ status: "Đang tạo voice" })

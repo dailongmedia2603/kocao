@@ -50,6 +50,7 @@ serve(async (req) => {
         }
 
         // 3. Khóa idea lại bằng cách cập nhật status
+        // Nếu bước này thành công, nhưng các bước sau thất bại, nó sẽ bị kẹt ở 'Đang tạo voice'
         await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đang tạo voice' }).eq('id', idea.id);
 
         // 4. Gọi API tạo voice và không chờ đợi
@@ -80,7 +81,7 @@ serve(async (req) => {
 
       } catch (processingError) {
         console.error(`Lỗi xử lý idea ${idea.id}:`, processingError.message);
-        // Nếu lỗi, trả lại status để lần sau có thể xử lý lại
+        // Nếu lỗi, trả lại status về 'Đã có content' để có thể thử lại hoặc xử lý thủ công
         await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đã có content' }).eq('id', idea.id);
       }
     }
