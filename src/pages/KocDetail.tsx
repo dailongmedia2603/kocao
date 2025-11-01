@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, formatDistanceToNow, intervalToDuration } from "date-fns";
 import { vi } from "date-fns/locale";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 // UI Components
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -192,7 +191,6 @@ const mobileTabs = [
 const KocDetail = () => {
   const { kocId } = useParams<{ kocId: string }>();
   const queryClient = useQueryClient();
-  const isMobile = useIsMobile();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<KocFile | null>(null);
   const [filesToDelete, setFilesToDelete] = useState<KocFile[]>([]);
@@ -453,9 +451,10 @@ const KocDetail = () => {
     );
   }
 
-  if (isMobile) {
-    return (
-      <>
+  return (
+    <>
+      {/* Mobile View */}
+      <div className="md:hidden">
         <div className="p-4 space-y-6 pb-20">
           <Link to="/list-koc" className="flex items-center text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách KOC</Link>
           <header>
@@ -565,269 +564,260 @@ const KocDetail = () => {
               ) : (<p className="text-sm text-muted-foreground text-center py-8">Chưa có kịch bản nào.</p>)}
             </TabsContent>
             <TabsContent value="idea-content" className="mt-4">
-              <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} isMobile={isMobile} defaultTemplateId={koc.default_prompt_template_id} />
+              <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} isMobile={true} defaultTemplateId={koc.default_prompt_template_id} />
             </TabsContent>
           </Tabs>
         </div>
-        <EditKocDialog isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} koc={koc} />
-        <VideoPlayerDialog isOpen={isPlayerOpen} onOpenChange={setPlayerOpen} videoUrl={selectedFile?.url} videoName={selectedFile?.display_name} />
-        {koc && koc.folder_path && (<UploadVideoDialog isOpen={isUploadOpen} onOpenChange={setUploadOpen} folderPath={`${koc.folder_path}/generated`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} />)}
-        {koc && koc.folder_path && (<UploadVideoDialog isOpen={isSourceVideoUploadOpen} onOpenChange={setSourceVideoUploadOpen} folderPath={`${koc.folder_path}/sources/videos`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} accept="video/*" />)}
-        <AlertDialog open={filesToDelete.length > 0} onOpenChange={() => setFilesToDelete([])}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. {filesToDelete.length} tệp sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} disabled={deleteFilesMutation.isPending}>{deleteFilesMutation.isPending ? "Đang xóa..." : "Xóa"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-        <ViewScriptContentDialog isOpen={isViewScriptOpen} onOpenChange={setIsViewScriptOpen} title={selectedScript?.name || null} content={selectedScript?.script_content || null} />
-        <ViewScriptLogDialog isOpen={isViewLogOpen} onOpenChange={setIsViewLogOpen} title={selectedScript?.name || null} prompt={selectedScript?.ai_prompt || null} />
-        <AlertDialog open={!!scriptToDelete} onOpenChange={(isOpen) => !isOpen && setScriptToDelete(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác. Kịch bản "{scriptToDelete?.name}" sẽ bị xóa vĩnh viễn.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Hủy</AlertDialogCancel><AlertDialogAction onClick={() => scriptToDelete && deleteScriptMutation.mutate(scriptToDelete.id)} disabled={deleteScriptMutation.isPending} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{deleteScriptMutation.isPending ? "Đang xóa..." : "Xóa"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
-      </>
-    );
-  }
+      </div>
 
-  // Desktop View
-  return (
-    <>
-      <div className="p-6 lg:p-8">
-        <Link to="/list-koc" className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"><ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách KOC</Link>
-        <header className="mb-6"><h1 className="text-3xl font-bold">Chi tiết KOC của bạn</h1><p className="text-muted-foreground mt-1">Quản lý và theo dõi hiệu suất và hoạt động của KOC ảo của bạn.</p></header>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          <div className="lg:col-span-2 space-y-8">
-            <Card className="overflow-hidden">
-              <CardContent className="p-6 flex items-center justify-between">
-                <div className="flex items-center gap-6">
-                  <Avatar className="h-24 w-24 border-4 border-white shadow-md"><AvatarImage src={koc.avatar_url || undefined} alt={koc.name} /><AvatarFallback className="text-3xl">{getInitials(koc.name)}</AvatarFallback></Avatar>
-                  <div>
-                    <h2 className="text-2xl font-bold">{koc.name}</h2>
-                    <p className="text-muted-foreground">{koc.field || "Virtual KOC"}</p>
-                    {koc.created_at && <p className="text-sm text-muted-foreground mt-1">Tham gia {formatDistanceToNow(new Date(koc.created_at), { addSuffix: true, locale: vi })}</p>}
+      {/* Desktop View */}
+      <div className="hidden md:block">
+        <div className="p-6 lg:p-8">
+          <Link to="/list-koc" className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"><ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách KOC</Link>
+          <header className="mb-6"><h1 className="text-3xl font-bold">Chi tiết KOC của bạn</h1><p className="text-muted-foreground mt-1">Quản lý và theo dõi hiệu suất và hoạt động của KOC ảo của bạn.</p></header>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            <div className="lg:col-span-2 space-y-8">
+              <Card className="overflow-hidden">
+                <CardContent className="p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-6">
+                    <Avatar className="h-24 w-24 border-4 border-white shadow-md"><AvatarImage src={koc.avatar_url || undefined} alt={koc.name} /><AvatarFallback className="text-3xl">{getInitials(koc.name)}</AvatarFallback></Avatar>
+                    <div>
+                      <h2 className="text-2xl font-bold">{koc.name}</h2>
+                      <p className="text-muted-foreground">{koc.field || "Virtual KOC"}</p>
+                      {koc.created_at && <p className="text-sm text-muted-foreground mt-1">Tham gia {formatDistanceToNow(new Date(koc.created_at), { addSuffix: true, locale: vi })}</p>}
+                    </div>
                   </div>
-                </div>
-                <Button onClick={() => setIsEditDialogOpen(true)} className="bg-red-600 hover:bg-red-700 text-white"><Edit className="mr-2 h-4 w-4" /> Chỉnh sửa</Button>
-              </CardContent>
-            </Card>
-            <Tabs defaultValue="content" className="w-full">
-              <TabsList className="bg-transparent w-full justify-start rounded-none border-b p-0 gap-x-2">
-                <TabsTrigger value="overview" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
-                  <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><LayoutDashboard className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Tổng quan</span></div>
-                </TabsTrigger>
-                <TabsTrigger value="content" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
-                  <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Clapperboard className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Video đã tạo</span></div>
-                </TabsTrigger>
-                <TabsTrigger value="sources" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
-                  <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><FileArchive className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Nguồn Video</span></div>
-                </TabsTrigger>
-                <TabsTrigger value="auto-scripts" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
-                  <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Bot className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Automation</span></div>
-                </TabsTrigger>
-                <TabsTrigger value="idea-content" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
-                  <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Lightbulb className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Idea Content</span></div>
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="overview" className="mt-6">
-                <div className="space-y-8">
-                  <div><h3 className="text-xl font-semibold mb-4">Chỉ số hiệu suất</h3><div className="grid grid-cols-2 md:grid-cols-4 gap-4">{performanceMetrics.map((metric) => (<Card key={metric.title}><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4"><CardTitle className="text-sm font-medium text-muted-foreground">{metric.title}</CardTitle><div className={`flex h-8 w-8 items-center justify-center rounded-full ${metric.color}`}><metric.icon className="h-4 w-4" /></div></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{metric.value}</p></CardContent></Card>))}</div></div>
-                  <div><h3 className="text-xl font-semibold mb-4">Chiến dịch đã tham gia</h3><Card><Table><TableHeader><TableRow><TableHead>Tên chiến dịch</TableHead><TableHead>Trạng thái</TableHead><TableHead>Ngày bắt đầu</TableHead><TableHead>Ngày kết thúc</TableHead><TableHead>Ngân sách</TableHead></TableRow></TableHeader><TableBody>{assignedCampaigns.map((campaign) => (<TableRow key={campaign.name}><TableCell className="font-medium">{campaign.name}</TableCell><TableCell><Badge variant={campaign.status === "Active" ? "default" : "outline"} className={campaign.status === "Active" ? "bg-green-100 text-green-800" : campaign.status === "Completed" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}>{campaign.status}</Badge></TableCell><TableCell>{campaign.startDate}</TableCell><TableCell>{campaign.endDate}</TableCell><TableCell>{campaign.budget}</TableCell></TableRow>))}</TableBody></Table></Card></div>
-                </div>
-              </TabsContent>
-              <TabsContent value="content" className="mt-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h3 className="text-xl font-semibold">Danh sách các tệp của KOC</h3>
-                    {selectedFileIds.length > 0 && <p className="text-sm text-muted-foreground">{selectedFileIds.length} tệp đã được chọn</p>}
+                  <Button onClick={() => setIsEditDialogOpen(true)} className="bg-red-600 hover:bg-red-700 text-white"><Edit className="mr-2 h-4 w-4" /> Chỉnh sửa</Button>
+                </CardContent>
+              </Card>
+              <Tabs defaultValue="content" className="w-full">
+                <TabsList className="bg-transparent w-full justify-start rounded-none border-b p-0 gap-x-2">
+                  <TabsTrigger value="overview" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
+                    <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><LayoutDashboard className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Tổng quan</span></div>
+                  </TabsTrigger>
+                  <TabsTrigger value="content" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
+                    <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Clapperboard className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Video đã tạo</span></div>
+                  </TabsTrigger>
+                  <TabsTrigger value="sources" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
+                    <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><FileArchive className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Nguồn Video</span></div>
+                  </TabsTrigger>
+                  <TabsTrigger value="auto-scripts" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
+                    <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Bot className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Automation</span></div>
+                  </TabsTrigger>
+                  <TabsTrigger value="idea-content" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
+                    <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Lightbulb className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Idea Content</span></div>
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="overview" className="mt-6">
+                  <div className="space-y-8">
+                    <div><h3 className="text-xl font-semibold mb-4">Chỉ số hiệu suất</h3><div className="grid grid-cols-2 md:grid-cols-4 gap-4">{performanceMetrics.map((metric) => (<Card key={metric.title}><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4"><CardTitle className="text-sm font-medium text-muted-foreground">{metric.title}</CardTitle><div className={`flex h-8 w-8 items-center justify-center rounded-full ${metric.color}`}><metric.icon className="h-4 w-4" /></div></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{metric.value}</p></CardContent></Card>))}</div></div>
+                    <div><h3 className="text-xl font-semibold mb-4">Chiến dịch đã tham gia</h3><Card><Table><TableHeader><TableRow><TableHead>Tên chiến dịch</TableHead><TableHead>Trạng thái</TableHead><TableHead>Ngày bắt đầu</TableHead><TableHead>Ngày kết thúc</TableHead><TableHead>Ngân sách</TableHead></TableRow></TableHeader><TableBody>{assignedCampaigns.map((campaign) => (<TableRow key={campaign.name}><TableCell className="font-medium">{campaign.name}</TableCell><TableCell><Badge variant={campaign.status === "Active" ? "default" : "outline"} className={campaign.status === "Active" ? "bg-green-100 text-green-800" : campaign.status === "Completed" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}>{campaign.status}</Badge></TableCell><TableCell>{campaign.startDate}</TableCell><TableCell>{campaign.endDate}</TableCell><TableCell>{campaign.budget}</TableCell></TableRow>))}</TableBody></Table></Card></div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {selectedFileIds.length > 0 && <Button variant="destructive" onClick={handleBulkDelete}><Trash2 className="mr-2 h-4 w-4" /> Xóa ({selectedFileIds.length})</Button>}
-                    <Button variant="outline" onClick={() => setUploadOpen(true)} disabled={!koc?.folder_path}><UploadCloud className="mr-2 h-4 w-4" /> Tải lên tệp</Button>
+                </TabsContent>
+                <TabsContent value="content" className="mt-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="text-xl font-semibold">Danh sách các tệp của KOC</h3>
+                      {selectedFileIds.length > 0 && <p className="text-sm text-muted-foreground">{selectedFileIds.length} tệp đã được chọn</p>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {selectedFileIds.length > 0 && <Button variant="destructive" onClick={handleBulkDelete}><Trash2 className="mr-2 h-4 w-4" /> Xóa ({selectedFileIds.length})</Button>}
+                      <Button variant="outline" onClick={() => setUploadOpen(true)} disabled={!koc?.folder_path}><UploadCloud className="mr-2 h-4 w-4" /> Tải lên tệp</Button>
+                    </div>
                   </div>
-                </div>
-                {areFilesLoading ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}</div>) : isError ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{filesError.message}</AlertDescription></Alert>) : generatedFiles && generatedFiles.length > 0 ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{generatedFiles.map((file) => { const { Icon, bgColor, iconColor, type } = getFileTypeDetails(file.display_name); const isSelected = selectedFileIds.includes(file.id); const dreamfaceThumbnailUrl = dreamfaceThumbnailsMap.get(file.r2_key); const finalThumbnailUrl = file.thumbnail_url || dreamfaceThumbnailUrl; return (<Card key={file.id} className="overflow-hidden group relative"><Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`absolute top-2 left-2 z-10 h-5 w-5 bg-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} /><CardContent className="p-0"><div className="aspect-video flex items-center justify-center relative cursor-pointer bg-muted" onClick={() => handleFileClick(file)}>{finalThumbnailUrl ? (<img src={finalThumbnailUrl} alt={file.display_name} className="w-full h-full object-cover" />) : (<div className={`w-full h-full flex items-center justify-center ${bgColor}`}><Icon className={`h-12 w-12 ${iconColor}`} /></div>)}{type === 'video' && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><PlayCircle className="h-16 w-16 text-white" /></div>}<Button variant="secondary" size="icon" className="absolute top-2 right-12 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDownloadFile(e, file)} disabled={downloadFileMutation.isPending && downloadFileMutation.variables?.id === file.id}>{downloadFileMutation.isPending && downloadFileMutation.variables?.id === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}</Button><Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4" /></Button></div><div className="p-3 space-y-1"><EditableFileName fileId={file.id} initialName={file.display_name} queryKey={filesQueryKey} />{file.created_at && <p className="text-xs text-muted-foreground">{format(new Date(file.created_at), "dd/MM/yyyy")}</p>}</div></CardContent></Card>); })}</div>) : (<Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Film className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có tệp nào</h3><p className="mt-1 text-sm">Bấm "Tải lên tệp" để thêm tệp đầu tiên của bạn.</p></div></CardContent></Card>)}
-              </TabsContent>
-              <TabsContent value="sources" className="mt-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h3 className="text-xl font-semibold">Quản lý tệp nguồn</h3>
-                    {selectedFileIds.length > 0 && <p className="text-sm text-muted-foreground">{selectedFileIds.length} tệp đã được chọn</p>}
+                  {areFilesLoading ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}</div>) : isError ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{filesError.message}</AlertDescription></Alert>) : generatedFiles && generatedFiles.length > 0 ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{generatedFiles.map((file) => { const { Icon, bgColor, iconColor, type } = getFileTypeDetails(file.display_name); const isSelected = selectedFileIds.includes(file.id); const dreamfaceThumbnailUrl = dreamfaceThumbnailsMap.get(file.r2_key); const finalThumbnailUrl = file.thumbnail_url || dreamfaceThumbnailUrl; return (<Card key={file.id} className="overflow-hidden group relative"><Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`absolute top-2 left-2 z-10 h-5 w-5 bg-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} /><CardContent className="p-0"><div className="aspect-video flex items-center justify-center relative cursor-pointer bg-muted" onClick={() => handleFileClick(file)}>{finalThumbnailUrl ? (<img src={finalThumbnailUrl} alt={file.display_name} className="w-full h-full object-cover" />) : (<div className={`w-full h-full flex items-center justify-center ${bgColor}`}><Icon className={`h-12 w-12 ${iconColor}`} /></div>)}{type === 'video' && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><PlayCircle className="h-16 w-16 text-white" /></div>}<Button variant="secondary" size="icon" className="absolute top-2 right-12 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDownloadFile(e, file)} disabled={downloadFileMutation.isPending && downloadFileMutation.variables?.id === file.id}>{downloadFileMutation.isPending && downloadFileMutation.variables?.id === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}</Button><Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4" /></Button></div><div className="p-3 space-y-1"><EditableFileName fileId={file.id} initialName={file.display_name} queryKey={filesQueryKey} />{file.created_at && <p className="text-xs text-muted-foreground">{format(new Date(file.created_at), "dd/MM/yyyy")}</p>}</div></CardContent></Card>); })}</div>) : (<Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Film className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có tệp nào</h3><p className="mt-1 text-sm">Bấm "Tải lên tệp" để thêm tệp đầu tiên của bạn.</p></div></CardContent></Card>)}
+                </TabsContent>
+                <TabsContent value="sources" className="mt-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h3 className="text-xl font-semibold">Quản lý tệp nguồn</h3>
+                      {selectedFileIds.length > 0 && <p className="text-sm text-muted-foreground">{selectedFileIds.length} tệp đã được chọn</p>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {selectedFileIds.length > 0 && <Button variant="destructive" onClick={handleBulkDelete}><Trash2 className="mr-2 h-4 w-4" /> Xóa ({selectedFileIds.length})</Button>}
+                      <Button variant="outline" onClick={() => setSourceVideoUploadOpen(true)} disabled={!koc?.folder_path}><Plus className="mr-2 h-4 w-4" /> Thêm video</Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {selectedFileIds.length > 0 && <Button variant="destructive" onClick={handleBulkDelete}><Trash2 className="mr-2 h-4 w-4" /> Xóa ({selectedFileIds.length})</Button>}
-                    <Button variant="outline" onClick={() => setSourceVideoUploadOpen(true)} disabled={!koc?.folder_path}><Plus className="mr-2 h-4 w-4" /> Thêm video</Button>
-                  </div>
-                </div>
-                {areFilesLoading ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}</div>) : isError ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{filesError.message}</AlertDescription></Alert>) : sourceVideos && sourceVideos.length > 0 ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{sourceVideos.map((file) => { const { Icon, bgColor, iconColor, type } = getFileTypeDetails(file.display_name); const isSelected = selectedFileIds.includes(file.id); return (<Card key={file.id} className="overflow-hidden group relative"><Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`absolute top-2 left-2 z-10 h-5 w-5 bg-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} /><CardContent className="p-0"><div className="aspect-video flex items-center justify-center relative cursor-pointer bg-muted" onClick={() => handleFileClick(file)}>{file.thumbnail_url ? (<img src={file.thumbnail_url} alt={file.display_name} className="w-full h-full object-cover" />) : (<div className="w-full h-full flex items-center justify-center bg-slate-100"><Video className="h-8 w-8 text-slate-500" /></div>)}{type === 'video' && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><PlayCircle className="h-16 w-16 text-white" /></div>}<Button variant="secondary" size="icon" className="absolute top-2 right-12 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDownloadFile(e, file)} disabled={downloadFileMutation.isPending && downloadFileMutation.variables?.id === file.id}>{downloadFileMutation.isPending && downloadFileMutation.variables?.id === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}</Button><Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4" /></Button></div><div className="p-3 space-y-1"><EditableFileName fileId={file.id} initialName={file.display_name} queryKey={filesQueryKey} />{file.created_at && <p className="text-xs text-muted-foreground">{format(new Date(file.created_at), "dd/MM/yyyy")}</p>}</div></CardContent></Card>); })}</div>) : (<Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Video className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có video nguồn</h3><p className="mt-1 text-sm">Bấm "Thêm video" để tải lên video nguồn đầu tiên.</p></div></CardContent></Card>)}
-              </TabsContent>
-              <TabsContent value="auto-scripts" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Automation</CardTitle>
-                    <CardDescription>Các kịch bản được tạo tự động cho KOC này.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Tên kịch bản</TableHead>
-                          <TableHead>Nguồn tin tức</TableHead>
-                          <TableHead>Ngày tạo</TableHead>
-                          <TableHead>Nội dung</TableHead>
-                          <TableHead>Log</TableHead>
-                          <TableHead>Voice</TableHead>
-                          <TableHead className="text-right">Hành động</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {areScriptsLoading ? (
+                  {areFilesLoading ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}</div>) : isError ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{filesError.message}</AlertDescription></Alert>) : sourceVideos && sourceVideos.length > 0 ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{sourceVideos.map((file) => { const { Icon, bgColor, iconColor, type } = getFileTypeDetails(file.display_name); const isSelected = selectedFileIds.includes(file.id); return (<Card key={file.id} className="overflow-hidden group relative"><Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`absolute top-2 left-2 z-10 h-5 w-5 bg-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} /><CardContent className="p-0"><div className="aspect-video flex items-center justify-center relative cursor-pointer bg-muted" onClick={() => handleFileClick(file)}>{file.thumbnail_url ? (<img src={file.thumbnail_url} alt={file.display_name} className="w-full h-full object-cover" />) : (<div className="w-full h-full flex items-center justify-center bg-slate-100"><Video className="h-8 w-8 text-slate-500" /></div>)}{type === 'video' && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><PlayCircle className="h-16 w-16 text-white" /></div>}<Button variant="secondary" size="icon" className="absolute top-2 right-12 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDownloadFile(e, file)} disabled={downloadFileMutation.isPending && downloadFileMutation.variables?.id === file.id}>{downloadFileMutation.isPending && downloadFileMutation.variables?.id === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}</Button><Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4" /></Button></div><div className="p-3 space-y-1"><EditableFileName fileId={file.id} initialName={file.display_name} queryKey={filesQueryKey} />{file.created_at && <p className="text-xs text-muted-foreground">{format(new Date(file.created_at), "dd/MM/yyyy")}</p>}</div></CardContent></Card>); })}</div>) : (<Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Video className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có video nguồn</h3><p className="mt-1 text-sm">Bấm "Thêm video" để tải lên video nguồn đầu tiên.</p></div></CardContent></Card>)}
+                </TabsContent>
+                <TabsContent value="auto-scripts" className="mt-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Automation</CardTitle>
+                      <CardDescription>Các kịch bản được tạo tự động cho KOC này.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
                           <TableRow>
-                            <TableCell colSpan={7} className="h-24 text-center">
-                              <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-                            </TableCell>
+                            <TableHead>Tên kịch bản</TableHead>
+                            <TableHead>Nguồn tin tức</TableHead>
+                            <TableHead>Ngày tạo</TableHead>
+                            <TableHead>Nội dung</TableHead>
+                            <TableHead>Log</TableHead>
+                            <TableHead>Voice</TableHead>
+                            <TableHead className="text-right">Hành động</TableHead>
                           </TableRow>
-                        ) : videoScripts && videoScripts.length > 0 ? (
-                          videoScripts.map((script) => {
-                            const voiceTaskId = script.news_posts?.voice_task_id;
-                            const voiceTask = voiceTaskId ? voiceTasksMap.get(voiceTaskId) : null;
-                            return (
-                              <TableRow key={script.id}>
-                                <TableCell className="font-medium">{script.name}</TableCell>
-                                <TableCell>
-                                  <p className="max-w-xs truncate" title={script.news_posts?.content || ''}>
-                                    {script.news_posts?.content || 'N/A'}
-                                  </p>
-                                </TableCell>
-                                <TableCell>
-                                  {format(new Date(script.created_at), "dd/MM/yyyy HH:mm", { locale: vi })}
-                                </TableCell>
-                                <TableCell>
-                                  <Button
-                                    variant="link"
-                                    className="p-0 h-auto"
-                                    onClick={() => {
-                                      setSelectedScript(script);
-                                      setIsViewScriptOpen(true);
-                                    }}
-                                  >
-                                    Xem chi tiết
-                                  </Button>
-                                </TableCell>
-                                <TableCell>
-                                  <Button
-                                    variant="link"
-                                    className="p-0 h-auto"
-                                    disabled={!script.ai_prompt}
-                                    onClick={() => {
-                                      setSelectedScript(script);
-                                      setIsViewLogOpen(true);
-                                    }}
-                                  >
-                                    Xem log
-                                  </Button>
-                                </TableCell>
-                                <TableCell>
-                                  {voiceTask ? (
-                                      voiceTask.status === 'done' && voiceTask.audio_url ? (
-                                          <audio controls src={voiceTask.audio_url} className="h-8 w-full max-w-[150px]" />
-                                      ) : voiceTask.status === 'doing' ? (
-                                          <Badge variant="outline" className="text-blue-800 border-blue-200">
-                                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                              Đang xử lý
-                                          </Badge>
-                                      ) : voiceTask.status === 'error' ? (
-                                          <Badge variant="destructive">Lỗi</Badge>
-                                      ) : (
-                                          <Badge variant="secondary">Đang chờ</Badge>
-                                      )
-                                  ) : (
-                                      <span className="text-muted-foreground text-xs">Chưa có</span>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" className="h-8 w-8 p-0">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem
-                                        className="text-destructive"
-                                        onClick={() => setScriptToDelete(script)}
-                                      >
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Xóa
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </TableCell>
-                              </TableRow>
-                            )
-                          })
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={7} className="h-24 text-center">
-                              Chưa có kịch bản tự động nào.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              <TabsContent value="idea-content" className="mt-6">
-                <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} defaultTemplateId={koc.default_prompt_template_id} />
-              </TabsContent>
-            </Tabs>
-          </div>
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-red-600">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6"><path d="M20.93 7.03a2.53 2.53 0 0 0-2.5-2.5c-2.47 0-2.9 1.23-3.43 2.16-.53-.93-1-2.16-3.43-2.16a2.53 2.53 0 0 0-2.5 2.5c0 1.12.49 3.68 3.22 6.06C14.2 14.94 16.9 13.3 20.93 7.03Z" fill="#25F4EE"></path><path d="M1.07 14.45a2.53 2.53 0 0 0 2.5 2.5c2.47 0 2.9-1.23 3.43-2.16.53.93 1 2.16 3.43 2.16a2.53 2.53 0 0 0 2.5-2.5c0-1.12-.49-3.68-3.22-6.06C10.8 6.54 8.1 8.18 4.07 14.45Z" fill="#FF0050"></path><path d="M12.5 2.5h-1v19h1v-19Z" fill="#000000"></path></svg>
-                  Thông tin kênh TikTok
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {koc.channel_unique_id ? (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-12 w-12 border">
-                        <AvatarImage src={koc.avatar_url || undefined} alt={koc.channel_nickname || koc.name} />
-                        <AvatarFallback>{getInitials(koc.channel_nickname || koc.name)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-bold text-lg">{koc.channel_nickname}</p>
-                        <p className="text-sm text-muted-foreground">@{koc.channel_unique_id}</p>
+                        </TableHeader>
+                        <TableBody>
+                          {areScriptsLoading ? (
+                            <TableRow>
+                              <TableCell colSpan={7} className="h-24 text-center">
+                                <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+                              </TableCell>
+                            </TableRow>
+                          ) : videoScripts && videoScripts.length > 0 ? (
+                            videoScripts.map((script) => {
+                              const voiceTaskId = script.news_posts?.voice_task_id;
+                              const voiceTask = voiceTaskId ? voiceTasksMap.get(voiceTaskId) : null;
+                              return (
+                                <TableRow key={script.id}>
+                                  <TableCell className="font-medium">{script.name}</TableCell>
+                                  <TableCell>
+                                    <p className="max-w-xs truncate" title={script.news_posts?.content || ''}>
+                                      {script.news_posts?.content || 'N/A'}
+                                    </p>
+                                  </TableCell>
+                                  <TableCell>
+                                    {format(new Date(script.created_at), "dd/MM/yyyy HH:mm", { locale: vi })}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button
+                                      variant="link"
+                                      className="p-0 h-auto"
+                                      onClick={() => {
+                                        setSelectedScript(script);
+                                        setIsViewScriptOpen(true);
+                                      }}
+                                    >
+                                      Xem chi tiết
+                                    </Button>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button
+                                      variant="link"
+                                      className="p-0 h-auto"
+                                      disabled={!script.ai_prompt}
+                                      onClick={() => {
+                                        setSelectedScript(script);
+                                        setIsViewLogOpen(true);
+                                      }}
+                                    >
+                                      Xem log
+                                    </Button>
+                                  </TableCell>
+                                  <TableCell>
+                                    {voiceTask ? (
+                                        voiceTask.status === 'done' && voiceTask.audio_url ? (
+                                            <audio controls src={voiceTask.audio_url} className="h-8 w-full max-w-[150px]" />
+                                        ) : voiceTask.status === 'doing' ? (
+                                            <Badge variant="outline" className="text-blue-800 border-blue-200">
+                                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                                Đang xử lý
+                                            </Badge>
+                                        ) : voiceTask.status === 'error' ? (
+                                            <Badge variant="destructive">Lỗi</Badge>
+                                        ) : (
+                                            <Badge variant="secondary">Đang chờ</Badge>
+                                        )
+                                    ) : (
+                                        <span className="text-muted-foreground text-xs">Chưa có</span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                          <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                          className="text-destructive"
+                                          onClick={() => setScriptToDelete(script)}
+                                        >
+                                          <Trash2 className="mr-2 h-4 w-4" />
+                                          Xóa
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </TableCell>
+                                </TableRow>
+                              )
+                            })
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={7} className="h-24 text-center">
+                                Chưa có kịch bản tự động nào.
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                <TabsContent value="idea-content" className="mt-6">
+                  <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} defaultTemplateId={koc.default_prompt_template_id} />
+                </TabsContent>
+              </Tabs>
+            </div>
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-red-600">
+                    <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6"><path d="M20.93 7.03a2.53 2.53 0 0 0-2.5-2.5c-2.47 0-2.9 1.23-3.43 2.16-.53-.93-1-2.16-3.43-2.16a2.53 2.53 0 0 0-2.5 2.5c0 1.12.49 3.68 3.22 6.06C14.2 14.94 16.9 13.3 20.93 7.03Z" fill="#25F4EE"></path><path d="M1.07 14.45a2.53 2.53 0 0 0 2.5 2.5c2.47 0 2.9-1.23 3.43-2.16.53.93 1 2.16 3.43 2.16a2.53 2.53 0 0 0 2.5-2.5c0-1.12-.49-3.68-3.22-6.06C10.8 6.54 8.1 8.18 4.07 14.45Z" fill="#FF0050"></path><path d="M12.5 2.5h-1v19h1v-19Z" fill="#000000"></path></svg>
+                    Thông tin kênh TikTok
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {koc.channel_unique_id ? (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-12 w-12 border">
+                          <AvatarImage src={koc.avatar_url || undefined} alt={koc.channel_nickname || koc.name} />
+                          <AvatarFallback>{getInitials(koc.channel_nickname || koc.name)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="font-bold text-lg">{koc.channel_nickname}</p>
+                          <p className="text-sm text-muted-foreground">@{koc.channel_unique_id}</p>
+                        </div>
                       </div>
+                      <div className="grid grid-cols-3 gap-2 text-center pt-4 border-t">
+                        <div className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50">
+                          <Users className="h-6 w-6 mb-1 text-blue-500" />
+                          <p className="font-bold text-base">{formatStatNumber(koc.follower_count)}</p>
+                          <p className="text-xs text-muted-foreground">Followers</p>
+                        </div>
+                        <div className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50">
+                          <Heart className="h-6 w-6 mb-1 text-red-500" />
+                          <p className="font-bold text-base">{formatStatNumber(koc.like_count)}</p>
+                          <p className="text-xs text-muted-foreground">Likes</p>
+                        </div>
+                        <div className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50">
+                          <Video className="h-6 w-6 mb-1 text-green-500" />
+                          <p className="font-bold text-base">{formatStatNumber(koc.video_count)}</p>
+                          <p className="text-xs text-muted-foreground">Videos</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center text-sm text-muted-foreground pt-4 border-t">
+                        <CalendarDays className="mr-2 h-4 w-4" />
+                        <span>Tuổi tài khoản: <span className="font-medium text-foreground">{formatDetailedDistanceToNow(koc.channel_created_at)}</span></span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center text-muted-foreground py-8">
+                      <p>Chưa có dữ liệu kênh.</p>
+                      <p className="text-xs mt-1">Hãy quét kênh để cập nhật thông tin.</p>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-center pt-4 border-t">
-                      <div className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50">
-                        <Users className="h-6 w-6 mb-1 text-blue-500" />
-                        <p className="font-bold text-base">{formatStatNumber(koc.follower_count)}</p>
-                        <p className="text-xs text-muted-foreground">Followers</p>
-                      </div>
-                      <div className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50">
-                        <Heart className="h-6 w-6 mb-1 text-red-500" />
-                        <p className="font-bold text-base">{formatStatNumber(koc.like_count)}</p>
-                        <p className="text-xs text-muted-foreground">Likes</p>
-                      </div>
-                      <div className="flex flex-col items-center p-2 rounded-lg hover:bg-gray-50">
-                        <Video className="h-6 w-6 mb-1 text-green-500" />
-                        <p className="font-bold text-base">{formatStatNumber(koc.video_count)}</p>
-                        <p className="text-xs text-muted-foreground">Videos</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center text-sm text-muted-foreground pt-4 border-t">
-                      <CalendarDays className="mr-2 h-4 w-4" />
-                      <span>Tuổi tài khoản: <span className="font-medium text-foreground">{formatDetailedDistanceToNow(koc.channel_created_at)}</span></span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    <p>Chưa có dữ liệu kênh.</p>
-                    <p className="text-xs mt-1">Hãy quét kênh để cập nhật thông tin.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>
+
       <EditKocDialog isOpen={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} koc={koc} />
       <VideoPlayerDialog isOpen={isPlayerOpen} onOpenChange={setPlayerOpen} videoUrl={selectedFile?.url} videoName={selectedFile?.display_name} />
       {koc && koc.folder_path && (<UploadVideoDialog isOpen={isUploadOpen} onOpenChange={setUploadOpen} folderPath={`${koc.folder_path}/generated`} kocId={koc.id} userId={koc.user_id} kocName={koc.name} />)}

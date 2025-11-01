@@ -5,7 +5,6 @@ import { useSession } from "@/contexts/SessionContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useIsMobile } from "@/hooks/use-mobile";
 import KocMobileNav from "@/components/koc/KocMobileNav";
 
 // UI Components
@@ -70,7 +69,6 @@ const fetchVideoScripts = async (userId: string) => {
 };
 
 const TaoContent = () => {
-  const isMobile = useIsMobile();
   const [generatedScript, setGeneratedScript] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedScript, setSelectedScript] = useState<VideoScript | null>(null);
@@ -194,86 +192,12 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
     generateScriptMutation.mutate(values);
   };
 
-  const renderDesktopScripts = () => (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[50px]"><Checkbox /></TableHead>
-          <TableHead>Tên kịch bản</TableHead>
-          <TableHead>KOC</TableHead>
-          <TableHead>Nội dung</TableHead>
-          <TableHead className="text-right">Hành động</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {isLoadingScripts ? <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
-        : scripts.length > 0 ? scripts.map((script) => (
-          <TableRow key={script.id}>
-            <TableCell><Checkbox /></TableCell>
-            <TableCell className="font-medium">{script.name}</TableCell>
-            <TableCell>{script.kocs?.name || 'N/A'}</TableCell>
-            <TableCell><Button variant="link" className="p-0 h-auto" onClick={() => { setSelectedScript(script); setIsViewScriptOpen(true); }}>Xem chi tiết</Button></TableCell>
-            <TableCell className="text-right">
-              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem><Edit className="mr-2 h-4 w-4" />Sửa</DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive" onClick={() => setScriptToDelete(script)}><Trash2 className="mr-2 h-4 w-4" />Xóa</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TableCell>
-          </TableRow>
-        )) : <TableRow><TableCell colSpan={5} className="h-24 text-center">Chưa có kịch bản nào được tạo.</TableCell></TableRow>}
-      </TableBody>
-    </Table>
-  );
-
-  const renderMobileScripts = () => (
-    <div className="space-y-3">
-      {isLoadingScripts ? (
-        [...Array(3)].map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-lg" />)
-      ) : scripts.length > 0 ? (
-        scripts.map((script) => (
-          <Card key={script.id}>
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start gap-2">
-                <div className="flex-1 space-y-1">
-                  <p className="font-semibold">{script.name}</p>
-                  <p className="text-sm text-muted-foreground">KOC: {script.kocs?.name || 'N/A'}</p>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0 flex-shrink-0">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => { setSelectedScript(script); setIsViewScriptOpen(true); }}>
-                      <Eye className="mr-2 h-4 w-4" /> Xem nội dung
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Edit className="mr-2 h-4 w-4" /> Sửa
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive" onClick={() => setScriptToDelete(script)}>
-                      <Trash2 className="mr-2 h-4 w-4" /> Xóa
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </CardContent>
-          </Card>
-        ))
-      ) : (
-        <div className="h-24 text-center flex flex-col items-center justify-center text-muted-foreground">
-          <p>Chưa có kịch bản nào được tạo.</p>
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <>
       <div className="p-4 md:p-6 lg:p-8">
-        {isMobile && <KocMobileNav />}
+        <div className="md:hidden">
+          <KocMobileNav />
+        </div>
         <header className="mb-8"><h1 className="text-3xl font-bold">Công cụ Content</h1><p className="text-muted-foreground mt-1">Sử dụng AI để tạo nội dung video từ nội dung có sẵn.</p></header>
         
         <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
@@ -320,7 +244,72 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
         <Card className="mt-8">
           <CardHeader><CardTitle>Kịch bản đã tạo</CardTitle><CardDescription>Danh sách các kịch bản đã được tạo bằng AI.</CardDescription></CardHeader>
           <CardContent>
-            {isMobile ? renderMobileScripts() : renderDesktopScripts()}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader><TableRow><TableHead className="w-[50px]"><Checkbox /></TableHead><TableHead>Tên kịch bản</TableHead><TableHead>KOC</TableHead><TableHead>Nội dung</TableHead><TableHead className="text-right">Hành động</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {isLoadingScripts ? <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
+                  : scripts.length > 0 ? scripts.map((script) => (
+                    <TableRow key={script.id}>
+                      <TableCell><Checkbox /></TableCell>
+                      <TableCell className="font-medium">{script.name}</TableCell>
+                      <TableCell>{script.kocs?.name || 'N/A'}</TableCell>
+                      <TableCell><Button variant="link" className="p-0 h-auto" onClick={() => { setSelectedScript(script); setIsViewScriptOpen(true); }}>Xem chi tiết</Button></TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem><Edit className="mr-2 h-4 w-4" />Sửa</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => setScriptToDelete(script)}><Trash2 className="mr-2 h-4 w-4" />Xóa</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  )) : <TableRow><TableCell colSpan={5} className="h-24 text-center">Chưa có kịch bản nào được tạo.</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="md:hidden">
+              <div className="space-y-3">
+                {isLoadingScripts ? (
+                  [...Array(3)].map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-lg" />)
+                ) : scripts.length > 0 ? (
+                  scripts.map((script) => (
+                    <Card key={script.id}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex-1 space-y-1">
+                            <p className="font-semibold">{script.name}</p>
+                            <p className="text-sm text-muted-foreground">KOC: {script.kocs?.name || 'N/A'}</p>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0 flex-shrink-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => { setSelectedScript(script); setIsViewScriptOpen(true); }}>
+                                <Eye className="mr-2 h-4 w-4" /> Xem nội dung
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Edit className="mr-2 h-4 w-4" /> Sửa
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onClick={() => setScriptToDelete(script)}>
+                                <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="h-24 text-center flex flex-col items-center justify-center text-muted-foreground">
+                    <p>Chưa có kịch bản nào được tạo.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
