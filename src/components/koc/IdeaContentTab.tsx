@@ -22,6 +22,7 @@ type Idea = {
   new_content: string | null;
   status: string;
   created_at: string;
+  voice_audio_url: string | null;
   koc_files: {
     display_name: string;
     url: string;
@@ -38,8 +39,8 @@ type IdeaContentTabProps = {
 
 const StatusBadge = ({ status }: { status: string }) => {
   switch (status) {
-    case 'Đã tạo video':
-      return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Đã tạo video</Badge>;
+    case 'Đã tạo voice':
+      return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Đã tạo voice</Badge>;
     case 'Đã có content':
       return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Đã có content</Badge>;
     case 'Đang xử lý':
@@ -88,6 +89,9 @@ const IdeaCardMobile = ({ idea, onGenerate, onEdit, onDelete, onViewContent, isG
                         <Button variant="link" className="p-0 h-auto text-xs" onClick={() => onViewContent(idea.new_content)}>Xem kịch bản</Button>
                     )}
                 </div>
+                {idea.voice_audio_url && (
+                    <audio controls src={idea.voice_audio_url} className="h-8 w-full mt-2" />
+                )}
                 {idea.koc_files && (
                      <a href={idea.koc_files.url} target="_blank" rel="noopener noreferrer" className="flex items-center text-blue-600 hover:underline text-xs mt-2">
                         <Video className="mr-1 h-3 w-3" />
@@ -300,7 +304,12 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
                       )}
                     </TableCell>
                     <TableCell>
-                      <StatusBadge status={idea.status} />
+                      <div className="flex flex-col gap-2">
+                        <StatusBadge status={idea.status} />
+                        {idea.voice_audio_url && (
+                          <audio controls src={idea.voice_audio_url} className="h-8 w-full max-w-[200px]" />
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {idea.koc_files ? (

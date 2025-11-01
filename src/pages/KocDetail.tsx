@@ -93,6 +93,7 @@ type Idea = {
   new_content: string | null;
   status: string;
   created_at: string;
+  voice_audio_url: string | null;
   koc_files: {
     display_name: string;
     url: string;
