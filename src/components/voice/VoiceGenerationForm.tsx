@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { callVoiceApi } from "@/lib/voiceApi";
 import { showError, showSuccess } from "@/utils/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,46 +14,166 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Wand2 } from "lucide-react";
 import { Skeleton } from "../ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const formSchema = z.object({
   voice_name: z.string().min(1, "Tên voice không được để trống."),
-  text: z.string().min(1, "Văn bản không được để trống.").max(2500, "Văn bản không được quá 2500 ký tự."),
   voice_id: z.string().min(1, "Vui lòng chọn một giọng nói."),
   model: z.string().min(1, "Vui lòng chọn một model."),
+  contentType: z.enum(["text", "koc"]),
+  text: z.string().optional(),
+  koc_id: z.string().optional(),
+  idea_id: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.contentType === "text" && (!data.text || data.text.length === 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["text"],
+      message: "Văn bản không được để trống.",
+    });
+  }
+  if (data.contentType === "text" && data.text && data.text.length > 2500) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["text"],
+      message: "Văn bản không được quá 2500 ký tự.",
+    });
+  }
+  if (data.contentType === "koc" && !data.koc_id) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["koc_id"],
+      message: "Vui lòng chọn một KOC.",
+    });
+  }
+  if (data.contentType === "koc" && !data.idea_id) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["idea_id"],
+      message: "Vui lòng chọn một nội dung.",
+    });
+  }
 });
 
 const fetchClonedVoices = async () => {
   const data = await callVoiceApi({ path: "v1m/voice/clone", method: "GET" });
-  // Chỉ lấy những giọng nói đã clone thành công (status = 2)
   return data.data.filter((voice: any) => voice.voice_status === 2);
+};
+
+const fetchKocs = async () => {
+  const { data, error } = await supabase.from("kocs").select("id, name");
+  if (error) throw new Error(error.message);
+  return data;
+};
+
+const fetchContentIdeas = async (kocId: string) => {
+  if (!kocId) return [];
+  const { data, error } = await supabase
+    .from("koc_content_ideas")
+    .select("id, idea_content")
+    .eq("koc_id", kocId)
+    .eq("status", "Chưa sử dụng");
+  if (error) throw new Error(error.message);
+  return data;
 };
 
 export const VoiceGenerationForm = () => {
   const queryClient = useQueryClient();
+  const [contentType, setContentType] = useState<"text" | "koc">("text");
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      voice_name: "",
+      text: "",
+      voice_id: "",
+      model: "speech-2.5-hd-preview",
+      contentType: "text",
+      koc_id: undefined,
+      idea_id: undefined,
+    },
+  });
+
+  const watchedKocId = form.watch("koc_id");
+
   const { data: voices, isLoading: isLoadingVoices } = useQuery({
     queryKey: ["cloned_voices"],
     queryFn: fetchClonedVoices,
   });
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: { voice_name: "", text: "", voice_id: "", model: "speech-2.5-hd-preview" },
+  const { data: kocs, isLoading: isLoadingKocs } = useQuery({
+    queryKey: ["kocs"],
+    queryFn: fetchKocs,
+  });
+
+  const { data: contentIdeas, isLoading: isLoadingContentIdeas } = useQuery({
+    queryKey: ["content_ideas", watchedKocId],
+    queryFn: () => fetchContentIdeas(watchedKocId!),
+    enabled: !!watchedKocId,
+  });
+
+  useEffect(() => {
+    if (watchedKocId) {
+      form.setValue("idea_id", undefined);
+    }
+  }, [watchedKocId, form]);
+
+  const updateIdeaStatusMutation = useMutation({
+    mutationFn: async (ideaId: string) => {
+      const { error } = await supabase
+        .from("koc_content_ideas")
+        .update({ status: "Đã sử dụng" })
+        .eq("id", ideaId);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["content_ideas", watchedKocId] });
+    },
+    onError: (error: Error) => {
+      showError(`Lỗi cập nhật trạng thái nội dung: ${error.message}`);
+    }
   });
 
   const createVoiceMutation = useMutation({
-    mutationFn: (values: z.infer<typeof formSchema>) => {
+    mutationFn: async (values: z.infer<typeof formSchema>) => {
+      let textToGenerate = "";
+      if (values.contentType === "text") {
+        textToGenerate = values.text!;
+      } else if (values.contentType === "koc" && values.idea_id) {
+        const selectedIdea = contentIdeas?.find(idea => idea.id === values.idea_id);
+        if (selectedIdea) {
+          textToGenerate = selectedIdea.idea_content;
+        } else {
+          throw new Error("Không tìm thấy nội dung đã chọn.");
+        }
+      }
+
+      if (!textToGenerate) {
+        throw new Error("Nội dung để tạo voice không được để trống.");
+      }
+
       const body = {
         voice_name: values.voice_name,
-        text: values.text,
+        text: textToGenerate,
         model: values.model,
         voice_setting: { voice_id: values.voice_id }
       };
       return callVoiceApi({ path: "v1m/task/text-to-speech", method: "POST", body });
     },
-    onSuccess: () => {
+    onSuccess: (_, values) => {
       showSuccess("Đã gửi yêu cầu tạo voice! Vui lòng chờ trong giây lát.");
       queryClient.invalidateQueries({ queryKey: ["voice_tasks"] });
-      form.reset({ ...form.getValues(), text: "", voice_name: "" });
+      
+      if (values.contentType === "koc" && values.idea_id) {
+        updateIdeaStatusMutation.mutate(values.idea_id);
+      }
+
+      form.reset({
+        ...form.getValues(),
+        text: "",
+        voice_name: "",
+        idea_id: undefined,
+      });
     },
     onError: (error: Error) => {
       showError(`Tạo voice thất bại: ${error.message}`);
@@ -66,7 +188,7 @@ export const VoiceGenerationForm = () => {
     <Card>
       <CardHeader>
         <CardTitle>Tạo Giọng Nói Mới</CardTitle>
-        <CardDescription>Nhập văn bản và chọn giọng nói đã clone để bắt đầu.</CardDescription>
+        <CardDescription>Chọn nguồn nội dung, nhập văn bản và chọn giọng nói đã clone để bắt đầu.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -78,13 +200,96 @@ export const VoiceGenerationForm = () => {
                 <FormMessage />
               </FormItem>
             )} />
-            <FormField control={form.control} name="text" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Văn bản</FormLabel>
-                <FormControl><Textarea placeholder="Xin chào, đây là..." className="min-h-[150px]" {...field} /></FormControl>
+
+            <FormField control={form.control} name="contentType" render={({ field }) => (
+              <FormItem className="space-y-3">
+                <FormLabel>Loại nội dung</FormLabel>
+                <FormControl>
+                  <RadioGroup
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      setContentType(value as "text" | "koc");
+                      form.setValue("text", "");
+                      form.setValue("koc_id", undefined);
+                      form.setValue("idea_id", undefined);
+                    }}
+                    defaultValue={field.value}
+                    className="flex items-center space-x-4"
+                  >
+                    <FormItem className="flex items-center space-x-2 space-y-0">
+                      <FormControl><RadioGroupItem value="text" /></FormControl>
+                      <FormLabel className="font-normal">Văn bản</FormLabel>
+                    </FormItem>
+                    <FormItem className="flex items-center space-x-2 space-y-0">
+                      <FormControl><RadioGroupItem value="koc" /></FormControl>
+                      <FormLabel className="font-normal">Chọn từ KOC</FormLabel>
+                    </FormItem>
+                  </RadioGroup>
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )} />
+
+            {contentType === 'text' && (
+              <FormField control={form.control} name="text" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Văn bản</FormLabel>
+                  <FormControl><Textarea placeholder="Xin chào, đây là..." className="min-h-[150px]" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            )}
+
+            {contentType === 'koc' && (
+              <div className="space-y-6">
+                <FormField control={form.control} name="koc_id" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Chọn KOC</FormLabel>
+                    {isLoadingKocs ? <Skeleton className="h-10 w-full" /> : (
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Chọn một KOC" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {kocs && kocs.length > 0 ? (
+                            kocs.map((koc: any) => (
+                              <SelectItem key={koc.id} value={koc.id}>{koc.name}</SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-4 text-center text-sm text-muted-foreground">
+                              Không tìm thấy KOC nào.
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="idea_id" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Chọn nội dung</FormLabel>
+                    {isLoadingContentIdeas ? <Skeleton className="h-10 w-full" /> : (
+                      <Select onValueChange={field.onChange} value={field.value || ''} disabled={!watchedKocId || isLoadingContentIdeas}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Chọn một nội dung" /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          {contentIdeas && contentIdeas.length > 0 ? (
+                            contentIdeas.map((idea: any) => (
+                              <SelectItem key={idea.id} value={idea.id}>{idea.idea_content.substring(0, 100)}{idea.idea_content.length > 100 ? '...' : ''}</SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-4 text-center text-sm text-muted-foreground">
+                              {watchedKocId ? "KOC này không có nội dung mới." : "Vui lòng chọn KOC trước."}
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+            )}
+
             <FormField control={form.control} name="voice_id" render={({ field }) => (
               <FormItem>
                 <FormLabel>Giọng nói đã Clone</FormLabel>
