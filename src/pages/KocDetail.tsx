@@ -1,4 +1,4 @@
-import { useState, useMemo, MouseEvent } from "react";
+import { useState, useMemo, MouseEvent, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -205,13 +205,41 @@ const KocDetail = () => {
   const [isViewLogOpen, setIsViewLogOpen] = useState(false);
   const [scriptToDelete, setScriptToDelete] = useState<VideoScript | null>(null);
 
+  const filesQueryKey = ["kocFiles", kocId];
+
+  // --- REALTIME SUBSCRIPTION FOR KOC FILES ---
+  useEffect(() => {
+    if (!kocId) return;
+
+    const channel = supabase
+      .channel(`koc_files_changes_${kocId}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'koc_files',
+          filter: `koc_id=eq.${kocId}`
+        },
+        (payload) => {
+          console.log('KOC file change received!', payload);
+          queryClient.invalidateQueries({ queryKey: filesQueryKey });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [kocId, queryClient, filesQueryKey]);
+  // ------------------------------------------
+
   const { data: koc, isLoading: isKocLoading } = useQuery<Koc>({
     queryKey: ["koc", kocId],
     queryFn: () => fetchKocDetails(kocId!),
     enabled: !!kocId,
   });
 
-  const filesQueryKey = ["kocFiles", kocId];
   const { data: files, isLoading: areFilesLoading, isError, error: filesError } = useQuery<KocFile[]>({
     queryKey: filesQueryKey,
     queryFn: () => fetchKocFiles(kocId!),
@@ -574,7 +602,7 @@ const KocDetail = () => {
                 <Button onClick={() => setIsEditDialogOpen(true)} className="bg-red-600 hover:bg-red-700 text-white"><Edit className="mr-2 h-4 w-4" /> Chỉnh sửa</Button>
               </CardContent>
             </Card>
-            <Tabs defaultValue="overview" className="w-full">
+            <Tabs defaultValue="content" className="w-full">
               <TabsList className="bg-transparent w-full justify-start rounded-none border-b p-0 gap-x-2">
                 <TabsTrigger value="overview" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
                   <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><LayoutDashboard className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Tổng quan</span></div>
@@ -622,7 +650,7 @@ const KocDetail = () => {
                     <Button variant="outline" onClick={() => setSourceVideoUploadOpen(true)} disabled={!koc?.folder_path}><Plus className="mr-2 h-4 w-4" /> Thêm video</Button>
                   </div>
                 </div>
-                {areFilesLoading ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}</div>) : isError ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{filesError.message}</AlertDescription></Alert>) : sourceVideos && sourceVideos.length > 0 ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{sourceVideos.map((file) => { const { Icon, bgColor, iconColor, type } = getFileTypeDetails(file.display_name); const isSelected = selectedFileIds.includes(file.id); return (<Card key={file.id} className="overflow-hidden group relative"><Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`absolute top-2 left-2 z-10 h-5 w-5 bg-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} /><CardContent className="p-0"><div className="aspect-video flex items-center justify-center relative cursor-pointer bg-muted" onClick={() => handleFileClick(file)}>{file.thumbnail_url ? (<img src={file.thumbnail_url} alt={file.display_name} className="w-full h-full object-cover" />) : (<div className={`w-full h-full flex items-center justify-center ${bgColor}`}><Icon className={`h-12 w-12 ${iconColor}`} /></div>)}{type === 'video' && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><PlayCircle className="h-16 w-16 text-white" /></div>}<Button variant="secondary" size="icon" className="absolute top-2 right-12 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDownloadFile(e, file)} disabled={downloadFileMutation.isPending && downloadFileMutation.variables?.id === file.id}>{downloadFileMutation.isPending && downloadFileMutation.variables?.id === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}</Button><Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4" /></Button></div><div className="p-3 space-y-1"><EditableFileName fileId={file.id} initialName={file.display_name} queryKey={filesQueryKey} />{file.created_at && <p className="text-xs text-muted-foreground">{format(new Date(file.created_at), "dd/MM/yyyy")}</p>}</div></CardContent></Card>); })}</div>) : (<Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Video className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có video nguồn</h3><p className="mt-1 text-sm">Bấm "Thêm video" để tải lên video nguồn đầu tiên.</p></div></CardContent></Card>)}
+                {areFilesLoading ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}</div>) : isError ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertTitle>Lỗi</AlertTitle><AlertDescription>{filesError.message}</AlertDescription></Alert>) : sourceVideos && sourceVideos.length > 0 ? (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{sourceVideos.map((file) => { const { Icon, bgColor, iconColor, type } = getFileTypeDetails(file.display_name); const isSelected = selectedFileIds.includes(file.id); return (<Card key={file.id} className="overflow-hidden group relative"><Checkbox checked={isSelected} onCheckedChange={() => handleFileSelect(file.id)} className={`absolute top-2 left-2 z-10 h-5 w-5 bg-white transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} /><CardContent className="p-0"><div className="aspect-video flex items-center justify-center relative cursor-pointer bg-muted" onClick={() => handleFileClick(file)}>{file.thumbnail_url ? (<img src={file.thumbnail_url} alt={file.display_name} className="w-full h-full object-cover" />) : (<div className="w-full h-full flex items-center justify-center bg-slate-100"><Video className="h-8 w-8 text-slate-500" /></div>)}{type === 'video' && <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><PlayCircle className="h-16 w-16 text-white" /></div>}<Button variant="secondary" size="icon" className="absolute top-2 right-12 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDownloadFile(e, file)} disabled={downloadFileMutation.isPending && downloadFileMutation.variables?.id === file.id}>{downloadFileMutation.isPending && downloadFileMutation.variables?.id === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}</Button><Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => handleDeleteFile(e, file)}><Trash2 className="h-4 w-4" /></Button></div><div className="p-3 space-y-1"><EditableFileName fileId={file.id} initialName={file.display_name} queryKey={filesQueryKey} />{file.created_at && <p className="text-xs text-muted-foreground">{format(new Date(file.created_at), "dd/MM/yyyy")}</p>}</div></CardContent></Card>); })}</div>) : (<Card className="text-center py-16"><CardContent><div className="text-center text-muted-foreground"><Video className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-semibold">Chưa có video nguồn</h3><p className="mt-1 text-sm">Bấm "Thêm video" để tải lên video nguồn đầu tiên.</p></div></CardContent></Card>)}
               </TabsContent>
               <TabsContent value="auto-scripts" className="mt-6">
                 <Card>
