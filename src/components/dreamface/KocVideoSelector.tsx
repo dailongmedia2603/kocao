@@ -65,37 +65,39 @@ export const KocVideoSelector = ({ kocs, isLoadingKocs, selectedKocId, onKocChan
         <div>
           <label className="text-sm font-medium">2. Chọn Video Nguồn</label>
           {isLoadingVideos ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mt-2">
               {[...Array(4)].map((_, i) => <Skeleton key={i} className="aspect-video w-full rounded-md" />)}
             </div>
           ) : videos && videos.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-2 max-h-64 overflow-y-auto p-2 rounded-md border">
-              {videos.map((video: KocVideo) => (
-                <div
-                  key={video.id}
-                  onClick={() => onVideoChange(video.url)}
-                  className={`relative aspect-video rounded-md overflow-hidden cursor-pointer border-2 group ${selectedVideoUrl === video.url ? 'border-red-500' : 'border-transparent'}`}
-                >
-                   {video.thumbnail_url ? (
-                     <img src={video.thumbnail_url} alt={video.display_name} className="w-full h-full object-cover" />
-                   ) : (
-                     <div className="w-full h-full flex items-center justify-center bg-slate-200">
-                       <Video className="h-8 w-8 text-slate-500" />
-                     </div>
-                   )}
-                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
-                     <PlayCircle className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                   </div>
-                  {selectedVideoUrl === video.url && (
-                    <div className="absolute top-1.5 right-1.5 bg-red-500 rounded-full p-0.5">
-                      <CheckCircle className="h-4 w-4 text-white" />
+            <div className="mt-2 max-h-64 overflow-y-auto rounded-md border">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-2">
+                {videos.map((video: KocVideo) => (
+                  <div
+                    key={video.id}
+                    onClick={() => onVideoChange(video.url)}
+                    className={`relative aspect-video rounded-md overflow-hidden cursor-pointer border-2 group ${selectedVideoUrl === video.url ? 'border-red-500' : 'border-transparent'}`}
+                  >
+                    {video.thumbnail_url ? (
+                      <img src={video.thumbnail_url} alt={video.display_name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-slate-200">
+                        <Video className="h-8 w-8 text-slate-500" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
+                      <PlayCircle className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                  )}
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                    <p className="text-white text-xs font-medium truncate">{video.display_name}</p>
+                    {selectedVideoUrl === video.url && (
+                      <div className="absolute top-1.5 right-1.5 bg-red-500 rounded-full p-0.5">
+                        <CheckCircle className="h-4 w-4 text-white" />
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                      <p className="text-white text-xs font-medium truncate">{video.display_name}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           ) : (
             <Alert className="mt-2">
