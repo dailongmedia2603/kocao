@@ -23,10 +23,10 @@ serve(async (req) => {
     // 1. Tìm các idea đã tạo voice xong nhưng chưa bắt đầu tạo video
     const { data: ideas, error: fetchError } = await supabaseAdmin
       .from('koc_content_ideas')
-      .select('id, user_id, koc_id, voice_audio_url') // Lấy trực tiếp audio_url
-      .eq('status', 'Đã tạo voice') // SỬA LỖI: Tìm đúng trạng thái
-      .not('voice_audio_url', 'is', null) // Đảm bảo đã có link audio
-      .is('dreamface_task_id', null) // Đảm bảo chưa tạo video
+      .select('id, user_id, koc_id, voice_audio_url')
+      .eq('status', 'Đã tạo voice')
+      .not('voice_audio_url', 'is', null)
+      .is('dreamface_task_id', null)
       .limit(5);
 
     if (fetchError) throw new Error(`Lỗi khi tìm idea: ${fetchError.message}`);
@@ -39,11 +39,25 @@ serve(async (req) => {
 
     for (const idea of ideas) {
       try {
-        // 2. Khóa idea lại để tránh xử lý trùng lặp
+        // 2. KIỂM TRA XEM CÓ CHIẾN DỊCH NÀO ĐANG 'ACTIVE' CHO KOC NÀY KHÔNG
+        const { data: campaign, error: campaignError } = await supabaseAdmin
+          .from('automation_campaigns')
+          .select('id')
+          .eq('koc_id', idea.koc_id)
+          .eq('status', 'active')
+          .single();
+
+        // Nếu không có chiến dịch active, bỏ qua idea này
+        if (campaignError || !campaign) {
+          console.log(`Bỏ qua idea ${idea.id} vì không có chiến dịch active cho KOC ${idea.koc_id}.`);
+          continue;
+        }
+
+        // 3. Khóa idea lại để tránh xử lý trùng lặp
         console.log(`Voice cho idea ${idea.id} đã hoàn thành. Bắt đầu tạo video.`);
         await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đang tạo video' }).eq('id', idea.id);
 
-        // 3. Lấy một video nguồn NGẪU NHIÊN của KOC
+        // 4. Lấy một video nguồn NGẪU NHIÊN của KOC
         const { data: sourceVideo, error: videoError } = await supabaseAdmin
           .rpc('get_random_source_video', { p_koc_id: idea.koc_id })
           .single();
@@ -53,7 +67,7 @@ serve(async (req) => {
         }
         const sourceVideoUrl = `${R2_PUBLIC_URL}/${sourceVideo.r2_key}`;
 
-        // 4. Tạo một tác vụ mới trong dreamface_tasks
+        // 5. Tạo một tác vụ mới trong dreamface_tasks
         const { data: newDreamfaceTask, error: insertError } = await supabaseAdmin
           .from('dreamface_tasks')
           .insert({
@@ -69,7 +83,7 @@ serve(async (req) => {
 
         if (insertError) throw new Error(`Lỗi tạo dreamface task: ${insertError.message}`);
 
-        // 5. Liên kết dreamface_task_id với idea
+        // 6. Liên kết dreamface_task_id với idea
         await supabaseAdmin.from('koc_content_ideas').update({ dreamface_task_id: newDreamfaceTask.id }).eq('id', idea.id);
 
         console.log(`Đã tạo dreamface task ${newDreamfaceTask.id} cho idea ${idea.id}.`);
