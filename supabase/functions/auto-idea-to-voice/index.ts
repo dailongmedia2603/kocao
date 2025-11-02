@@ -39,7 +39,7 @@ serve(async (req) => {
         // 2. Kiểm tra xem có chiến dịch nào đang 'active' cho KOC này không
         const { data: campaign, error: campaignError } = await supabaseAdmin
           .from('automation_campaigns')
-          .select('cloned_voice_id')
+          .select('cloned_voice_id, cloned_voice_name')
           .eq('koc_id', idea.koc_id)
           .eq('status', 'active')
           .single();
@@ -63,7 +63,8 @@ serve(async (req) => {
               text: idea.new_content,
               voice_name: `AutoVoice for Idea ${idea.id.substring(0, 8)}`,
               model: "speech-2.5-hd-preview",
-              voice_setting: { voice_id: campaign.cloned_voice_id }
+              voice_setting: { voice_id: campaign.cloned_voice_id },
+              cloned_voice_name: campaign.cloned_voice_name
             }
           }
         });
