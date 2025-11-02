@@ -30,18 +30,18 @@ serve(async (req) => {
       console.log(`Fetching specific idea ID: ${ideaId}`);
       const { data, error } = await supabaseAdmin
         .from('koc_content_ideas')
-        .select('id, user_id, idea_content, koc_id')
+        .select('id, user_id, idea_content, koc_id, status') // Select status as well
         .eq('id', ideaId)
         .limit(1);
       ideasToProcess = data;
       fetchError = error;
     } else {
-      // Otherwise, fetch the queue as before, but with corrected logic
+      // Otherwise, fetch the queue as before
       console.log("Fetching ideas to process from queue...");
       const { data, error } = await supabaseAdmin
         .from('koc_content_ideas')
-        .select('id, user_id, idea_content, koc_id')
-        .eq('status', 'Chưa sử dụng') // Only process ideas that are explicitly in 'Chưa sử dụng' state
+        .select('id, user_id, idea_content, koc_id, status')
+        .eq('status', 'Chưa sử dụng')
         .limit(5);
       ideasToProcess = data;
       fetchError = error;
@@ -66,6 +66,12 @@ serve(async (req) => {
 
     for (const idea of ideasToProcess) {
       try {
+        // Double-check the status before processing to prevent reprocessing
+        if (idea.status !== 'Chưa sử dụng') {
+          console.log(`Skipping idea ${idea.id} because its status is already '${idea.status}'.`);
+          continue;
+        }
+
         console.log(`Processing idea ID: ${idea.id}`);
         await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đang xử lý' }).eq('id', idea.id);
 
@@ -169,7 +175,8 @@ serve(async (req) => {
 
       } catch (processingError) {
         console.error(`Failed to process idea ${idea.id}:`, processingError.message);
-        await supabaseAdmin.from('koc_content_ideas').update({ status: 'Chưa sử dụng', error_message: processingError.message }).eq('id', idea.id);
+        // SỬA LỖI: Thay vì reset, hãy đặt trạng thái lỗi để không làm mất tiến trình.
+        await supabaseAdmin.from('koc_content_ideas').update({ status: 'Lỗi tạo content', error_message: processingError.message }).eq('id', idea.id);
       }
     }
 
