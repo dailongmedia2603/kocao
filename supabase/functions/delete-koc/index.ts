@@ -55,15 +55,38 @@ serve(async (req) => {
       });
       const bucket = Deno.env.get("R2_BUCKET_NAME");
 
-      const listCommand = new ListObjectsV2Command({ Bucket: bucket, Prefix: kocData.folder_path });
-      const listedObjects = await s3.send(listCommand);
+      // Lấy danh sách tất cả các đối tượng trong thư mục, xử lý phân trang
+      const allKeys: { Key: string }[] = [];
+      let isTruncated = true;
+      let continuationToken: string | undefined;
 
-      if (listedObjects.Contents && listedObjects.Contents.length > 0) {
-        const deleteParams = {
+      while (isTruncated) {
+        const listCommand = new ListObjectsV2Command({
           Bucket: bucket,
-          Delete: { Objects: listedObjects.Contents.map(({ Key }) => ({ Key })) },
-        };
-        await s3.send(new DeleteObjectsCommand(deleteParams));
+          Prefix: kocData.folder_path,
+          ContinuationToken: continuationToken,
+        });
+        const listedObjects = await s3.send(listCommand);
+
+        if (listedObjects.Contents && listedObjects.Contents.length > 0) {
+          allKeys.push(...listedObjects.Contents.map(({ Key }) => ({ Key: Key! })));
+        }
+
+        isTruncated = !!listedObjects.IsTruncated;
+        continuationToken = listedObjects.NextContinuationToken;
+      }
+
+      // Xóa các đối tượng theo từng đợt 1000
+      if (allKeys.length > 0) {
+        const chunkSize = 1000;
+        for (let i = 0; i < allKeys.length; i += chunkSize) {
+          const chunk = allKeys.slice(i, i + chunkSize);
+          const deleteParams = {
+            Bucket: bucket,
+            Delete: { Objects: chunk },
+          };
+          await s3.send(new DeleteObjectsCommand(deleteParams));
+        }
       }
     }
 
@@ -75,7 +98,22 @@ serve(async (req) => {
         }
     }
 
-    // 4. Xóa bản ghi KOC trong cơ sở dữ liệu
+    // 4. Xóa các bản ghi liên quan trong CSDL trước khi xóa KOC
+    const relatedTables = [
+        'koc_files', 
+        'koc_content_ideas', 
+        'video_scripts', 
+        'automation_campaigns',
+        'dreamface_tasks'
+    ];
+    for (const table of relatedTables) {
+        const { error } = await supabaseAdmin.from(table).delete().eq('koc_id', kocId);
+        if (error) {
+            console.warn(`Warning: Could not delete from ${table} for kocId ${kocId}: ${error.message}`);
+        }
+    }
+
+    // 5. Xóa bản ghi KOC trong cơ sở dữ liệu
     const { error: deleteDbError } = await supabaseAdmin
       .from("kocs")
       .delete()
@@ -85,7 +123,7 @@ serve(async (req) => {
       throw new Error(`Lỗi xóa KOC khỏi cơ sở dữ liệu: ${deleteDbError.message}`);
     }
 
-    return new Response(JSON.stringify({ success: true, message: "Xóa KOC và các tệp liên quan thành công." }), {
+    return new Response(JSON.stringify({ success: true, message: "Xóa KOC và tất cả các tệp liên quan thành công." }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
