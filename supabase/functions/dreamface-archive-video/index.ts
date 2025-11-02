@@ -23,7 +23,7 @@ serve(async (req) => {
   try {
     const { data: tasksToArchive, error: fetchError } = await supabaseAdmin
       .from('dreamface_tasks')
-      .select('id, user_id, result_video_url, title, koc_id')
+      .select('id, user_id, result_video_url, title, koc_id, original_audio_url') // Thêm original_audio_url
       .eq('is_archived', false)
       .like('result_video_url', '%aliyuncs.com%')
       .limit(5);
@@ -94,18 +94,42 @@ serve(async (req) => {
 
         const publicUrl = `${R2_PUBLIC_URL}/${r2Key}`;
 
-        // **THE FIX IS HERE: Add the video to the KOC's official library**
-        const { error: kocFileError } = await supabaseAdmin
+        // **LOGIC MỚI: TẠO KOC_FILE VÀ LIÊN KẾT LẠI IDEA**
+        const { data: newKocFile, error: kocFileError } = await supabaseAdmin
             .from('koc_files')
             .insert({
                 koc_id: task.koc_id,
                 user_id: task.user_id,
                 r2_key: r2Key,
                 display_name: displayName,
-            });
+            })
+            .select('id')
+            .single();
+
         if (kocFileError) {
             console.error(`Failed to create koc_files record for task ${task.id}:`, kocFileError.message);
             throw new Error(`Failed to create koc_files record: ${kocFileError.message}`);
+        }
+
+        // Tìm và cập nhật idea tương ứng nếu có
+        if (task.original_audio_url) {
+            const { data: matchingIdea, error: ideaError } = await supabaseAdmin
+                .from('koc_content_ideas')
+                .select('id')
+                .eq('voice_audio_url', task.original_audio_url)
+                .single();
+            
+            if (matchingIdea && !ideaError) {
+                console.log(`Found matching idea ${matchingIdea.id} for task ${task.id}. Updating...`);
+                await supabaseAdmin
+                    .from('koc_content_ideas')
+                    .update({
+                        status: 'Đã tạo video',
+                        generated_video_file_id: newKocFile.id,
+                        dreamface_task_id: task.id // Đảm bảo liên kết task id
+                    })
+                    .eq('id', matchingIdea.id);
+            }
         }
 
         const { error: updateError } = await supabaseAdmin
