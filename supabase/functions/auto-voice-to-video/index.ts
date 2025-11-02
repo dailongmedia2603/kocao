@@ -20,13 +20,13 @@ serve(async (req) => {
     const R2_PUBLIC_URL = Deno.env.get("R2_PUBLIC_URL");
     if (!R2_PUBLIC_URL) throw new Error("Thiếu cấu hình R2_PUBLIC_URL.");
 
-    // 1. Tìm các idea đang chờ voice hoàn thành
+    // 1. Tìm các idea đã tạo voice xong nhưng chưa bắt đầu tạo video
     const { data: ideas, error: fetchError } = await supabaseAdmin
       .from('koc_content_ideas')
-      .select('id, user_id, koc_id, voice_task_id')
-      .eq('status', 'Đang tạo voice')
-      .not('voice_task_id', 'is', null)
-      .is('dreamface_task_id', null)
+      .select('id, user_id, koc_id, voice_audio_url') // Lấy trực tiếp audio_url
+      .eq('status', 'Đã tạo voice') // SỬA LỖI: Tìm đúng trạng thái
+      .not('voice_audio_url', 'is', null) // Đảm bảo đã có link audio
+      .is('dreamface_task_id', null) // Đảm bảo chưa tạo video
       .limit(5);
 
     if (fetchError) throw new Error(`Lỗi khi tìm idea: ${fetchError.message}`);
@@ -39,56 +39,45 @@ serve(async (req) => {
 
     for (const idea of ideas) {
       try {
-        // 2. Kiểm tra trạng thái của voice task
-        const { data: voiceTask, error: voiceTaskError } = await supabaseAdmin
-          .from('voice_tasks')
-          .select('status, audio_url')
-          .eq('id', idea.voice_task_id)
+        // 2. Khóa idea lại để tránh xử lý trùng lặp
+        console.log(`Voice cho idea ${idea.id} đã hoàn thành. Bắt đầu tạo video.`);
+        await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đang tạo video' }).eq('id', idea.id);
+
+        // 3. Lấy một video nguồn NGẪU NHIÊN của KOC
+        const { data: sourceVideo, error: videoError } = await supabaseAdmin
+          .rpc('get_random_source_video', { p_koc_id: idea.koc_id })
           .single();
 
-        if (voiceTaskError) throw new Error(`Không tìm thấy voice task ${idea.voice_task_id}: ${voiceTaskError.message}`);
-
-        // 3. Nếu voice đã xong và có audio_url
-        if (voiceTask.status === 'done' && voiceTask.audio_url) {
-          console.log(`Voice task ${idea.voice_task_id} đã hoàn thành. Bắt đầu tạo video.`);
-          
-          // 4. Khóa idea lại
-          await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đang tạo video', voice_audio_url: voiceTask.audio_url }).eq('id', idea.id);
-
-          // 5. Lấy một video nguồn NGẪU NHIÊN của KOC bằng RPC
-          const { data: sourceVideo, error: videoError } = await supabaseAdmin
-            .rpc('get_random_source_video', { p_koc_id: idea.koc_id })
-            .single();
-
-          if (videoError || !sourceVideo) {
-            throw new Error(`Không tìm thấy video nguồn nào cho KOC ${idea.koc_id}.`);
-          }
-          const sourceVideoUrl = `${R2_PUBLIC_URL}/${sourceVideo.r2_key}`;
-
-          // 6. Tạo một task mới trong dreamface_tasks
-          const { data: newDreamfaceTask, error: insertError } = await supabaseAdmin
-            .from('dreamface_tasks')
-            .insert({
-              user_id: idea.user_id,
-              koc_id: idea.koc_id,
-              title: `AutoVideo for Idea ${idea.id.substring(0, 8)}`,
-              status: 'pending', // Sẽ được xử lý bởi cron job dreamface-process-queue
-              original_video_url: sourceVideoUrl,
-              original_audio_url: voiceTask.audio_url,
-            })
-            .select('id')
-            .single();
-
-          if (insertError) throw new Error(`Lỗi tạo dreamface task: ${insertError.message}`);
-
-          // 7. Liên kết dreamface_task_id với idea
-          await supabaseAdmin.from('koc_content_ideas').update({ dreamface_task_id: newDreamfaceTask.id }).eq('id', idea.id);
-
-          console.log(`Đã tạo dreamface task ${newDreamfaceTask.id} cho idea ${idea.id}.`);
-          successCount++;
+        if (videoError || !sourceVideo) {
+          throw new Error(`Không tìm thấy video nguồn nào cho KOC ${idea.koc_id}.`);
         }
+        const sourceVideoUrl = `${R2_PUBLIC_URL}/${sourceVideo.r2_key}`;
+
+        // 4. Tạo một tác vụ mới trong dreamface_tasks
+        const { data: newDreamfaceTask, error: insertError } = await supabaseAdmin
+          .from('dreamface_tasks')
+          .insert({
+            user_id: idea.user_id,
+            koc_id: idea.koc_id,
+            title: `AutoVideo for Idea ${idea.id.substring(0, 8)}`,
+            status: 'pending', // Sẽ được xử lý bởi cron job khác
+            original_video_url: sourceVideoUrl,
+            original_audio_url: idea.voice_audio_url, // Sử dụng audio_url đã có
+          })
+          .select('id')
+          .single();
+
+        if (insertError) throw new Error(`Lỗi tạo dreamface task: ${insertError.message}`);
+
+        // 5. Liên kết dreamface_task_id với idea
+        await supabaseAdmin.from('koc_content_ideas').update({ dreamface_task_id: newDreamfaceTask.id }).eq('id', idea.id);
+
+        console.log(`Đã tạo dreamface task ${newDreamfaceTask.id} cho idea ${idea.id}.`);
+        successCount++;
+        
       } catch (processingError) {
         console.error(`Lỗi xử lý idea ${idea.id}:`, processingError.message);
+        // Nếu có lỗi, cập nhật trạng thái để dễ dàng theo dõi
         await supabaseAdmin.from('koc_content_ideas').update({ status: 'Lỗi tạo video', error_message: processingError.message }).eq('id', idea.id);
       }
     }
