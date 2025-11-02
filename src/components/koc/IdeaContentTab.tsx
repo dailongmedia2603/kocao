@@ -8,13 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, MoreHorizontal, Edit, Trash2, Lightbulb, Loader2, Video, Settings, History, Wand2 } from "lucide-react";
+import { Plus, MoreHorizontal, Edit, Trash2, Lightbulb, Loader2, Video, Settings, History, Wand2, RefreshCw } from "lucide-react";
 import { AddEditIdeaDialog } from "./AddEditIdeaDialog";
 import { showSuccess, showError } from "@/utils/toast";
 import { ViewScriptContentDialog } from "@/components/content/ViewScriptContentDialog";
 import { ConfigureAiTemplatesDialog } from "@/components/automation/ConfigureAiTemplatesDialog";
 import { IdeaLogDialog } from "./IdeaLogDialog";
 import { useSession } from "@/contexts/SessionContext";
+import { cn } from "@/lib/utils";
 
 type Idea = {
   id: string;
@@ -39,8 +40,10 @@ type IdeaContentTabProps = {
 
 const StatusBadge = ({ status }: { status: string }) => {
   switch (status) {
+    case 'Đã tạo video':
+      return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Đã tạo video</Badge>;
     case 'Đã tạo voice':
-      return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Đã tạo voice</Badge>;
+      return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Đã tạo voice</Badge>;
     case 'Đã có content':
       return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Đã có content</Badge>;
     case 'Đang xử lý':
@@ -212,12 +215,19 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
     generateContentMutation.mutate(idea.id);
   };
 
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey });
+  };
+
   const renderMobile = () => (
     <Card>
         <CardHeader>
             <div className="flex justify-between items-center">
                 <CardTitle>Idea Content</CardTitle>
                 <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isLoading}>
+                        <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => setIsLogOpen(true)}><History className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={() => setConfigureOpen(true)}><Settings className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={handleAddNew} className="text-red-600"><Plus className="h-5 w-5" /></Button>
@@ -263,6 +273,9 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
             <CardDescription>Quản lý các ý tưởng và nội dung đã phát triển cho KOC.</CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isLoading}>
+              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+            </Button>
             <Button variant="outline" size="icon" onClick={() => setIsLogOpen(true)}>
               <History className="h-4 w-4" />
             </Button>
