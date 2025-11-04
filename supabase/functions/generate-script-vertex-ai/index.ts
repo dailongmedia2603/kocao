@@ -128,7 +128,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: fullPrompt }] }],
+        contents: [{ "role": "user", "parts": [{ "text": fullPrompt }] }],
         generationConfig: { temperature: 0.7, topK: 1, topP: 1, maxOutputTokens: 8192 },
       }),
     });

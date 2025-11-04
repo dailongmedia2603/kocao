@@ -99,7 +99,7 @@ serve(async (req) => {
     const accessToken = await getGcpAccessToken(credentials);
     const region = "us-central1";
     // Use a stable, generally available model for the smoke test
-    const model = "gemini-1.5-pro";
+    const model = "gemini-2.5-pro";
     const validationUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent`;
     
     const validationResponse = await fetch(validationUrl, {
@@ -110,7 +110,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         // Send a minimal payload to test the endpoint
-        contents: [{ parts: [{ text: "test" }] }],
+        contents: [{ "role": "user", "parts": [{ "text": "test" }] }],
       }),
     });
 
