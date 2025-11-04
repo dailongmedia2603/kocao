@@ -25,11 +25,9 @@ const CreditUsage = () => {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['voice_api_credit'],
     queryFn: async () => {
-      const response = await callVoiceApi({ path: "v1/user/info", method: "GET" });
-      if (response && response.data) {
-        return response.data;
-      }
-      if (response && response.credit !== undefined) {
+      // SỬA LỖI: Gọi đúng endpoint /v1/credits theo tài liệu
+      const response = await callVoiceApi({ path: "v1/credits", method: "GET" });
+      if (response && response.credits !== undefined) {
         return response;
       }
       throw new Error("Định dạng phản hồi không hợp lệ từ API credit.");
@@ -61,9 +59,7 @@ const CreditUsage = () => {
     );
   }
 
-  const totalCredit = data?.credit || 0;
-  const usedCredit = data?.used_credit || 0;
-  const remainingCredit = totalCredit - usedCredit;
+  const availableCredits = data?.credits || 0;
 
   return (
     <div className="flex items-center gap-4 rounded-lg border bg-muted/50 p-4">
@@ -71,11 +67,8 @@ const CreditUsage = () => {
             <Coins className="h-6 w-6" />
         </div>
         <div className="grid gap-1 text-sm">
-            <div className="font-semibold">Credit đã sử dụng</div>
-            <div className="text-2xl font-bold">{usedCredit.toLocaleString('vi-VN')}</div>
-            <div className="text-xs text-muted-foreground">
-                Tổng: {totalCredit.toLocaleString('vi-VN')} | Còn lại: {remainingCredit.toLocaleString('vi-VN')}
-            </div>
+            <div className="font-semibold">Credit Hiện Có</div>
+            <div className="text-2xl font-bold">{availableCredits.toLocaleString('vi-VN')}</div>
         </div>
         <Button variant="ghost" size="icon" className="ml-auto" onClick={() => refetch()} disabled={isFetching}>
             <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
