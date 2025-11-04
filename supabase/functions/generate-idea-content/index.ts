@@ -7,6 +7,77 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// --- START: Vertex AI Helper Functions ---
+async function importPrivateKey(pem: string): Promise<CryptoKey> {
+  const pemHeader = "-----BEGIN PRIVATE KEY-----";
+  const pemFooter = "-----END PRIVATE KEY-----";
+  const pemContents = pem.replace(pemHeader, "").replace(pemFooter, "").replace(/\s/g, "");
+  const binaryDer = atob(pemContents);
+  const arrayBuffer = new ArrayBuffer(binaryDer.length);
+  const uint8Array = new Uint8Array(arrayBuffer);
+  for (let i = 0; i < binaryDer.length; i++) {
+    uint8Array[i] = binaryDer.charCodeAt(i);
+  }
+  return await crypto.subtle.importKey(
+    "pkcs8",
+    uint8Array,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    true,
+    ["sign"]
+  );
+}
+
+function base64url(buffer: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+}
+
+async function getGcpAccessToken(credentials: any): Promise<string> {
+  const privateKey = await importPrivateKey(credentials.private_key);
+  
+  const header = { alg: "RS256", typ: "JWT" };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: credentials.client_email,
+    scope: "https://www.googleapis.com/auth/cloud-platform",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const encoder = new TextEncoder();
+  const encodedHeader = base64url(encoder.encode(JSON.stringify(header)));
+  const encodedPayload = base64url(encoder.encode(JSON.stringify(payload)));
+
+  const dataToSign = encoder.encode(`${encodedHeader}.${encodedPayload}`);
+  
+  const signature = await crypto.subtle.sign(
+    { name: "RSASSA-PKCS1-v1_5" },
+    privateKey,
+    dataToSign
+  );
+
+  const jwt = `${encodedHeader}.${encodedPayload}.${base64url(signature)}`;
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt,
+    }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(`Google Auth Error: ${data.error_description || "Failed to fetch access token."}`);
+  }
+  return data.access_token;
+}
+// --- END: Vertex AI Helper Functions ---
+
+
 serve(async (req) => {
   console.log(`[${new Date().toISOString()}] generate-idea-content function invoked with method: ${req.method}`);
 
@@ -75,11 +146,19 @@ serve(async (req) => {
         console.log(`Processing idea ID: ${idea.id}`);
         await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đang xử lý' }).eq('id', idea.id);
 
-        console.log(`Fetching shared API key...`);
-        const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.from("user_api_keys").select("api_key").limit(1).single();
-        if (apiKeyError || !apiKeyData) throw new Error("No Gemini API key is configured in the system.");
-        const geminiApiKey = apiKeyData.api_key;
-        console.log("API key found.");
+        // --- START: Vertex AI Authentication ---
+        const credentialsJson = Deno.env.get("GOOGLE_CREDENTIALS_JSON");
+        if (!credentialsJson) {
+          throw new Error("Secret GOOGLE_CREDENTIALS_JSON chưa được cấu hình trong Supabase Vault.");
+        }
+        const credentials = JSON.parse(credentialsJson);
+        const projectId = credentials.project_id;
+        if (!projectId) {
+          throw new Error("Tệp JSON trong secret không chứa 'project_id'.");
+        }
+        const accessToken = await getGcpAccessToken(credentials);
+        console.log("Vertex AI access token obtained.");
+        // --- END: Vertex AI Authentication ---
 
         console.log(`Fetching KOC data for ID: ${idea.koc_id}`);
         const { data: koc, error: kocError } = await supabaseAdmin
@@ -139,24 +218,38 @@ serve(async (req) => {
           **QUAN TRỌNG:** Chỉ trả về nội dung kịch bản hoàn chỉnh, không thêm bất kỳ lời giải thích, tiêu đề hay ghi chú nào khác.
         `;
 
-        console.log(`Calling Gemini API with model: ${template.model || 'gemini-1.5-pro-latest'}`);
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${template.model || 'gemini-1.5-pro-latest'}:generateContent?key=${geminiApiKey}`;
-        const geminiResponse = await fetch(geminiUrl, {
+        // --- START: Vertex AI API Call ---
+        const region = "us-central1";
+        const model = template.model || 'gemini-2.5-pro'; // Default to a valid model
+        console.log(`Calling Vertex AI with model: ${model}`);
+        const vertexUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent`;
+        
+        const vertexResponse = await fetch(vertexUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: fullPrompt }] }],
+            contents: [{ "role": "user", "parts": [{ "text": fullPrompt }] }],
             generationConfig: { temperature: 0.7, topK: 1, topP: 1, maxOutputTokens: 8192 },
           }),
         });
 
-        const geminiData = await geminiResponse.json();
-        if (!geminiResponse.ok || !geminiData.candidates || geminiData.candidates.length === 0) {
-          console.error("Gemini API error response:", JSON.stringify(geminiData));
-          throw new Error(geminiData?.error?.message || "Lỗi từ API Gemini.");
+        if (!vertexResponse.ok) {
+          const errorBody = await vertexResponse.text();
+          console.error("Vertex AI API error response:", errorBody);
+          throw new Error(`Lỗi từ Vertex AI (Status: ${vertexResponse.status}): ${errorBody}`);
         }
-        const generatedText = geminiData.candidates[0].content.parts[0].text;
-        console.log("Successfully received response from Gemini.");
+
+        const vertexData = await vertexResponse.json();
+        if (!vertexData.candidates || vertexData.candidates.length === 0) {
+          console.error("Vertex AI API empty response:", JSON.stringify(vertexData));
+          throw new Error(vertexData?.error?.message || "Lỗi từ Vertex AI: Phản hồi không chứa nội dung.");
+        }
+        const generatedText = vertexData.candidates[0].content.parts[0].text;
+        console.log("Successfully received response from Vertex AI.");
+        // --- END: Vertex AI API Call ---
 
         console.log(`Updating idea ${idea.id} with new content.`);
         const { error: updateError } = await supabaseAdmin
@@ -175,7 +268,6 @@ serve(async (req) => {
 
       } catch (processingError) {
         console.error(`Failed to process idea ${idea.id}:`, processingError.message);
-        // SỬA LỖI: Thay vì reset, hãy đặt trạng thái lỗi để không làm mất tiến trình.
         await supabaseAdmin.from('koc_content_ideas').update({ status: 'Lỗi tạo content', error_message: processingError.message }).eq('id', idea.id);
       }
     }
