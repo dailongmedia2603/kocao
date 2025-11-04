@@ -6,9 +6,11 @@ import { showSuccess, showError } from "@/utils/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Eye, EyeOff, Trash2, CheckCircle, Loader2, Plus, KeyRound } from "lucide-react";
+import { Eye, EyeOff, Trash2, CheckCircle, Loader2, Plus, KeyRound, Coins, AlertCircle, RefreshCw } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { AddVoiceApiKeyDialog } from "./AddVoiceApiKeyDialog";
+import { callVoiceApi } from "@/lib/voiceApi";
+import { cn } from "@/lib/utils";
 
 type VoiceApiKey = { id: string; name: string; api_key: string; };
 
@@ -16,6 +18,70 @@ const fetchApiKeys = async (userId: string): Promise<VoiceApiKey[]> => {
   const { data, error } = await supabase.from("user_voice_api_keys").select("*").eq("user_id", userId).order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return data;
+};
+
+const CreditUsage = () => {
+  const { user } = useSession();
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ['voice_api_credit'],
+    queryFn: async () => {
+      const response = await callVoiceApi({ path: "v1/user/info", method: "GET" });
+      if (response && response.data) {
+        return response.data;
+      }
+      if (response && response.credit !== undefined) {
+        return response;
+      }
+      throw new Error("Định dạng phản hồi không hợp lệ từ API credit.");
+    },
+    enabled: !!user,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground p-4 border rounded-lg">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Đang tải thông tin credit...</span>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex items-center justify-between gap-2 text-sm text-destructive p-4 border border-destructive/50 bg-destructive/10 rounded-lg">
+        <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            <span>Lỗi tải credit: {(error as Error).message}</span>
+        </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+
+  const totalCredit = data?.credit || 0;
+  const usedCredit = data?.used_credit || 0;
+  const remainingCredit = totalCredit - usedCredit;
+
+  return (
+    <div className="flex items-center gap-4 rounded-lg border bg-muted/50 p-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+            <Coins className="h-6 w-6" />
+        </div>
+        <div className="grid gap-1 text-sm">
+            <div className="font-semibold">Credit đã sử dụng</div>
+            <div className="text-2xl font-bold">{usedCredit.toLocaleString('vi-VN')}</div>
+            <div className="text-xs text-muted-foreground">
+                Tổng: {totalCredit.toLocaleString('vi-VN')} | Còn lại: {remainingCredit.toLocaleString('vi-VN')}
+            </div>
+        </div>
+        <Button variant="ghost" size="icon" className="ml-auto" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
+        </Button>
+    </div>
+  );
 };
 
 const ApiKeyRow = ({ apiKey }: { apiKey: VoiceApiKey }) => {
@@ -89,7 +155,8 @@ const VoiceApiSettings = () => {
           <div><CardTitle>Cấu hình API Voice</CardTitle><CardDescription>Thêm và quản lý API Key của bạn từ Vivoo.work.</CardDescription></div>
           <Button onClick={() => setAddDialogOpen(true)}><Plus className="mr-2 h-4 w-4" /> Thêm Key</Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <CreditUsage />
           {isLoading ? <Skeleton className="h-20 w-full" /> : apiKeys && apiKeys.length > 0 ? (
             <div className="space-y-4">{apiKeys.map((key) => <ApiKeyRow key={key.id} apiKey={key} />)}</div>
           ) : (
