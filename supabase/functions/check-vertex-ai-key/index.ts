@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { create, getNumericDate, type Header } from "https://deno.land/x/djwt@v2.8/mod.ts";
+import { SignJWT } from 'https://deno.land/x/jose@v4.14.4/jwt/sign.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,19 +29,19 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
   );
 }
 
-// Helper to get Google Cloud access token
+// Helper to get Google Cloud access token using 'jose' library
 async function getGcpAccessToken(credentials: any): Promise<string> {
   const privateKey = await importPrivateKey(credentials.private_key);
-  const header: Header = { alg: "RS256", typ: "JWT" };
-  const payload = {
-    iss: credentials.client_email,
-    scope: "https://www.googleapis.com/auth/cloud-platform",
-    aud: "https://oauth2.googleapis.com/token",
-    exp: getNumericDate(3600), // Expires in 1 hour
-    iat: getNumericDate(0),
-  };
-
-  const jwt = await create(header, payload, privateKey);
+  
+  const jwt = await new SignJWT({})
+    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+    .setIssuer(credentials.client_email)
+    .setAudience("https://oauth2.googleapis.com/token")
+    .setSubject(credentials.client_email)
+    .setIssuedAt()
+    .setExpirationTime('1h')
+    .setClaim('scope', 'https://www.googleapis.com/auth/cloud-platform')
+    .sign(privateKey);
 
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
