@@ -98,10 +98,20 @@ serve(async (req) => {
 
     const accessToken = await getGcpAccessToken(credentials);
     const region = "us-central1";
-    const validationUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models`;
+    // Use a specific, fast model for a "smoke test" by calling generateContent
+    const model = "gemini-1.5-flash-latest";
+    const validationUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent`;
     
     const validationResponse = await fetch(validationUrl, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      method: 'POST',
+      headers: { 
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        // Send a minimal payload to test the endpoint
+        contents: [{ parts: [{ text: "test" }] }],
+      }),
     });
 
     if (!validationResponse.ok) {
@@ -116,6 +126,7 @@ serve(async (req) => {
       throw new Error(`Vertex AI API Error (Status: ${validationResponse.status}): ${errorBody}`);
     }
 
+    // If the request is successful, it means the connection is valid.
     return new Response(JSON.stringify({ success: true, message: `Kết nối thành công tới dự án: ${projectId}` }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
