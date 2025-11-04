@@ -55,7 +55,6 @@ const scriptFormSchema = z.object({
   aiRole: z.string().optional(),
   mandatoryRequirements: z.string().optional(),
   exampleDialogue: z.string().optional(),
-  generationMethod: z.enum(['gemini_api', 'vertex_ai']).default('gemini_api'),
 });
 
 // Data Fetching Functions
@@ -117,7 +116,6 @@ const TaoContent = () => {
       aiRole: "Đóng vai là 1 người tự quay video tiktok để nói chuyện, chia sẻ tự nhiên, nghĩ gì nói đó.",
       mandatoryRequirements: "",
       exampleDialogue: "",
-      generationMethod: 'gemini_api',
     },
   });
 
@@ -137,14 +135,13 @@ const TaoContent = () => {
 ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn phong): ${values.exampleDialogue}` : ''}
       `.trim();
 
-      const functionName = values.generationMethod === 'vertex_ai' ? "generate-script-vertex-ai" : "generate-video-script";
+      const functionName = "generate-script-vertex-ai";
       const body = {
         prompt: detailedPrompt,
         newsContent: values.content,
         kocName: selectedKoc.name,
         maxWords: values.maxWords,
         model: values.model,
-        userId: user.id, // Pass userId for gemini_api
       };
 
       const { data, error } = await supabase.functions.invoke(functionName, { body });
@@ -209,10 +206,8 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
                       <FormField control={form.control} name="kocId" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel className="flex items-center"><UserCircle className="h-4 w-4 mr-2" />Tạo cho KOC</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>{field.value ? kocs.find((koc) => koc.id === field.value)?.name : "Chọn KOC"}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Tìm KOC..." /><CommandList><CommandEmpty>Không tìm thấy KOC.</CommandEmpty><CommandGroup>{kocs.map((koc) => (<CommandItem value={koc.name} key={koc.id} onSelect={() => { form.setValue("kocId", koc.id);}}><Check className={cn("mr-2 h-4 w-4", koc.id === field.value ? "opacity-100" : "opacity-0")}/>{koc.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="content" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><AlignLeft className="h-4 w-4 mr-2" />Nội dung gốc</FormLabel><FormControl><Textarea placeholder="Nhập nội dung bạn muốn AI chuyển thành kịch bản video..." {...field} rows={5} /></FormControl><FormMessage /></FormItem>)} />
                       
-                      <FormField control={form.control} name="generationMethod" render={({ field }) => (<FormItem className="space-y-3"><FormLabel className="flex items-center"><Settings2 className="h-4 w-4 mr-2" />Phương thức tạo</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex items-center space-x-4"><FormItem className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value="gemini_api" /></FormControl><FormLabel className="font-normal">API Gemini</FormLabel></FormItem><FormItem className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value="vertex_ai" /></FormControl><FormLabel className="font-normal">Vertex AI</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>)} />
-                      
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Model AI</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem><SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><BrainCircuit className="h-4 w-4 mr-2" />Model AI (Vertex)</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem><SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="maxWords" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Sigma className="h-4 w-4 mr-2" />Số từ tối đa</FormLabel><FormControl><Input type="number" placeholder="Ví dụ: 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
                       </div>
                       <FormField control={form.control} name="toneOfVoice" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><MessageSquare className="h-4 w-4 mr-2" />Tông giọng</FormLabel><FormControl><Input placeholder="Ví dụ: hài hước, chuyên nghiệp..." {...field} /></FormControl><FormMessage /></FormItem>)} />

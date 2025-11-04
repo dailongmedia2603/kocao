@@ -1,18 +1,16 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import ApiSettings from "@/components/settings/ApiSettings";
 import TiktokApiSettings from "@/components/settings/TiktokApiSettings";
 import FacebookApiSettings from "@/components/settings/FacebookApiSettings";
 import VoiceApiSettings from "@/components/settings/VoiceApiSettings";
 import DreamfaceApiSettings from "@/components/settings/DreamfaceApiSettings";
 import VertexAiSettings from "@/components/settings/VertexAiSettings";
-import { Bot, Mic, Film, BrainCircuit } from "lucide-react";
+import { Mic, Film, BrainCircuit } from "lucide-react";
 import { FaTiktok, FaFacebook } from "react-icons/fa";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const TABS_CONFIG = [
-  { value: "gemini-api", label: "API Gemini", icon: Bot, component: <ApiSettings /> },
   { value: "vertex-ai-api", label: "Gemini Vertex AI", icon: BrainCircuit, component: <VertexAiSettings /> },
   { value: "tiktok-api", label: "API TikTok", icon: FaTiktok, component: <TiktokApiSettings /> },
   { value: "facebook-api", label: "API Facebook", icon: FaFacebook, component: <FacebookApiSettings /> },
@@ -21,7 +19,7 @@ const TABS_CONFIG = [
 ];
 
 const Settings = () => {
-  const [activeTab, setActiveTab] = useState("gemini-api");
+  const [activeTab, setActiveTab] = useState("vertex-ai-api");
   const activeComponent = TABS_CONFIG.find(tab => tab.value === activeTab)?.component;
 
   return (
@@ -57,7 +55,7 @@ const Settings = () => {
           <h1 className="text-3xl font-bold">Cài đặt</h1>
           <p className="text-muted-foreground mt-1">Quản lý API Keys và các cấu hình hệ thống khác.</p>
         </header>
-        <Tabs defaultValue="gemini-api" className="w-full">
+        <Tabs defaultValue="vertex-ai-api" className="w-full">
           <TabsList className="flex flex-wrap justify-start bg-transparent p-0 gap-2 h-auto">
             {TABS_CONFIG.map(tab => (
               <TabsTrigger key={tab.value} value={tab.value} className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors">
