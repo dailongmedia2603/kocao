@@ -133,13 +133,25 @@ serve(async (req) => {
       }),
     });
 
+    if (!vertexResponse.ok) {
+      const contentType = vertexResponse.headers.get("content-type");
+      let errorBody;
+      if (contentType && contentType.includes("application/json")) {
+        const errorData = await vertexResponse.json();
+        errorBody = errorData.error?.message || JSON.stringify(errorData);
+      } else {
+        errorBody = await vertexResponse.text();
+      }
+      throw new Error(`Lỗi từ Vertex AI (Status: ${vertexResponse.status}): ${errorBody}`);
+    }
+
     const vertexData = await vertexResponse.json();
 
-    if (!vertexResponse.ok || !vertexData.candidates || vertexData.candidates.length === 0) {
-      if (vertexData?.error?.message) {
-        throw new Error(`Lỗi từ Vertex AI: ${vertexData.error.message}`);
+    if (!vertexData.candidates || vertexData.candidates.length === 0) {
+      if (vertexData?.promptFeedback?.blockReason) {
+        throw new Error(`Nội dung bị chặn vì lý do an toàn: ${vertexData.promptFeedback.blockReason}.`);
       }
-      throw new Error("Lỗi không xác định từ Vertex AI.");
+      throw new Error("Lỗi từ Vertex AI: Phản hồi không chứa nội dung được tạo.");
     }
 
     const generatedText = vertexData.candidates[0].content.parts[0].text;

@@ -105,8 +105,15 @@ serve(async (req) => {
     });
 
     if (!validationResponse.ok) {
-      const errorData = await validationResponse.json();
-      throw new Error(`Vertex AI API Error: ${errorData.error.message}`);
+      const contentType = validationResponse.headers.get("content-type");
+      let errorBody;
+      if (contentType && contentType.includes("application/json")) {
+        const errorData = await validationResponse.json();
+        errorBody = errorData.error?.message || JSON.stringify(errorData);
+      } else {
+        errorBody = await validationResponse.text();
+      }
+      throw new Error(`Vertex AI API Error (Status: ${validationResponse.status}): ${errorBody}`);
     }
 
     return new Response(JSON.stringify({ success: true, message: `Kết nối thành công tới dự án: ${projectId}` }), {
