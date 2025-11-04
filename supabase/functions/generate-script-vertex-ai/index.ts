@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { SignJWT } from 'https://deno.land/x/jose@v4.14.4/jwt/sign.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { SignJWT } from 'https://deno.land/x/jose@v5.6.2/jwt/sign.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +9,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// --- Re-using helper functions from check-vertex-ai-key ---
 async function importPrivateKey(pem: string): Promise<CryptoKey> {
   const pemHeader = "-----BEGIN PRIVATE KEY-----";
   const pemFooter = "-----END PRIVATE KEY-----";
@@ -29,6 +31,7 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
 
 async function getGcpAccessToken(credentials: any): Promise<string> {
   const privateKey = await importPrivateKey(credentials.private_key);
+  
   const jwt = await new SignJWT({ 'scope': 'https://www.googleapis.com/auth/cloud-platform' })
     .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
     .setIssuer(credentials.client_email)
@@ -37,6 +40,7 @@ async function getGcpAccessToken(credentials: any): Promise<string> {
     .setIssuedAt()
     .setExpirationTime('1h')
     .sign(privateKey);
+
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -51,6 +55,7 @@ async function getGcpAccessToken(credentials: any): Promise<string> {
   }
   return data.access_token;
 }
+// --- End of re-used helper functions ---
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
