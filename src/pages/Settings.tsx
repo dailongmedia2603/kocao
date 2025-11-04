@@ -5,13 +5,15 @@ import TiktokApiSettings from "@/components/settings/TiktokApiSettings";
 import FacebookApiSettings from "@/components/settings/FacebookApiSettings";
 import VoiceApiSettings from "@/components/settings/VoiceApiSettings";
 import DreamfaceApiSettings from "@/components/settings/DreamfaceApiSettings";
-import { Bot, Mic, Film } from "lucide-react";
+import VertexAiSettings from "@/components/settings/VertexAiSettings";
+import { Bot, Mic, Film, BrainCircuit } from "lucide-react";
 import { FaTiktok, FaFacebook } from "react-icons/fa";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const TABS_CONFIG = [
   { value: "gemini-api", label: "API Gemini", icon: Bot, component: <ApiSettings /> },
+  { value: "vertex-ai-api", label: "Gemini Vertex AI", icon: BrainCircuit, component: <VertexAiSettings /> },
   { value: "tiktok-api", label: "API TikTok", icon: FaTiktok, component: <TiktokApiSettings /> },
   { value: "facebook-api", label: "API Facebook", icon: FaFacebook, component: <FacebookApiSettings /> },
   { value: "voice-api", label: "API Voice", icon: Mic, component: <VoiceApiSettings /> },
@@ -57,29 +59,20 @@ const Settings = () => {
         </header>
         <Tabs defaultValue="gemini-api" className="w-full">
           <TabsList className="flex flex-wrap justify-start bg-transparent p-0 gap-2 h-auto">
-            <TabsTrigger value="gemini-api" className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white"><Bot className="h-5 w-5" /></div><span>API Gemini</span>
-            </TabsTrigger>
-            <TabsTrigger value="tiktok-api" className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white"><FaTiktok className="h-5 w-5" /></div><span>API TikTok</span>
-            </TabsTrigger>
-            <TabsTrigger value="facebook-api" className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white"><FaFacebook className="h-5 w-5" /></div><span>API Facebook</span>
-            </TabsTrigger>
-            <TabsTrigger value="voice-api" className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white"><Mic className="h-5 w-5" /></div><span>API Voice</span>
-            </TabsTrigger>
-            <TabsTrigger value="dreamface-api" className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white"><Film className="h-5 w-5" /></div><span>API Tạo Video</span>
-            </TabsTrigger>
+            {TABS_CONFIG.map(tab => (
+              <TabsTrigger key={tab.value} value={tab.value} className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white">
+                  <tab.icon className="h-5 w-5" />
+                </div>
+                <span>{tab.label}</span>
+              </TabsTrigger>
+            ))}
           </TabsList>
-          <TabsContent value="gemini-api" className="mt-6"><ApiSettings /></TabsContent>
-          <TabsContent value="tiktok-api" className="mt-6"><TiktokApiSettings /></TabsContent>
-          <TabsContent value="facebook-api" className="mt-6"><FacebookApiSettings /></TabsContent>
-          <TabsContent value="voice-api" className="mt-6">
-            <VoiceApiSettings />
-          </TabsContent>
-          <TabsContent value="dreamface-api" className="mt-6"><DreamfaceApiSettings /></TabsContent>
+          {TABS_CONFIG.map(tab => (
+            <TabsContent key={tab.value} value={tab.value} className="mt-6">
+              {tab.component}
+            </TabsContent>
+          ))}
         </Tabs>
       </div>
     </>
