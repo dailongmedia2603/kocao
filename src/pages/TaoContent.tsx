@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 // Icons
-import { Bot, Settings, Wand2, ChevronDown, FileSignature, UserCircle, Sigma, MessageSquare, Loader2, Hash, AlignLeft, Settings2, Trash2, Edit, MoreHorizontal, Check, ChevronsUpDown, CheckSquare, Eye, BrainCircuit } from "lucide-react";
+import { Bot, Wand2, FileSignature, UserCircle, Sigma, MessageSquare, Loader2, AlignLeft, Settings2, Trash2, Edit, MoreHorizontal, Check, ChevronsUpDown, CheckSquare, Eye, BrainCircuit } from "lucide-react";
 
 // Custom Components
 import { ViewScriptContentDialog } from "@/components/content/ViewScriptContentDialog";
@@ -41,7 +41,6 @@ type VideoScript = {
   created_at: string;
   kocs: { name: string } | null;
 };
-type VertexAiKey = { id: string; name: string; project_id: string; };
 
 // Form Schema
 const scriptFormSchema = z.object({
@@ -57,15 +56,6 @@ const scriptFormSchema = z.object({
   mandatoryRequirements: z.string().optional(),
   exampleDialogue: z.string().optional(),
   generationMethod: z.enum(['gemini_api', 'vertex_ai']).default('gemini_api'),
-  credentialId: z.string().optional(),
-}).superRefine((data, ctx) => {
-  if (data.generationMethod === 'vertex_ai' && !data.credentialId) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["credentialId"],
-      message: "Vui lòng chọn một thông tin xác thực Vertex AI.",
-    });
-  }
 });
 
 // Data Fetching Functions
@@ -100,16 +90,6 @@ const TaoContent = () => {
     queryFn: () => fetchVideoScripts(user!.id),
     enabled: !!user,
   });
-  const { data: vertexAiKeys = [], isLoading: isLoadingVertexKeys } = useQuery<VertexAiKey[]>({
-    queryKey: ['vertex_ai_credentials', user?.id],
-    queryFn: async () => {
-        if (!user) return [];
-        const { data, error } = await supabase.from('user_vertex_ai_credentials').select('id, name, project_id').eq('user_id', user.id);
-        if (error) throw error;
-        return data;
-    },
-    enabled: !!user,
-  });
 
   const deleteScriptMutation = useMutation({
     mutationFn: async (scriptId: string) => {
@@ -138,7 +118,6 @@ const TaoContent = () => {
       mandatoryRequirements: "",
       exampleDialogue: "",
       generationMethod: 'gemini_api',
-      credentialId: undefined,
     },
   });
 
@@ -158,30 +137,15 @@ const TaoContent = () => {
 ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn phong): ${values.exampleDialogue}` : ''}
       `.trim();
 
-      let functionName: string;
-      let body: object;
-
-      if (values.generationMethod === 'vertex_ai') {
-        functionName = "generate-script-vertex-ai";
-        body = {
-          credentialId: values.credentialId,
-          prompt: detailedPrompt,
-          newsContent: values.content,
-          kocName: selectedKoc.name,
-          maxWords: values.maxWords,
-          model: values.model,
-        };
-      } else {
-        functionName = "generate-video-script";
-        body = {
-          userId: user.id,
-          prompt: detailedPrompt,
-          newsContent: values.content,
-          kocName: selectedKoc.name,
-          maxWords: values.maxWords,
-          model: values.model,
-        };
-      }
+      const functionName = values.generationMethod === 'vertex_ai' ? "generate-script-vertex-ai" : "generate-video-script";
+      const body = {
+        prompt: detailedPrompt,
+        newsContent: values.content,
+        kocName: selectedKoc.name,
+        maxWords: values.maxWords,
+        model: values.model,
+        userId: user.id, // Pass userId for gemini_api
+      };
 
       const { data, error } = await supabase.functions.invoke(functionName, { body });
 
@@ -247,10 +211,6 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
                       
                       <FormField control={form.control} name="generationMethod" render={({ field }) => (<FormItem className="space-y-3"><FormLabel className="flex items-center"><Settings2 className="h-4 w-4 mr-2" />Phương thức tạo</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex items-center space-x-4"><FormItem className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value="gemini_api" /></FormControl><FormLabel className="font-normal">API Gemini</FormLabel></FormItem><FormItem className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value="vertex_ai" /></FormControl><FormLabel className="font-normal">Vertex AI</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>)} />
                       
-                      {form.watch('generationMethod') === 'vertex_ai' && (
-                        <FormField control={form.control} name="credentialId" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><BrainCircuit className="h-4 w-4 mr-2" />Thông tin xác thực Vertex AI</FormLabel>{isLoadingVertexKeys ? <Skeleton className="h-10 w-full" /> : (<Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn thông tin xác thực..." /></SelectTrigger></FormControl><SelectContent>{vertexAiKeys.length > 0 ? (vertexAiKeys.map((key) => (<SelectItem key={key.id} value={key.id}>{key.name} ({key.project_id})</SelectItem>))) : (<div className="p-4 text-center text-sm text-muted-foreground">Không có thông tin xác thực nào. Vui lòng thêm trong Cài đặt.</div>)}</SelectContent></Select>)}<FormMessage /></FormItem>)} />
-                      )}
-
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Model AI</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem><SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="maxWords" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Sigma className="h-4 w-4 mr-2" />Số từ tối đa</FormLabel><FormControl><Input type="number" placeholder="Ví dụ: 300" {...field} /></FormControl><FormMessage /></FormItem>)} />

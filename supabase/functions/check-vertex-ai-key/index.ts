@@ -1,6 +1,5 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SignJWT } from 'https://deno.land/x/jose@v4.14.4/jwt/sign.ts';
 
 const corsHeaders = {
@@ -9,7 +8,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper to import PEM-encoded private key
 async function importPrivateKey(pem: string): Promise<CryptoKey> {
   const pemHeader = "-----BEGIN PRIVATE KEY-----";
   const pemFooter = "-----END PRIVATE KEY-----";
@@ -29,10 +27,8 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
   );
 }
 
-// Helper to get Google Cloud access token using 'jose' library
 async function getGcpAccessToken(credentials: any): Promise<string> {
   const privateKey = await importPrivateKey(credentials.private_key);
-  
   const jwt = await new SignJWT({ 'scope': 'https://www.googleapis.com/auth/cloud-platform' })
     .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
     .setIssuer(credentials.client_email)
@@ -41,7 +37,6 @@ async function getGcpAccessToken(credentials: any): Promise<string> {
     .setIssuedAt()
     .setExpirationTime('1h')
     .sign(privateKey);
-
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -50,7 +45,6 @@ async function getGcpAccessToken(credentials: any): Promise<string> {
       assertion: jwt,
     }),
   });
-
   const data = await response.json();
   if (!response.ok) {
     throw new Error(`Google Auth Error: ${data.error_description || "Failed to fetch access token."}`);
@@ -64,27 +58,18 @@ serve(async (req) => {
   }
 
   try {
-    // Authenticate user
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
-    );
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
-
-    // Get credentials from request body
-    const { credentialsJson, projectId } = await req.json();
-    if (!credentialsJson || !projectId) {
-      throw new Error("credentialsJson and projectId are required.");
+    const credentialsJson = Deno.env.get("GOOGLE_CREDENTIALS_JSON");
+    if (!credentialsJson) {
+      throw new Error("Secret GOOGLE_CREDENTIALS_JSON chưa được cấu hình trong Supabase Vault.");
     }
 
     const credentials = JSON.parse(credentialsJson);
+    const projectId = credentials.project_id;
+    if (!projectId) {
+      throw new Error("Tệp JSON trong secret không chứa 'project_id'.");
+    }
 
-    // Get access token
     const accessToken = await getGcpAccessToken(credentials);
-
-    // Validate token by making a test API call
     const region = "us-central1";
     const validationUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models`;
     
@@ -97,14 +82,14 @@ serve(async (req) => {
       throw new Error(`Vertex AI API Error: ${errorData.error.message}`);
     }
 
-    return new Response(JSON.stringify({ success: true, message: "Kết nối thành công! Thông tin xác thực hợp lệ." }), {
+    return new Response(JSON.stringify({ success: true, message: `Kết nối thành công tới dự án: ${projectId}` }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (err) {
     return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 200, // Return 200 so client can handle the error message
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

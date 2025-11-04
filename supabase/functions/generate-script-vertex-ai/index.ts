@@ -1,6 +1,5 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SignJWT } from 'https://deno.land/x/jose@v4.14.4/jwt/sign.ts';
 
 const corsHeaders = {
@@ -9,7 +8,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// --- Re-using helper functions from check-vertex-ai-key ---
 async function importPrivateKey(pem: string): Promise<CryptoKey> {
   const pemHeader = "-----BEGIN PRIVATE KEY-----";
   const pemFooter = "-----END PRIVATE KEY-----";
@@ -31,7 +29,6 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
 
 async function getGcpAccessToken(credentials: any): Promise<string> {
   const privateKey = await importPrivateKey(credentials.private_key);
-  
   const jwt = await new SignJWT({ 'scope': 'https://www.googleapis.com/auth/cloud-platform' })
     .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
     .setIssuer(credentials.client_email)
@@ -40,7 +37,6 @@ async function getGcpAccessToken(credentials: any): Promise<string> {
     .setIssuedAt()
     .setExpirationTime('1h')
     .sign(privateKey);
-
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -55,7 +51,6 @@ async function getGcpAccessToken(credentials: any): Promise<string> {
   }
   return data.access_token;
 }
-// --- End of re-used helper functions ---
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -63,39 +58,23 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Authenticate user
-    const userSupabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
-    );
-    const { data: { user } } = await userSupabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
-
-    // 2. Get request body
-    const { credentialId, prompt, newsContent, kocName, maxWords, model } = await req.json();
-    if (!credentialId || !prompt || !newsContent || !kocName || !model) {
-      throw new Error("Thiếu thông tin cần thiết (credentialId, prompt, newsContent, kocName, model).");
+    const { prompt, newsContent, kocName, maxWords, model } = await req.json();
+    if (!prompt || !newsContent || !kocName || !model) {
+      throw new Error("Thiếu thông tin cần thiết (prompt, newsContent, kocName, model).");
     }
 
-    // 3. Fetch credentials from DB using service role
-    const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const { data: credData, error: credError } = await supabaseAdmin
-      .from("user_vertex_ai_credentials")
-      .select("user_id, project_id, credentials_json")
-      .eq("id", credentialId)
-      .single();
+    const credentialsJson = Deno.env.get("GOOGLE_CREDENTIALS_JSON");
+    if (!credentialsJson) {
+      throw new Error("Secret GOOGLE_CREDENTIALS_JSON chưa được cấu hình trong Supabase Vault.");
+    }
+    const credentials = JSON.parse(credentialsJson);
+    const projectId = credentials.project_id;
+    if (!projectId) {
+      throw new Error("Tệp JSON trong secret không chứa 'project_id'.");
+    }
 
-    if (credError) throw new Error(`Không tìm thấy thông tin xác thực: ${credError.message}`);
-    if (credData.user_id !== user.id) throw new Error("Forbidden: You cannot use these credentials.");
-
-    const credentials = credData.credentials_json;
-    const projectId = credData.project_id;
-
-    // 4. Get access token
     const accessToken = await getGcpAccessToken(credentials);
 
-    // 5. Construct prompt and call Vertex AI
     const fullPrompt = `
       Bạn là một chuyên gia sáng tạo nội dung cho các video ngắn trên mạng xã hội.
       Dựa vào thông tin sau đây, hãy tạo một kịch bản video hấp dẫn.
@@ -146,7 +125,7 @@ serve(async (req) => {
 
   } catch (error) {
     return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 200, // Return 200 for client-side handling
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
