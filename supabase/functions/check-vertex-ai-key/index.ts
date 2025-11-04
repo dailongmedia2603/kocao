@@ -1,7 +1,5 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { SignJWT } from 'https://deno.land/x/jose@v5.6.2/jwt/sign.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,18 +27,41 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
   );
 }
 
-// Helper to get Google Cloud access token using 'jose' library
+// Helper to Base64URL encode
+function base64url(buffer: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+}
+
+// Helper to get Google Cloud access token using native Web Crypto API
 async function getGcpAccessToken(credentials: any): Promise<string> {
   const privateKey = await importPrivateKey(credentials.private_key);
+
+  const header = { alg: "RS256", typ: "JWT" };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: credentials.client_email,
+    scope: "https://www.googleapis.com/auth/cloud-platform",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const encoder = new TextEncoder();
+  const encodedHeader = base64url(encoder.encode(JSON.stringify(header)));
+  const encodedPayload = base64url(encoder.encode(JSON.stringify(payload)));
+
+  const dataToSign = encoder.encode(`${encodedHeader}.${encodedPayload}`);
   
-  const jwt = await new SignJWT({ 'scope': 'https://www.googleapis.com/auth/cloud-platform' })
-    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
-    .setIssuer(credentials.client_email)
-    .setAudience("https://oauth2.googleapis.com/token")
-    .setSubject(credentials.client_email)
-    .setIssuedAt()
-    .setExpirationTime('1h')
-    .sign(privateKey);
+  const signature = await crypto.subtle.sign(
+    { name: "RSASSA-PKCS1-v1_5" },
+    privateKey,
+    dataToSign
+  );
+
+  const jwt = `${encodedHeader}.${encodedPayload}.${base64url(signature)}`;
 
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
