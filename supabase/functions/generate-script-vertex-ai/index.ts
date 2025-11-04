@@ -32,14 +32,13 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
 async function getGcpAccessToken(credentials: any): Promise<string> {
   const privateKey = await importPrivateKey(credentials.private_key);
   
-  const jwt = await new SignJWT({})
+  const jwt = await new SignJWT({ 'scope': 'https://www.googleapis.com/auth/cloud-platform' })
     .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
     .setIssuer(credentials.client_email)
     .setAudience("https://oauth2.googleapis.com/token")
     .setSubject(credentials.client_email)
     .setIssuedAt()
     .setExpirationTime('1h')
-    .setClaim('scope', 'https://www.googleapis.com/auth/cloud-platform')
     .sign(privateKey);
 
   const response = await fetch("https://oauth2.googleapis.com/token", {
