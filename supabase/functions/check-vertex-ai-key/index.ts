@@ -98,8 +98,8 @@ serve(async (req) => {
 
     const accessToken = await getGcpAccessToken(credentials);
     const region = "us-central1";
-    // Use a specific, fast model for a "smoke test" by calling generateContent
-    const model = "gemini-1.5-flash-latest";
+    // Use a specific, valid model version for the smoke test
+    const model = "gemini-1.5-flash-001";
     const validationUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent`;
     
     const validationResponse = await fetch(validationUrl, {
