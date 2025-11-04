@@ -40,7 +40,7 @@ export const AddEditAiTemplateDialog = ({ isOpen, onOpenChange, template }: AddE
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      model: "gemini-1.5-pro-001",
+      model: "gemini-1.5-pro",
       word_count: 300,
       tone_of_voice: "",
       writing_style: "",
@@ -57,7 +57,7 @@ export const AddEditAiTemplateDialog = ({ isOpen, onOpenChange, template }: AddE
     } else {
       form.reset({
         name: "",
-        model: "gemini-1.5-pro-001",
+        model: "gemini-1.5-pro",
         word_count: 300,
         tone_of_voice: "",
         writing_style: "",
@@ -106,7 +106,7 @@ export const AddEditAiTemplateDialog = ({ isOpen, onOpenChange, template }: AddE
               <div className="space-y-4 p-1">
                 <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Tên Template</FormLabel><FormControl><Input placeholder="Ví dụ: Prompt Final" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel>Model AI</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-1.5-pro-001">Gemini 1.5 Pro</SelectItem><SelectItem value="gemini-1.5-flash-001">Gemini 1.5 Flash</SelectItem><SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem><SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                  <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel>Model AI</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem><SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem><SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem><SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                   <FormField control={form.control} name="word_count" render={({ field }) => (<FormItem><FormLabel>Số từ tối đa</FormLabel><FormControl><Input type="number" placeholder="300" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
                 <FormField control={form.control} name="tone_of_voice" render={({ field }) => (<FormItem><FormLabel>Tông giọng</FormLabel><FormControl><Input placeholder="Ví dụ: hài hước, chuyên nghiệp..." {...field} /></FormControl><FormMessage /></FormItem>)} />

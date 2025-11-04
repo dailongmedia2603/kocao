@@ -110,7 +110,7 @@ const TaoContent = () => {
       name: "", 
       kocId: "", 
       content: "",
-      model: "gemini-1.5-pro-001",
+      model: "gemini-1.5-pro",
       toneOfVoice: "hài hước",
       writingStyle: "kể chuyện, sử dụng văn nói",
       writingMethod: "Sử dụng câu ngắn, đi thẳng vào vấn đề",
@@ -212,7 +212,7 @@ ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn pho
                       <FormField control={form.control} name="generationMethod" render={({ field }) => (<FormItem className="space-y-3"><FormLabel className="flex items-center"><Settings2 className="h-4 w-4 mr-2" />Phương thức tạo</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex items-center space-x-4"><FormItem className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value="gemini_api" /></FormControl><FormLabel className="font-normal">API Gemini</FormLabel></FormItem><FormItem className="flex items-center space-x-2 space-y-0"><FormControl><RadioGroupItem value="vertex_ai" /></FormControl><FormLabel className="font-normal">Vertex AI</FormLabel></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>)} />
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Model AI</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-1.5-pro-001">Gemini 1.5 Pro</SelectItem><SelectItem value="gemini-1.5-flash-001">Gemini 1.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Model AI</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem><SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="maxWords" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Sigma className="h-4 w-4 mr-2" />Số từ tối đa</FormLabel><FormControl><Input type="number" placeholder="Ví dụ: 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
                       </div>
                       <FormField control={form.control} name="toneOfVoice" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><MessageSquare className="h-4 w-4 mr-2" />Tông giọng</FormLabel><FormControl><Input placeholder="Ví dụ: hài hước, chuyên nghiệp..." {...field} /></FormControl><FormMessage /></FormItem>)} />
