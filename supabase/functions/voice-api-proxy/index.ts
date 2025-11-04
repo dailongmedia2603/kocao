@@ -32,7 +32,6 @@ serve(async (req) => {
       userId = authUser.id;
     }
 
-    // Cập nhật logic để lấy API key một cách mạnh mẽ hơn
     const { data: systemApiKeys, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
       .select("api_key")
@@ -82,7 +81,13 @@ serve(async (req) => {
       throw new Error(errorMessage);
     }
 
-    return new Response(JSON.stringify({ success: true, ...responseData }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // FIX: Ensure the response is always a structured object before spreading.
+    // If the API returns a primitive (string, number, boolean) or an array, wrap it in a 'data' property.
+    const payload = (typeof responseData === 'object' && responseData !== null && !Array.isArray(responseData))
+      ? { ...responseData }
+      : { data: responseData };
+
+    return new Response(JSON.stringify({ success: true, ...payload }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     return new Response(JSON.stringify({ success: false, error: err.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
