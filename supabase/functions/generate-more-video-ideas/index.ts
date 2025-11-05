@@ -77,12 +77,15 @@ serve(async (req) => {
       3.  **ĐÚNG CẤU TRÚC:** Phản hồi của bạn PHẢI là một mảng JSON hợp lệ chứa 10 đối tượng. Mỗi đối tượng phải có cấu trúc: \`{ "pillar": "tên_trụ_cột", "topic": "tiêu_đề_video", "description": "kịch_bản_chi_tiết" }\`.
       4.  **KỊCH BẢN CHI TIẾT:** Phần 'description' phải là một kịch bản hoàn chỉnh, liền mạch (150-250 từ), không phải mô tả ngắn.
       5.  **XỬ LÝ KÝ TỰ ĐẶC BIỆT:** Tất cả các ký tự dấu ngoặc kép (") bên trong các giá trị chuỗi JSON phải được thoát đúng cách bằng một dấu gạch chéo ngược (\\").
-      6.  **KHÔNG GIẢI THÍCH:** Chỉ trả về mảng JSON, không thêm bất kỳ văn bản nào khác.
+      
+      **QUAN TRỌNG:** Chỉ trả về duy nhất mảng JSON. Tuyệt đối không thêm bất kỳ văn bản, giải thích, tiêu đề hay ghi chú nào khác trước hoặc sau mảng JSON.
     `;
 
     let newIdeas;
+    let modelUsed = 'gemini-2.5-pro'; // Default model
 
     if (inputs.ai_model === 'gpt') {
+      modelUsed = 'gpt-custom';
       const formData = new FormData();
       formData.append("prompt", prompt);
       const response = await fetch(GPT_API_URL, { method: "POST", body: formData });
@@ -96,8 +99,7 @@ serve(async (req) => {
       const credentials = JSON.parse(credentialsJson);
       const accessToken = await getGcpAccessToken(credentials);
       const region = "us-central1";
-      const model = "gemini-2.5-pro";
-      const vertexUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${credentials.project_id}/locations/${region}/publishers/google/models/${model}:generateContent`;
+      const vertexUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${credentials.project_id}/locations/${region}/publishers/google/models/${modelUsed}:generateContent`;
       
       const vertexResponse = await fetch(vertexUrl, {
         method: 'POST',
@@ -113,9 +115,17 @@ serve(async (req) => {
       newIdeas = JSON.parse(generatedText);
     }
 
+    const newLogEntry = {
+      timestamp: new Date().toISOString(),
+      action: 'generate_more',
+      model_used: modelUsed,
+      prompt: prompt
+    };
+
     const updatedResults = {
       ...results,
       video_ideas: [...(results.video_ideas || []), ...newIdeas],
+      logs: [...(results.logs || []), newLogEntry]
     };
 
     const { error: updateError } = await supabaseAdmin

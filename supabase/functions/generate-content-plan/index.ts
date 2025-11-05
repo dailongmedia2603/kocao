@@ -92,7 +92,7 @@ serve(async (req) => {
 
       **NHIỆM VỤ:** Dựa trên bối cảnh trên, hãy tạo ra một kế hoạch nội dung toàn diện.
 
-      **ĐỊNH DẠNG ĐẦU RA (YÊU CẦU BẮT BUỘC):** Phản hồi của bạn PHẢI là một đối tượng JSON hợp lệ duy nhất. Không bao gồm bất kỳ văn bản, giải thích, hoặc định dạng markdown nào như \`\`\`json trước hoặc sau đối tượng JSON. Đối tượng JSON phải tuân thủ nghiêm ngặt cấu trúc sau:
+      **ĐỊNH DẠNG ĐẦU RA (YÊU CẦU BẮT BUỘC):** Phản hồi của bạn PHẢI là một đối tượng JSON hợp lệ duy nhất. Đối tượng JSON phải tuân thủ nghiêm ngặt cấu trúc sau:
       {
         "overall_strategy": "Một đoạn văn ngắn gọn (3-4 câu) tóm tắt chiến lược nội dung cốt lõi, tông giọng, và điểm bán hàng độc nhất (unique selling proposition) cho KOC này.",
         "content_pillars": [
@@ -131,6 +131,8 @@ serve(async (req) => {
       - Tạo ra chính xác 3 trụ cột nội dung độc đáo và phù hợp.
       - Tạo tổng cộng 10-15 ý tưởng video, phân bổ đều cho 3 trụ cột.
       - Tất cả nội dung phải phù hợp với định dạng video độc thoại/talking-head.
+
+      **QUAN TRỌNG:** Chỉ trả về duy nhất đối tượng JSON. Tuyệt đối không được bao gồm bất kỳ văn bản, giải thích, tiêu đề, ghi chú hay định dạng markdown nào như \`\`\`json trước hoặc sau đối tượng JSON.
     `;
 
     // 4. Authenticate with Vertex AI
