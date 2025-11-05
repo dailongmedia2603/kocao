@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Authenticate user (optional but good practice)
+    // 1. Authenticate user
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing Authorization header");
     const supabaseClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
@@ -98,11 +98,23 @@ serve(async (req) => {
         throw new Error("API GPT Custom không trả về trường 'answer'.");
     }
 
-    // 5. Parse and return the result
-    // The answer is expected to be a JSON string.
-    const resultJson = JSON.parse(responseData.answer);
+    // 5. Clean and parse the result
+    let jsonString = responseData.answer.trim();
+    if (jsonString.startsWith("```json")) {
+      jsonString = jsonString.substring(7);
+    }
+    if (jsonString.endsWith("```")) {
+      jsonString = jsonString.substring(0, jsonString.length - 3);
+    }
+    jsonString = jsonString.trim();
+    
+    const resultJson = JSON.parse(jsonString);
 
-    return new Response(JSON.stringify({ success: true, results: resultJson, fullPrompt }), {
+    // 6. Add logging info for consistency
+    resultJson.prompt_log = fullPrompt;
+    resultJson.model_used = 'gpt-custom';
+
+    return new Response(JSON.stringify({ success: true, results: resultJson }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
