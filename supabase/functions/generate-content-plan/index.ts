@@ -167,9 +167,10 @@ serve(async (req) => {
 
     const generatedText = vertexData.candidates[0].content.parts[0].text;
     
-    // 6. Parse and return the result, including the prompt log
+    // 6. Parse and return the result, including the prompt log and model used
     const resultJson = JSON.parse(generatedText);
-    resultJson.prompt_log = fullPrompt; // Add the prompt to the results object
+    resultJson.prompt_log = fullPrompt;
+    resultJson.model_used = model;
 
     return new Response(JSON.stringify({ success: true, results: resultJson }), {
       status: 200,

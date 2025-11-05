@@ -3,6 +3,8 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ContentPlan } from "@/types/contentPlan";
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 // UI Components
 import { ArrowLeft, History } from "lucide-react";
@@ -24,6 +26,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
 const TaoKeHoachDetail = () => {
   const { planId } = useParams<{ planId: string }>();
@@ -87,20 +90,41 @@ const TaoKeHoachDetail = () => {
       </div>
 
       <Dialog open={isLogVisible} onOpenChange={setIsLogVisible}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="h-5 w-5 text-primary" />
               Nhật ký Prompt AI
             </DialogTitle>
             <DialogDescription>
-              Đây là prompt đầy đủ đã được gửi đến AI để tạo kế hoạch nội dung này.
+              Lịch sử các prompt đã được gửi đến AI để tạo kế hoạch nội dung này.
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] mt-4 pr-4">
-            <pre className="whitespace-pre-wrap text-sm font-mono bg-muted p-4 rounded-md">
-              <code>{promptLog}</code>
-            </pre>
+            {plan && promptLog ? (
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="item-1" className="border rounded-lg">
+                  <AccordionTrigger className="p-4 hover:no-underline">
+                    <div className="flex items-center justify-between w-full pr-4">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline">{plan.results?.model_used || 'N/A'}</Badge>
+                        <span className="font-medium text-sm">Bản ghi tạo kế hoạch</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(plan.created_at), "dd/MM/yyyy HH:mm", { locale: vi })}
+                      </span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="p-4 border-t">
+                    <pre className="whitespace-pre-wrap text-sm font-mono bg-muted p-4 rounded-md">
+                      <code>{promptLog}</code>
+                    </pre>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">Không có log nào để hiển thị.</p>
+            )}
           </ScrollArea>
         </DialogContent>
       </Dialog>
