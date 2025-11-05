@@ -4,6 +4,8 @@ import { ContentPlan } from "@/types/contentPlan";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Bot, Loader2, AlertCircle } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import "tailwindcss/tailwind.css";
 import "@tailwindcss/typography";
 
@@ -80,7 +82,9 @@ export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
   if (plan && generatedPlan) {
     return (
       <div className="prose prose-sm max-w-none p-4 border rounded-lg bg-background">
-        <pre className="whitespace-pre-wrap font-sans">{generatedPlan}</pre>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          {generatedPlan}
+        </ReactMarkdown>
       </div>
     );
   }
