@@ -142,7 +142,7 @@ serve(async (req) => {
 
     // 5. Call Vertex AI API
     const region = "us-central1";
-    const model = "gemini-2.5-pro"; // SỬA LỖI: Đổi tên model thành "gemini-2.5-pro"
+    const model = "gemini-2.5-pro";
     const vertexUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent`;
 
     const vertexResponse = await fetch(vertexUrl, {
@@ -167,10 +167,11 @@ serve(async (req) => {
 
     const generatedText = vertexData.candidates[0].content.parts[0].text;
     
-    // 6. Parse and return the result
+    // 6. Parse and return the result, including the prompt log
     const resultJson = JSON.parse(generatedText);
+    resultJson.prompt_log = fullPrompt; // Add the prompt to the results object
 
-    return new Response(JSON.stringify({ success: true, results: resultJson, fullPrompt }), {
+    return new Response(JSON.stringify({ success: true, results: resultJson }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

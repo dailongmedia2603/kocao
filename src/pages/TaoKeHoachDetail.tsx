@@ -1,5 +1,11 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { ContentPlan } from "@/types/contentPlan";
+
+// UI Components
+import { ArrowLeft, History } from "lucide-react";
 import { PlanInputForm } from "@/components/content/PlanInputForm";
 import { PlanResultDisplay } from "@/components/content/PlanResultDisplay";
 import {
@@ -9,22 +15,60 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 const TaoKeHoachDetail = () => {
   const { planId } = useParams<{ planId: string }>();
   const isNew = planId === 'new';
+  const [isLogVisible, setIsLogVisible] = useState(false);
+
+  const { data: plan } = useQuery<ContentPlan | null>({
+    queryKey: ['content_plan_detail', planId],
+    queryFn: async () => {
+      if (!planId) return null;
+      const { data, error } = await supabase.from('content_plans').select('*').eq('id', planId).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !isNew,
+  });
+
+  const promptLog = plan?.results?.prompt_log;
 
   return (
     <div className="p-6 lg:p-8">
       <Link to="/tao-ke-hoach" className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách
       </Link>
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold">{isNew ? "Tạo Kế Hoạch Nội Dung Mới" : "Chi Tiết Kế Hoạch"}</h1>
-        <p className="text-muted-foreground mt-1">
-          {isNew ? "Điền thông tin để AI phân tích và đề xuất chiến lược nội dung." : "Xem lại thông tin và kết quả phân tích của kế hoạch."}
-        </p>
+      <header className="flex justify-between items-start mb-6">
+        <div>
+          <h1 className="text-3xl font-bold">{isNew ? "Tạo Kế Hoạch Nội Dung Mới" : "Chi Tiết Kế Hoạch"}</h1>
+          <p className="text-muted-foreground mt-1">
+            {isNew ? "Điền thông tin để AI phân tích và đề xuất chiến lược nội dung." : "Xem lại thông tin và kết quả phân tích của kế hoạch."}
+          </p>
+        </div>
+        {!isNew && promptLog && (
+          <Button variant="outline" onClick={() => setIsLogVisible(!isLogVisible)}>
+            <History className="mr-2 h-4 w-4" />
+            Xem Log Prompt
+          </Button>
+        )}
       </header>
+
+      {isLogVisible && promptLog && (
+        <Accordion type="single" collapsible className="w-full mb-8" defaultValue="item-1">
+          <AccordionItem value="item-1" className="border rounded-lg bg-muted/50">
+            <AccordionTrigger className="p-4 font-semibold hover:no-underline">
+              Log Prompt đã gửi đến AI
+            </AccordionTrigger>
+            <AccordionContent className="p-6 border-t bg-white">
+              <pre className="whitespace-pre-wrap text-sm font-mono bg-gray-100 p-4 rounded-md">
+                <code>{promptLog}</code>
+              </pre>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      )}
 
       <div className="space-y-8">
         <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
