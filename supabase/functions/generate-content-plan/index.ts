@@ -74,7 +74,7 @@ serve(async (req) => {
 
     const fullPrompt = `
 # Instruction for AI
-Bạn là một chuyên gia chiến lược phát triển kênh TikTok và nhà sáng tạo nội dung hàng đầu. Nhiệm vụ của bạn là phân tích các thông tin được cung cấp để xây dựng một kế hoạch nội dung hiệu quả.
+Bạn là một chuyên gia chiến lược phát triển kênh TikTok và nhà sáng tạo nội dung hàng đầu. Nhiệm vụ của bạn là phân tích các thông tin được cung cấp để xây dựng một kế hoạch nội dung toàn diện và chi tiết.
 
 # Core Principles for Analysis (Your internal thinking process)
 1.  **Understand Deeply:** Analyze the target audience's pain points, desires, and TikTok behavior.
@@ -94,22 +94,27 @@ Bạn là một chuyên gia chiến lược phát triển kênh TikTok và nhà 
 -   **Competitors/Inspiration:** ${inputs.competitors || 'Not provided'}
 
 # Output Format
-Dựa trên phân tích của bạn, hãy trình bày kế hoạch một cách ngắn gọn, súc tích và đi thẳng vào vấn đề. Chỉ bao gồm các phần sau:
+Dựa trên phân tích của bạn, hãy trình bày kế hoạch một cách chi tiết, chuyên nghiệp và dễ hiểu. Chỉ bao gồm các phần sau:
 
-**PHẦN 1: CÁC TUYẾN NỘI DUNG CHÍNH (CONTENT PILLARS)**
-- Đề xuất 3-5 tuyến nội dung lớn, độc đáo.
-- Trình bày dưới dạng danh sách gạch đầu dòng, mỗi tuyến nội dung chỉ cần một câu mô tả ngắn gọn.
+**PHẦN 1: PHÂN TÍCH VÀ CHIẾN LƯỢC CỐT LÕI**
+-   **Phân tích Đối tượng Mục tiêu:** Đi sâu vào insight, vấn đề và mong muốn của họ.
+-   **Định vị Thương hiệu Cá nhân:** Xác định phong cách và giá trị cốt lõi mà KOC sẽ mang lại.
+-   **Chiến lược Tăng trưởng Gợi ý:** Đề xuất ngắn gọn 2-3 chiến thuật để phát triển kênh.
 
-**PHẦN 2: ĐỀ XUẤT CHỦ ĐỀ VIDEO CỤ THỂ**
-- Cho MỖI tuyến nội dung, đề xuất 5-7 chủ đề video chi tiết.
-- Mỗi chủ đề video phải bao gồm:
+**PHẦN 2: CÁC TUYẾN NỘI DUNG CHÍNH (CONTENT PILLARS)**
+-   Đề xuất 3-5 tuyến nội dung lớn, độc đáo, phù hợp với định vị thương hiệu.
+-   Trình bày dưới dạng danh sách gạch đầu dòng, mỗi tuyến nội dung có mô tả chi tiết về mục đích và dạng thể hiện.
+
+**PHẦN 3: ĐỀ XUẤT CHỦ ĐỀ VIDEO CỤ THỂ**
+-   Cho MỖI tuyến nội dung, đề xuất 5-7 chủ đề video chi tiết.
+-   Mỗi chủ đề video phải bao gồm:
     *   **Tên Chủ đề Video:** Gợi hình, hấp dẫn.
     *   **Mô tả Ngắn gọn:** Nội dung chính sẽ chia sẻ.
     *   **Hook Gợi ý:** Một câu mở đầu thu hút.
     *   **Key Takeaways/Giá trị:** Người xem nhận được gì.
     *   **Call to Action (CTA) Gợi ý:** Một lời kêu gọi hành động.
 
-**QUAN TRỌNG:** Chỉ trả về kết quả theo đúng định dạng trên. Không thêm bất kỳ lời giải thích, giới thiệu, phân tích chiến lược hay kết luận nào khác.
+**QUAN TRỌNG:** Chỉ trả về kết quả theo đúng định dạng trên. Không thêm bất kỳ lời giải thích, giới thiệu hay kết luận nào khác.
 `;
 
     const credentialsJson = Deno.env.get("GOOGLE_CREDENTIALS_JSON");
