@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, LayoutDashboard, Settings, Video, Bot, Film, Users } from "lucide-react";
+import { ChevronLeft, LayoutDashboard, Settings, Video, Bot, Film, Users, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
 import {
@@ -19,6 +19,7 @@ const menuItems = [
     to: "/",
   },
   { label: "KOCs Manager", icon: Video, to: "/list-koc" },
+  { label: "Tạo kế hoạch", icon: ClipboardList, to: "/tao-ke-hoach" },
   { label: "Automation", icon: Bot, to: "/automation" },
   { label: "Tạo Video", icon: Film, to: "/tao-video" },
 ];

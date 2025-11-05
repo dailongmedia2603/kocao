@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Video, Bot, Film, Users, Settings } from "lucide-react";
+import { Video, Bot, Film, Users, Settings, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
 
@@ -9,6 +9,7 @@ const BottomNavBar = () => {
 
   const allMenuItems = [
     { label: "KOC", icon: Video, to: "/list-koc", paths: ["/list-koc", "/create-voice", "/tao-content", "/video-to-script"] },
+    { label: "Kế hoạch", icon: ClipboardList, to: "/tao-ke-hoach", paths: ["/tao-ke-hoach"] },
     { label: "Automation", icon: Bot, to: "/automation", paths: ["/automation"] },
     { label: "Tạo Video", icon: Film, to: "/tao-video", paths: ["/tao-video"] },
   ];

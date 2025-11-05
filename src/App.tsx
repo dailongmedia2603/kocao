@@ -20,6 +20,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import PendingApproval from "./pages/PendingApproval";
 import AdminRoute from "./components/AdminRoute";
 import UserManagement from "./pages/admin/UserManagement";
+import TaoKeHoach from "./pages/TaoKeHoach";
 
 function App() {
   return (
@@ -49,6 +50,7 @@ function App() {
               <Route path="/automation" element={<Automation />} />
               <Route path="/automation/:campaignId" element={<AutomationDetail />} />
               <Route path="/tao-video" element={<TaoVideo />} />
+              <Route path="/tao-ke-hoach" element={<TaoKeHoach />} />
             </Route>
             <Route element={<KocLayout />}>
               <Route path="/list-koc" element={<ListKoc />} />
