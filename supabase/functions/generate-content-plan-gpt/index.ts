@@ -21,52 +21,42 @@ serve(async (req) => {
 
     const fullPrompt = `
 # Instruction for AI
-Bạn là một chuyên gia chiến lược phát triển kênh TikTok và nhà sáng tạo nội dung hàng đầu, với kinh nghiệm sâu rộng trong việc xây dựng cộng đồng và tạo ra nội dung hiệu quả, lan truyền. Nhiệm vụ của bạn là xây dựng một KẾ HOẠCH CHI TIẾT và HIỆU QUẢ để phát triển kênh TikTok.
+Bạn là một chuyên gia chiến lược phát triển kênh TikTok và nhà sáng tạo nội dung hàng đầu. Nhiệm vụ của bạn là phân tích các thông tin được cung cấp để xây dựng một kế hoạch nội dung hiệu quả.
 
-# Core Principles & Requirements
-Kế hoạch phải tập trung hoàn toàn vào **định dạng độc thoại một người chia sẻ** (one-person sharing monologue), ưu tiên sự chân thực, kết nối cá nhân và truyền tải giá trị rõ ràng.
-1.  **Nghiên cứu và Hiểu sâu:** Phải dựa trên sự phân tích kỹ lưỡng về đối tượng mục tiêu, xu hướng TikTok hiện tại, và tâm lý người dùng để đưa ra các đề xuất đột phá và thực tế.
-2.  **Giá trị cốt lõi:** Mỗi nội dung đề xuất phải mang lại giá trị cụ thể cho người xem (giáo dục, giải trí, truyền cảm hứng, giải quyết vấn đề, v.v.).
-3.  **Mở đầu thu hút (Hook):** Luôn nhấn mạnh tầm quan trọng của các "hook" mạnh mẽ để giữ chân người xem ngay từ 1-3 giây đầu tiên, đặc biệt trong video độc thoại.
-4.  **Tính hiệu quả và khả năng lan truyền:** Đề xuất các chủ đề và tuyến nội dung có tiềm năng viral, dễ tạo thảo luận và tương tác cao, phù hợp với định dạng độc thoại.
-5.  **Tính nhất quán và xây dựng thương hiệu:** Đảm bảo các tuyến nội dung và chủ đề video đề xuất giúp xây dựng một thương hiệu cá nhân hoặc doanh nghiệp rõ ràng, nhất quán và độc đáo.
-6.  **Kêu gọi hành động (CTA):** Tích hợp các gợi ý về CTA phù hợp và rõ ràng cho từng loại nội dung, hướng đến mục tiêu của kênh.
-7.  **Phong cách độc thoại:** Đảm bảo các gợi ý về nội dung, hook, và cách trình bày đều phù hợp với việc một người nói chuyện trực tiếp với camera, khuyến khích sự tự nhiên, chân thực và khả năng kể chuyện.
+# Core Principles for Analysis (Your internal thinking process)
+1.  **Understand Deeply:** Analyze the target audience's pain points, desires, and TikTok behavior.
+2.  **Core Value:** Ensure every content idea provides specific value (education, entertainment, inspiration).
+3.  **Strong Hooks:** Prioritize powerful 1-3 second hooks suitable for a monologue format.
+4.  **Virality & Engagement:** Propose topics with high potential for discussion and sharing.
+5.  **Brand Consistency:** Ensure content pillars build a clear, unique personal brand.
+6.  **Monologue Style:** All suggestions must fit a one-person-talking-to-camera format, emphasizing authenticity and storytelling.
 
 # User Input Fields
-Người dùng đã cung cấp các thông tin sau:
-
--   **Tên Kênh dự kiến/hiện tại:** ${kocName}
--   **Lĩnh vực hoạt động/Chủ đề chính của kênh:** ${inputs.topic}
--   **Đối tượng người xem của kênh:** ${inputs.target_audience}
--   **Tính cách/Phong cách của người sáng tạo:** ${inputs.koc_persona}
--   **Mục tiêu chính khi xây kênh:** ${inputs.goals || 'Không có'}
--   **Điểm mạnh/Độc đáo của bạn/sản phẩm/dịch vụ (nếu có):** ${inputs.strengths || 'Không có'}
--   **Các kênh TikTok mà bạn thấy thích hoặc muốn học hỏi phong cách (Nếu có):** ${inputs.competitors || 'Không có'}
+-   **KOC Name:** ${kocName}
+-   **Topic:** ${inputs.topic}
+-   **Target Audience:** ${inputs.target_audience}
+-   **KOC Persona:** ${inputs.koc_persona}
+-   **Main Goal:** ${inputs.goals || 'Not provided'}
+-   **Strengths/Uniqueness:** ${inputs.strengths || 'Not provided'}
+-   **Competitors/Inspiration:** ${inputs.competitors || 'Not provided'}
 
 # Output Format
-Hãy trình bày kế hoạch một cách chi tiết, có cấu trúc rõ ràng, bao gồm các phần sau:
+Dựa trên phân tích của bạn, hãy trình bày kế hoạch một cách ngắn gọn, súc tích và đi thẳng vào vấn đề. Chỉ bao gồm các phần sau:
 
-**PHẦN 1: PHÂN TÍCH VÀ ĐỊNH HƯỚNG CHIẾN LƯỢC**
-1.  **Chân dung Đối tượng Mục tiêu Sâu sắc:** Phân tích chi tiết hơn về insights, nỗi đau, mong muốn, hành vi xem TikTok của đối tượng đã cung cấp, liên hệ với lĩnh vực kênh.
-2.  **Định vị Kênh và Thông điệp cốt lõi:** Kênh sẽ là gì trong mắt người xem? Với phong cách độc thoại, thông điệp chủ đạo cần truyền tải là gì để tạo sự kết nối?
-3.  **Cơ hội và Lợi thế cạnh tranh:** Dựa trên điểm mạnh và lĩnh vực đã cho, phân tích cơ hội phát triển trên TikTok và cách tạo sự khác biệt so với các kênh khác.
+**PHẦN 1: CÁC TUYẾN NỘI DUNG CHÍNH (CONTENT PILLARS)**
+- Đề xuất 3-5 tuyến nội dung lớn, độc đáo.
+- Trình bày dưới dạng danh sách gạch đầu dòng, mỗi tuyến nội dung chỉ cần một câu mô tả ngắn gọn.
 
-**PHẦN 2: KẾ HOẠCH NỘI DUNG CHI TIẾT (Dạng độc thoại 1 người)**
-1.  **Các Tuyến Nội dung Chính (Content Pillars):** Đề xuất 3-5 tuyến nội dung lớn, độc đáo, xuyên suốt và phù hợp với định dạng độc thoại, mục tiêu, và đối tượng mục tiêu. Mỗi tuyến nội dung phải có mô tả ngắn gọn về giá trị mang lại, tính nhất quán, và lý do phù hợp với định dạng độc thoại.
-2.  **Đề xuất Chủ đề Video Cụ thể:**
-    *   Cho MỖI tuyến nội dung, đề xuất 5-7 chủ đề video chi tiết.
-    *   Mỗi chủ đề video phải bao gồm:
-        *   **Tên Chủ đề Video:** Gợi hình, hấp dẫn, dễ nhớ.
-        *   **Mô tả Ngắn gọn:** Nội dung chính sẽ chia sẻ là gì, giải quyết vấn đề gì, mang lại giá trị gì cho người xem thông qua hình thức độc thoại.
-        *   **Hook Gợi ý:** Một hoặc hai câu mở đầu để thu hút người xem ngay từ 1-3 giây đầu tiên (phù hợp với định dạng độc thoại, ví dụ: đặt câu hỏi trực tiếp, chia sẻ một sự thật gây sốc).
-        *   **Key Takeaways/Giá trị:** Người xem sẽ học được/cảm nhận được gì sau video.
-        *   **Call to Action (CTA) Gợi ý:** Ví dụ cụ thể và tự nhiên cho cuối video độc thoại (comment, follow, share, link bio, v.v.).
+**PHẦN 2: ĐỀ XUẤT CHỦ ĐỀ VIDEO CỤ THỂ**
+- Cho MỖI tuyến nội dung, đề xuất 5-7 chủ đề video chi tiết.
+- Mỗi chủ đề video phải bao gồm:
+    *   **Tên Chủ đề Video:** Gợi hình, hấp dẫn.
+    *   **Mô tả Ngắn gọn:** Nội dung chính sẽ chia sẻ.
+    *   **Hook Gợi ý:** Một câu mở đầu thu hút.
+    *   **Key Takeaways/Giá trị:** Người xem nhận được gì.
+    *   **Call to Action (CTA) Gợi ý:** Một lời kêu gọi hành động.
 
-**PHẦN 3: CHIẾN LƯỢC TĂNG TRƯỞNG VÀ TƯƠNG TÁC (Tóm tắt)**
-1.  **Lịch đăng bài gợi ý:** Tần suất và thời điểm tối ưu cho kênh.
-2.  **Chiến lược tương tác:** Cách phản hồi comment, tạo khảo sát, kêu gọi thảo luận trong video độc thoại.
-3.  **Tận dụng xu hướng:** Cách thức lồng ghép các xu hướng TikTok (âm thanh, hiệu ứng, định dạng) một cách sáng tạo mà vẫn giữ được bản sắc kênh và định dạng độc thoại.
+**QUAN TRỌNG:** Chỉ trả về kết quả theo đúng định dạng trên. Không thêm bất kỳ lời giải thích, giới thiệu, phân tích chiến lược hay kết luận nào khác.
 `;
 
     const externalApiFormData = new FormData();
