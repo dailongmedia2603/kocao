@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ContentPlan } from "@/types/contentPlan";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { useSession } from "@/contexts/SessionContext";
+import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
 
 // UI Components
-import { ArrowLeft, History } from "lucide-react";
+import { ArrowLeft, History, RefreshCw, Loader2 } from "lucide-react";
 import { PlanInputForm } from "@/components/content/PlanInputForm";
 import { PlanResultDisplay } from "@/components/content/PlanResultDisplay";
 import {
@@ -32,6 +34,8 @@ const TaoKeHoachDetail = () => {
   const { planId } = useParams<{ planId: string }>();
   const isNew = planId === 'new';
   const [isLogVisible, setIsLogVisible] = useState(false);
+  const queryClient = useQueryClient();
+  const { user } = useSession();
 
   const { data: plan } = useQuery<ContentPlan | null>({
     queryKey: ['content_plan_detail', planId],
@@ -42,6 +46,59 @@ const TaoKeHoachDetail = () => {
       return data;
     },
     enabled: !isNew,
+  });
+
+  const regenerateMutation = useMutation({
+    mutationFn: async () => {
+      if (!plan || !plan.inputs || !user) {
+        throw new Error("Dữ liệu kế hoạch không đầy đủ để tạo lại.");
+      }
+
+      const { data: koc, error: kocError } = await supabase
+        .from('kocs')
+        .select('name')
+        .eq('id', plan.koc_id)
+        .single();
+
+      if (kocError || !koc) {
+        throw new Error("Không tìm thấy KOC liên quan đến kế hoạch này.");
+      }
+
+      const toastId = showLoading("AI đang phân tích và tạo lại kế hoạch...");
+
+      try {
+        const functionName = (plan.inputs as any).ai_model === 'gpt' 
+          ? 'generate-content-plan-gpt' 
+          : 'generate-content-plan';
+
+        const { data: functionData, error: functionError } = await supabase.functions.invoke(functionName, {
+          body: { inputs: plan.inputs, kocName: koc.name }
+        });
+
+        if (functionError) throw functionError;
+        if (!functionData.success) throw new Error(functionData.error);
+
+        const { error: updateError } = await supabase
+          .from('content_plans')
+          .update({
+            results: functionData.results,
+            status: 'completed' // Reset status
+          })
+          .eq('id', plan.id);
+
+        if (updateError) throw updateError;
+
+        dismissToast(toastId);
+        showSuccess("Tạo lại kế hoạch thành công!");
+      } catch (error) {
+        dismissToast(toastId);
+        showError((error as Error).message);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content_plan_detail', planId] });
+    },
   });
 
   const promptLog = plan?.results?.prompt_log;
@@ -58,11 +115,23 @@ const TaoKeHoachDetail = () => {
             {isNew ? "Điền thông tin để AI phân tích và đề xuất chiến lược nội dung." : "Xem lại thông tin và kết quả phân tích của kế hoạch."}
           </p>
         </div>
-        {!isNew && promptLog && (
-          <Button variant="outline" onClick={() => setIsLogVisible(true)}>
-            <History className="mr-2 h-4 w-4" />
-            Xem Log Prompt
-          </Button>
+        {!isNew && (
+          <div className="flex items-center gap-2">
+            {promptLog && (
+              <Button variant="outline" onClick={() => setIsLogVisible(true)}>
+                <History className="mr-2 h-4 w-4" />
+                Xem Log Prompt
+              </Button>
+            )}
+            <Button onClick={() => regenerateMutation.mutate()} disabled={regenerateMutation.isPending}>
+              {regenerateMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Tạo lại
+            </Button>
+          </div>
         )}
       </header>
 
