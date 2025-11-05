@@ -112,7 +112,7 @@ Hãy trình bày kế hoạch một cách chi tiết, có cấu trúc rõ ràng,
     *   Mỗi chủ đề video phải bao gồm:
         *   **Tên Chủ đề Video:** Gợi hình, hấp dẫn, dễ nhớ.
         *   **Mô tả Ngắn gọn:** Nội dung chính sẽ chia sẻ là gì, giải quyết vấn đề gì, mang lại giá trị gì cho người xem thông qua hình thức độc thoại.
-        *   **Hook Gợi ý:** Một hoặc hai câu mở đầu để thu hút người xem ngay lập tức (phù hợp với định dạng độc thoại, ví dụ: đặt câu hỏi trực tiếp, chia sẻ một sự thật gây sốc).
+        *   **Hook Gợi ý:** Một hoặc hai câu mở đầu để thu hút người xem ngay từ 1-3 giây đầu tiên (phù hợp với định dạng độc thoại, ví dụ: đặt câu hỏi trực tiếp, chia sẻ một sự thật gây sốc).
         *   **Key Takeaways/Giá trị:** Người xem sẽ học được/cảm nhận được gì sau video.
         *   **Call to Action (CTA) Gợi ý:** Ví dụ cụ thể và tự nhiên cho cuối video độc thoại (comment, follow, share, link bio, v.v.).
 
@@ -155,7 +155,7 @@ Hãy trình bày kế hoạch một cách chi tiết, có cấu trúc rõ ràng,
 
     const generatedText = vertexData.candidates[0].content.parts[0].text;
     
-    return new Response(JSON.stringify({ success: true, results: { generatedPlan: generatedText }, fullPrompt }), {
+    return new Response(JSON.stringify({ success: true, results: { generatedPlan: generatedText, fullPrompt: fullPrompt } }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
