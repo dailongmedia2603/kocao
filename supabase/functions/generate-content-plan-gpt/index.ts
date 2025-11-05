@@ -50,16 +50,16 @@ serve(async (req) => {
         "posting_schedule": {
           "build_up_phase": {
             "phase_name": "Xây dựng ban đầu",
-            "duration": "Thời gian của giai đoạn (ví dụ: '1 tháng đầu')",
-            "total_videos": "Tổng số video trong giai đoạn này (ví dụ: 'khoảng 60 video')",
-            "frequency": "Tần suất đăng (ví dụ: '2 video/ngày')",
+            "duration": "1 tháng đầu",
+            "total_videos": "60 video",
+            "frequency": "2 video/ngày",
             "notes": "Giải thích ngắn gọn cho chiến lược này."
           },
           "maintenance_phase": {
             "phase_name": "Duy trì",
-            "duration": "Thời gian của giai đoạn (ví dụ: 'Từ tháng thứ 2 trở đi')",
-            "total_videos": "Tổng số video trong giai đoạn này (ví dụ: 'khoảng 16-20 video/tháng')",
-            "frequency": "Tần suất đăng (ví dụ: '4-5 video/tuần')",
+            "duration": "Từ tháng thứ 2 trở đi",
+            "total_videos": "30 video/tháng",
+            "frequency": "1 video/ngày",
             "notes": "Giải thích ngắn gọn cho chiến lược này."
           }
         },
@@ -73,7 +73,7 @@ serve(async (req) => {
       }
       
       **HƯỚNG DẪN CHI TIẾT (YÊU CẦU BẮT BUỘC):**
-      - **Lịch đăng:** Phải nêu rõ 2 giai đoạn "Xây dựng ban đầu" và "Duy trì". Mỗi giai đoạn phải có đủ các thông tin: thời gian, tổng số video, tần suất, và ghi chú.
+      - **Lịch đăng:** Sử dụng chính xác các giá trị cố định sau: Giai đoạn "Xây dựng ban đầu" (1 tháng đầu, 60 video, 2 video/ngày) và giai đoạn "Duy trì" (từ tháng thứ 2, 30 video/tháng, 1 video/ngày). Bạn chỉ cần sáng tạo phần "notes" (ghi chú) để giải thích cho chiến lược này.
       - **Ý tưởng video:** Phần 'description' PHẢI là một kịch bản chi tiết, liền mạch, không phải mô tả ngắn. Nó cần giải thích thuật ngữ, có ngữ cảnh, nêu các ý chính, và được viết như một câu chuyện hoàn chỉnh.
       - Tạo ra chính xác 3 trụ cột nội dung độc đáo và phù hợp.
       - Tạo tổng cộng 10-15 ý tưởng video, phân bổ đều cho 3 trụ cột.
