@@ -168,10 +168,14 @@ serve(async (req) => {
 
     const generatedText = vertexData.candidates[0].content.parts[0].text;
     
-    // 6. Parse and return the result, including the prompt log and model used
+    // 6. Parse and return the result, including the prompt log
     const resultJson = JSON.parse(generatedText);
-    resultJson.prompt_log = fullPrompt;
-    resultJson.model_used = model;
+    resultJson.logs = [{
+      timestamp: new Date().toISOString(),
+      action: 'create',
+      model_used: model,
+      prompt: fullPrompt
+    }];
 
     return new Response(JSON.stringify({ success: true, results: resultJson }), {
       status: 200,

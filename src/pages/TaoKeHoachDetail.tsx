@@ -53,24 +53,13 @@ const TaoKeHoachDetail = () => {
       if (!plan || !plan.inputs || !user) {
         throw new Error("Dữ liệu kế hoạch không đầy đủ để tạo lại.");
       }
-
-      const { data: koc, error: kocError } = await supabase
-        .from('kocs')
-        .select('name')
-        .eq('id', plan.koc_id)
-        .single();
-
-      if (kocError || !koc) {
-        throw new Error("Không tìm thấy KOC liên quan đến kế hoạch này.");
-      }
+      const { data: koc, error: kocError } = await supabase.from('kocs').select('name').eq('id', plan.koc_id).single();
+      if (kocError || !koc) throw new Error("Không tìm thấy KOC liên quan đến kế hoạch này.");
 
       const toastId = showLoading("AI đang phân tích và tạo lại kế hoạch...");
 
       try {
-        const functionName = (plan.inputs as any).ai_model === 'gpt' 
-          ? 'generate-content-plan-gpt' 
-          : 'generate-content-plan';
-
+        const functionName = (plan.inputs as any).ai_model === 'gpt' ? 'generate-content-plan-gpt' : 'generate-content-plan';
         const { data: functionData, error: functionError } = await supabase.functions.invoke(functionName, {
           body: { inputs: plan.inputs, kocName: koc.name }
         });
@@ -78,14 +67,17 @@ const TaoKeHoachDetail = () => {
         if (functionError) throw functionError;
         if (!functionData.success) throw new Error(functionData.error);
 
-        const { error: updateError } = await supabase
-          .from('content_plans')
-          .update({
-            results: functionData.results,
-            status: 'completed' // Reset status
-          })
-          .eq('id', plan.id);
+        const newResults = functionData.results;
+        const newLogEntry = newResults.logs[0];
+        newLogEntry.action = 'regenerate';
+        newLogEntry.timestamp = new Date().toISOString();
 
+        const oldLogs = plan.results?.logs || [];
+        const combinedLogs = [...oldLogs, newLogEntry];
+
+        const updatedResults = { ...newResults, logs: combinedLogs };
+
+        const { error: updateError } = await supabase.from('content_plans').update({ results: updatedResults, status: 'completed' }).eq('id', plan.id);
         if (updateError) throw updateError;
 
         dismissToast(toastId);
@@ -101,7 +93,7 @@ const TaoKeHoachDetail = () => {
     },
   });
 
-  const promptLog = plan?.results?.prompt_log;
+  const logs = plan?.results?.logs || [];
 
   return (
     <div className="p-6 lg:p-8">
@@ -117,7 +109,7 @@ const TaoKeHoachDetail = () => {
         </div>
         {!isNew && (
           <div className="flex items-center gap-2">
-            {promptLog && (
+            {logs.length > 0 && (
               <Button variant="outline" onClick={() => setIsLogVisible(true)}>
                 <History className="mr-2 h-4 w-4" />
                 Xem Log Prompt
@@ -176,26 +168,28 @@ const TaoKeHoachDetail = () => {
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh] mt-4 pr-4">
-            {plan && promptLog ? (
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="item-1" className="border rounded-lg">
-                  <AccordionTrigger className="p-4 hover:no-underline">
-                    <div className="flex items-center justify-between w-full pr-4">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline">{plan.results?.model_used || 'N/A'}</Badge>
-                        <span className="font-medium text-sm">Bản ghi tạo kế hoạch</span>
+            {logs.length > 0 ? (
+              <Accordion type="single" collapsible className="w-full space-y-2">
+                {logs.slice().reverse().map((log: any, index: number) => (
+                  <AccordionItem value={`item-${index}`} key={index} className="border rounded-lg">
+                    <AccordionTrigger className="p-4 hover:no-underline">
+                      <div className="flex items-center justify-between w-full pr-4">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline">{log.model_used || 'N/A'}</Badge>
+                          <span className="font-medium text-sm capitalize">{log.action.replace('_', ' ')}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(log.timestamp), "dd/MM/yyyy HH:mm", { locale: vi })}
+                        </span>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(plan.created_at), "dd/MM/yyyy HH:mm", { locale: vi })}
-                      </span>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="p-4 border-t">
-                    <pre className="whitespace-pre-wrap text-sm font-mono bg-muted p-4 rounded-md">
-                      <code>{promptLog}</code>
-                    </pre>
-                  </AccordionContent>
-                </AccordionItem>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-4 border-t">
+                      <pre className="whitespace-pre-wrap text-sm font-mono bg-muted p-4 rounded-md">
+                        <code>{log.prompt}</code>
+                      </pre>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
               </Accordion>
             ) : (
               <p className="text-center text-muted-foreground py-8">Không có log nào để hiển thị.</p>

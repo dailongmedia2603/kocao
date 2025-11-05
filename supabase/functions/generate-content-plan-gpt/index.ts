@@ -111,9 +111,13 @@ serve(async (req) => {
     
     const resultJson = JSON.parse(jsonString);
 
-    // 6. Add logging info for consistency
-    resultJson.prompt_log = fullPrompt;
-    resultJson.model_used = 'gpt-custom';
+    // 6. Add logging info
+    resultJson.logs = [{
+      timestamp: new Date().toISOString(),
+      action: 'create',
+      model_used: 'gpt-custom',
+      prompt: fullPrompt
+    }];
 
     return new Response(JSON.stringify({ success: true, results: resultJson }), {
       status: 200,
