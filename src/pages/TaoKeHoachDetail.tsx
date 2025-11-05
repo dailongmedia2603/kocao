@@ -16,6 +16,14 @@ import {
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const TaoKeHoachDetail = () => {
   const { planId } = useParams<{ planId: string }>();
@@ -48,27 +56,12 @@ const TaoKeHoachDetail = () => {
           </p>
         </div>
         {!isNew && promptLog && (
-          <Button variant="outline" onClick={() => setIsLogVisible(!isLogVisible)}>
+          <Button variant="outline" onClick={() => setIsLogVisible(true)}>
             <History className="mr-2 h-4 w-4" />
             Xem Log Prompt
           </Button>
         )}
       </header>
-
-      {isLogVisible && promptLog && (
-        <Accordion type="single" collapsible className="w-full mb-8" defaultValue="item-1">
-          <AccordionItem value="item-1" className="border rounded-lg bg-muted/50">
-            <AccordionTrigger className="p-4 font-semibold hover:no-underline">
-              Log Prompt đã gửi đến AI
-            </AccordionTrigger>
-            <AccordionContent className="p-6 border-t bg-white">
-              <pre className="whitespace-pre-wrap text-sm font-mono bg-gray-100 p-4 rounded-md">
-                <code>{promptLog}</code>
-              </pre>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      )}
 
       <div className="space-y-8">
         <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
@@ -92,6 +85,25 @@ const TaoKeHoachDetail = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isLogVisible} onOpenChange={setIsLogVisible}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5 text-primary" />
+              Nhật ký Prompt AI
+            </DialogTitle>
+            <DialogDescription>
+              Đây là prompt đầy đủ đã được gửi đến AI để tạo kế hoạch nội dung này.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] mt-4 pr-4">
+            <pre className="whitespace-pre-wrap text-sm font-mono bg-muted p-4 rounded-md">
+              <code>{promptLog}</code>
+            </pre>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
