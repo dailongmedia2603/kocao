@@ -16,70 +16,59 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Authenticate user (optional but good practice)
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing Authorization header");
-    const supabaseClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: authHeader } } });
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
-
-    // 2. Get inputs from request body
     const { inputs, kocName } = await req.json();
     if (!inputs || !kocName) throw new Error("Missing 'inputs' or 'kocName' in request body.");
 
-    // 3. Construct the detailed prompt for the AI
     const fullPrompt = `
-      **ROLE:** You are a world-class content strategist for TikTok, specializing in building channels for KOCs (Key Opinion Consumers) who use a monologue (talking head) format.
+# Instruction for AI
+Bạn là một chuyên gia chiến lược phát triển kênh TikTok và nhà sáng tạo nội dung hàng đầu, với kinh nghiệm sâu rộng trong việc xây dựng cộng đồng và tạo ra nội dung hiệu quả, lan truyền. Nhiệm vụ của bạn là xây dựng một KẾ HOẠCH CHI TIẾT và HIỆU QUẢ để phát triển kênh TikTok.
 
-      **CONTEXT:** You are creating a content plan for a KOC named "${kocName}". Here is the information provided:
-      - **Main Topic:** ${inputs.topic}
-      - **Target Audience:** ${inputs.target_audience}
-      - **KOC Persona (Personality & Style):** ${inputs.koc_persona}
-      - **Channel Goals:** ${inputs.goals || 'Build brand awareness and increase followers.'}
-      - **Competitors/Reference Channels:** ${inputs.competitors || 'Not specified.'}
+# Core Principles & Requirements
+Kế hoạch phải tập trung hoàn toàn vào **định dạng độc thoại một người chia sẻ** (one-person sharing monologue), ưu tiên sự chân thực, kết nối cá nhân và truyền tải giá trị rõ ràng.
+1.  **Nghiên cứu và Hiểu sâu:** Phải dựa trên sự phân tích kỹ lưỡng về đối tượng mục tiêu, xu hướng TikTok hiện tại, và tâm lý người dùng để đưa ra các đề xuất đột phá và thực tế.
+2.  **Giá trị cốt lõi:** Mỗi nội dung đề xuất phải mang lại giá trị cụ thể cho người xem (giáo dục, giải trí, truyền cảm hứng, giải quyết vấn đề, v.v.).
+3.  **Mở đầu thu hút (Hook):** Luôn nhấn mạnh tầm quan trọng của các "hook" mạnh mẽ để giữ chân người xem ngay từ 1-3 giây đầu tiên, đặc biệt trong video độc thoại.
+4.  **Tính hiệu quả và khả năng lan truyền:** Đề xuất các chủ đề và tuyến nội dung có tiềm năng viral, dễ tạo thảo luận và tương tác cao, phù hợp với định dạng độc thoại.
+5.  **Tính nhất quán và xây dựng thương hiệu:** Đảm bảo các tuyến nội dung và chủ đề video đề xuất giúp xây dựng một thương hiệu cá nhân hoặc doanh nghiệp rõ ràng, nhất quán và độc đáo.
+6.  **Kêu gọi hành động (CTA):** Tích hợp các gợi ý về CTA phù hợp và rõ ràng cho từng loại nội dung, hướng đến mục tiêu của kênh.
+7.  **Phong cách độc thoại:** Đảm bảo các gợi ý về nội dung, hook, và cách trình bày đều phù hợp với việc một người nói chuyện trực tiếp với camera, khuyến khích sự tự nhiên, chân thực và khả năng kể chuyện.
 
-      **TASK:** Based on the context, generate a comprehensive content plan.
+# User Input Fields
+Người dùng đã cung cấp các thông tin sau:
 
-      **OUTPUT FORMAT:** Your response MUST be a single, valid JSON object. Do not include any text, explanations, or markdown formatting like \`\`\`json before or after the JSON object. The JSON object must strictly follow this structure:
-      {
-        "overall_strategy": "A concise paragraph (3-4 sentences) summarizing the core content strategy, tone, and unique selling proposition for this KOC.",
-        "content_pillars": [
-          "A string for the first content pillar (e.g., 'Product Reviews')",
-          "A string for the second content pillar (e.g., 'Educational Tips')",
-          "A string for the third content pillar (e.g., 'Personal Stories & Lifestyle')"
-        ],
-        "posting_schedule": {
-          "launch_phase": {
-            "videos_per_day": "A number (e.g., 2)",
-            "notes": "A brief explanation for this frequency (e.g., 'To quickly build momentum and test content types.')"
-          },
-          "maintenance_phase": {
-            "videos_per_week": "A number (e.g., 4-5)",
-            "notes": "A brief explanation for this frequency (e.g., 'To maintain audience engagement without burnout.')"
-          }
-        },
-        "video_ideas": [
-          {
-            "pillar": "The exact name of a content pillar from the list above",
-            "topic": "A catchy, specific title for the video (max 15 words).",
-            "description": "A 1-2 sentence description of the video's content and key message."
-          },
-          {
-            "pillar": "The exact name of a content pillar from the list above",
-            "topic": "Another catchy video title.",
-            "description": "Another 1-2 sentence video description."
-          }
-        ]
-      }
-      
-      **INSTRUCTIONS:**
-      - Generate exactly 3 unique and relevant content pillars.
-      - Generate a total of 10-15 video ideas, distributed among the 3 pillars.
-      - All content must be suitable for a monologue/talking-head video format.
-      - Ensure the tone and topics align with the KOC's persona and target audience.
-    `;
+-   **Tên Kênh dự kiến/hiện tại:** ${kocName}
+-   **Lĩnh vực hoạt động/Chủ đề chính của kênh:** ${inputs.topic}
+-   **Đối tượng người xem của kênh:** ${inputs.target_audience}
+-   **Tính cách/Phong cách của người sáng tạo:** ${inputs.koc_persona}
+-   **Mục tiêu chính khi xây kênh:** ${inputs.goals || 'Không có'}
+-   **Điểm mạnh/Độc đáo của bạn/sản phẩm/dịch vụ (nếu có):** ${inputs.strengths || 'Không có'}
+-   **Các kênh TikTok mà bạn thấy thích hoặc muốn học hỏi phong cách (Nếu có):** ${inputs.competitors || 'Không có'}
 
-    // 4. Call the custom GPT API
+# Output Format
+Hãy trình bày kế hoạch một cách chi tiết, có cấu trúc rõ ràng, bao gồm các phần sau:
+
+**PHẦN 1: PHÂN TÍCH VÀ ĐỊNH HƯỚNG CHIẾN LƯỢC**
+1.  **Chân dung Đối tượng Mục tiêu Sâu sắc:** Phân tích chi tiết hơn về insights, nỗi đau, mong muốn, hành vi xem TikTok của đối tượng đã cung cấp, liên hệ với lĩnh vực kênh.
+2.  **Định vị Kênh và Thông điệp cốt lõi:** Kênh sẽ là gì trong mắt người xem? Với phong cách độc thoại, thông điệp chủ đạo cần truyền tải là gì để tạo sự kết nối?
+3.  **Cơ hội và Lợi thế cạnh tranh:** Dựa trên điểm mạnh và lĩnh vực đã cho, phân tích cơ hội phát triển trên TikTok và cách tạo sự khác biệt so với các kênh khác.
+
+**PHẦN 2: KẾ HOẠCH NỘI DUNG CHI TIẾT (Dạng độc thoại 1 người)**
+1.  **Các Tuyến Nội dung Chính (Content Pillars):** Đề xuất 3-5 tuyến nội dung lớn, độc đáo, xuyên suốt và phù hợp với định dạng độc thoại, mục tiêu, và đối tượng mục tiêu. Mỗi tuyến nội dung phải có mô tả ngắn gọn về giá trị mang lại, tính nhất quán, và lý do phù hợp với định dạng độc thoại.
+2.  **Đề xuất Chủ đề Video Cụ thể:**
+    *   Cho MỖI tuyến nội dung, đề xuất 5-7 chủ đề video chi tiết.
+    *   Mỗi chủ đề video phải bao gồm:
+        *   **Tên Chủ đề Video:** Gợi hình, hấp dẫn, dễ nhớ.
+        *   **Mô tả Ngắn gọn:** Nội dung chính sẽ chia sẻ là gì, giải quyết vấn đề gì, mang lại giá trị gì cho người xem thông qua hình thức độc thoại.
+        *   **Hook Gợi ý:** Một hoặc hai câu mở đầu để thu hút người xem ngay lập tức (phù hợp với định dạng độc thoại, ví dụ: đặt câu hỏi trực tiếp, chia sẻ một sự thật gây sốc).
+        *   **Key Takeaways/Giá trị:** Người xem sẽ học được/cảm nhận được gì sau video.
+        *   **Call to Action (CTA) Gợi ý:** Ví dụ cụ thể và tự nhiên cho cuối video độc thoại (comment, follow, share, link bio, v.v.).
+
+**PHẦN 3: CHIẾN LƯỢC TĂNG TRƯỞNG VÀ TƯƠNG TÁC (Tóm tắt)**
+1.  **Lịch đăng bài gợi ý:** Tần suất và thời điểm tối ưu cho kênh.
+2.  **Chiến lược tương tác:** Cách phản hồi comment, tạo khảo sát, kêu gọi thảo luận trong video độc thoại.
+3.  **Tận dụng xu hướng:** Cách thức lồng ghép các xu hướng TikTok (âm thanh, hiệu ứng, định dạng) một cách sáng tạo mà vẫn giữ được bản sắc kênh và định dạng độc thoại.
+`;
+
     const externalApiFormData = new FormData();
     externalApiFormData.append("prompt", fullPrompt);
 
@@ -98,11 +87,9 @@ serve(async (req) => {
         throw new Error("API GPT Custom không trả về trường 'answer'.");
     }
 
-    // 5. Parse and return the result
-    // The answer is expected to be a JSON string.
-    const resultJson = JSON.parse(responseData.answer);
+    const generatedText = responseData.answer;
 
-    return new Response(JSON.stringify({ success: true, results: resultJson, fullPrompt }), {
+    return new Response(JSON.stringify({ success: true, results: { generatedPlan: generatedText }, fullPrompt }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -110,7 +97,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error in generate-content-plan-gpt function:", error);
     return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 200, // Return 200 so client-side can handle the error message
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
