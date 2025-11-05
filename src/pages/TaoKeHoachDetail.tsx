@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, History } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { PlanInputForm } from "@/components/content/PlanInputForm";
 import { PlanResultDisplay } from "@/components/content/PlanResultDisplay";
 import {
@@ -9,27 +9,10 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { ContentPlan } from "@/types/contentPlan";
-import { Skeleton } from "@/components/ui/skeleton";
 
 const TaoKeHoachDetail = () => {
   const { planId } = useParams<{ planId: string }>();
   const isNew = planId === 'new';
-
-  const { data: plan, isLoading: isLoadingPlan } = useQuery<ContentPlan | null>({
-    queryKey: ['content_plan_detail', planId],
-    queryFn: async () => {
-      if (!planId || isNew) return null;
-      const { data, error } = await supabase.from('content_plans').select('*').eq('id', planId).single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !isNew,
-  });
-
-  const fullPrompt = (plan?.results as any)?.fullPrompt as string | undefined;
 
   return (
     <div className="p-6 lg:p-8">
@@ -54,24 +37,6 @@ const TaoKeHoachDetail = () => {
             </AccordionContent>
           </AccordionItem>
         </Accordion>
-
-        {!isNew && (isLoadingPlan ? <Skeleton className="h-20 w-full" /> : fullPrompt && (
-          <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="prompt-log" className="border rounded-lg">
-              <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
-                <div className="flex items-center gap-3">
-                  <History className="h-5 w-5 text-gray-500" />
-                  <span>Xem Prompt đã gửi cho AI</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="p-6 border-t">
-                <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-md font-mono">
-                  <code>{fullPrompt}</code>
-                </pre>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        ))}
 
         <Card>
           <CardHeader>
