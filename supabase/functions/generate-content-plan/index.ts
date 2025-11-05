@@ -130,7 +130,7 @@ Hãy trình bày kế hoạch một cách chi tiết, có cấu trúc rõ ràng,
     const accessToken = await getGcpAccessToken(credentials);
 
     const region = "us-central1";
-    const model = "gemini-1.5-pro";
+    const model = "gemini-2.5-pro";
     const vertexUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent`;
 
     const vertexResponse = await fetch(vertexUrl, {
