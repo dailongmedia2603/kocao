@@ -107,18 +107,26 @@ export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
             </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader><TableRow><TableHead>Giai đoạn</TableHead><TableHead>Tần suất</TableHead><TableHead>Ghi chú</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Giai đoạn</TableHead><TableHead>Thời gian</TableHead><TableHead>Tổng số video</TableHead><TableHead>Tần suất</TableHead><TableHead>Ghi chú</TableHead></TableRow></TableHeader>
                 <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">Triển khai</TableCell>
-                    <TableCell>{results.posting_schedule?.launch_phase?.videos_per_day} video/ngày</TableCell>
-                    <TableCell className="text-xs">{results.posting_schedule?.launch_phase?.notes}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">Duy trì</TableCell>
-                    <TableCell>{results.posting_schedule?.maintenance_phase?.videos_per_week} video/tuần</TableCell>
-                    <TableCell className="text-xs">{results.posting_schedule?.maintenance_phase?.notes}</TableCell>
-                  </TableRow>
+                  {results.posting_schedule?.build_up_phase && (
+                    <TableRow>
+                      <TableCell className="font-medium">{results.posting_schedule.build_up_phase.phase_name || 'Xây dựng ban đầu'}</TableCell>
+                      <TableCell>{results.posting_schedule.build_up_phase.duration}</TableCell>
+                      <TableCell>{results.posting_schedule.build_up_phase.total_videos}</TableCell>
+                      <TableCell>{results.posting_schedule.build_up_phase.frequency}</TableCell>
+                      <TableCell className="text-xs">{results.posting_schedule.build_up_phase.notes}</TableCell>
+                    </TableRow>
+                  )}
+                  {results.posting_schedule?.maintenance_phase && (
+                    <TableRow>
+                      <TableCell className="font-medium">{results.posting_schedule.maintenance_phase.phase_name || 'Duy trì'}</TableCell>
+                      <TableCell>{results.posting_schedule.maintenance_phase.duration}</TableCell>
+                      <TableCell>{results.posting_schedule.maintenance_phase.total_videos}</TableCell>
+                      <TableCell>{results.posting_schedule.maintenance_phase.frequency}</TableCell>
+                      <TableCell className="text-xs">{results.posting_schedule.maintenance_phase.notes}</TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -138,7 +146,7 @@ export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
                         {(results.video_ideas || []).filter((idea: any) => idea.pillar === pillar).map((idea: any) => (
                           <li key={idea.topic}>
                             <strong className="font-semibold">{idea.topic}:</strong>
-                            <p className="text-muted-foreground">{idea.description}</p>
+                            <p className="text-muted-foreground whitespace-pre-wrap">{idea.description}</p>
                           </li>
                         ))}
                       </ul>

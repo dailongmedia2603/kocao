@@ -92,38 +92,45 @@ serve(async (req) => {
 
       **NHIỆM VỤ:** Dựa trên bối cảnh trên, hãy tạo ra một kế hoạch nội dung toàn diện.
 
-      **ĐỊNH DẠNG ĐẦU RA:** Phản hồi của bạn BẮT BUỘC phải là một đối tượng JSON hợp lệ duy nhất. Không bao gồm bất kỳ văn bản, giải thích, hoặc định dạng markdown nào như \`\`\`json trước hoặc sau đối tượng JSON. Đối tượng JSON phải tuân thủ nghiêm ngặt cấu trúc sau:
+      **ĐỊNH DẠNG ĐẦU RA (YÊU CẦU BẮT BUỘC):** Phản hồi của bạn PHẢI là một đối tượng JSON hợp lệ duy nhất. Không bao gồm bất kỳ văn bản, giải thích, hoặc định dạng markdown nào như \`\`\`json trước hoặc sau đối tượng JSON. Đối tượng JSON phải tuân thủ nghiêm ngặt cấu trúc sau:
       {
         "overall_strategy": "Một đoạn văn ngắn gọn (3-4 câu) tóm tắt chiến lược nội dung cốt lõi, tông giọng, và điểm bán hàng độc nhất (unique selling proposition) cho KOC này.",
         "content_pillars": [
-          "Một chuỗi cho trụ cột nội dung đầu tiên (ví dụ: 'Đánh giá sản phẩm')",
-          "Một chuỗi cho trụ cột nội dung thứ hai (ví dụ: 'Mẹo hữu ích')",
-          "Một chuỗi cho trụ cột nội dung thứ ba (ví dụ: 'Câu chuyện cá nhân & Phong cách sống')"
+          "Một chuỗi cho trụ cột nội dung đầu tiên",
+          "Một chuỗi cho trụ cột nội dung thứ hai",
+          "Một chuỗi cho trụ cột nội dung thứ ba"
         ],
         "posting_schedule": {
-          "launch_phase": {
-            "videos_per_day": "Một con số (ví dụ: 2)",
-            "notes": "Giải thích ngắn gọn cho tần suất này (ví dụ: 'Để nhanh chóng tạo đà và thử nghiệm các loại nội dung.')"
+          "build_up_phase": {
+            "phase_name": "Xây dựng ban đầu",
+            "duration": "Thời gian của giai đoạn (ví dụ: '1 tháng đầu')",
+            "total_videos": "Tổng số video trong giai đoạn này (ví dụ: 'khoảng 60 video')",
+            "frequency": "Tần suất đăng (ví dụ: '2 video/ngày')",
+            "notes": "Giải thích ngắn gọn cho chiến lược này."
           },
           "maintenance_phase": {
-            "videos_per_week": "Một con số (ví dụ: 4-5)",
-            "notes": "Giải thích ngắn gọn cho tần suất này (ví dụ: 'Để duy trì tương tác của khán giả mà không bị kiệt sức.')"
+            "phase_name": "Duy trì",
+            "duration": "Thời gian của giai đoạn (ví dụ: 'Từ tháng thứ 2 trở đi')",
+            "total_videos": "Tổng số video trong giai đoạn này (ví dụ: 'khoảng 16-20 video/tháng')",
+            "frequency": "Tần suất đăng (ví dụ: '4-5 video/tuần')",
+            "notes": "Giải thích ngắn gọn cho chiến lược này."
           }
         },
         "video_ideas": [
           {
             "pillar": "Tên chính xác của một trụ cột nội dung từ danh sách trên",
             "topic": "Một tiêu đề video hấp dẫn, cụ thể (tối đa 15 từ).",
-            "description": "Mô tả 1-2 câu về nội dung và thông điệp chính của video."
+            "description": "Một kịch bản chi tiết, liền mạch, viết dưới dạng văn nói. Bắt đầu bằng một câu mở đầu thu hút, sau đó đi vào các ý chính, giải thích các thuật ngữ (nếu có), và kết thúc bằng một lời kêu gọi hành động. Độ dài khoảng 150-250 từ."
           }
         ]
       }
       
-      **HƯỚNG DẪN:**
+      **HƯỚNG DẪN CHI TIẾT (YÊU CẦU BẮT BUỘC):**
+      - **Lịch đăng:** Phải nêu rõ 2 giai đoạn "Xây dựng ban đầu" và "Duy trì". Mỗi giai đoạn phải có đủ các thông tin: thời gian, tổng số video, tần suất, và ghi chú.
+      - **Ý tưởng video:** Phần 'description' PHẢI là một kịch bản chi tiết, liền mạch, không phải mô tả ngắn. Nó cần giải thích thuật ngữ, có ngữ cảnh, nêu các ý chính, và được viết như một câu chuyện hoàn chỉnh.
       - Tạo ra chính xác 3 trụ cột nội dung độc đáo và phù hợp.
       - Tạo tổng cộng 10-15 ý tưởng video, phân bổ đều cho 3 trụ cột.
       - Tất cả nội dung phải phù hợp với định dạng video độc thoại/talking-head.
-      - Đảm bảo tông giọng và chủ đề phù hợp với chân dung KOC và đối tượng mục tiêu.
     `;
 
     // 4. Authenticate with Vertex AI
