@@ -9,7 +9,7 @@ import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
 
 // UI Components
-import { ArrowLeft, History, RefreshCw, Loader2 } from "lucide-react";
+import { ArrowLeft, History, RefreshCw, Loader2, PencilLine, Sparkles } from "lucide-react";
 import { PlanInputForm } from "@/components/content/PlanInputForm";
 import { PlanResultDisplay } from "@/components/content/PlanResultDisplay";
 import {
@@ -139,7 +139,10 @@ const TaoKeHoachDetail = () => {
         <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
           <AccordionItem value="item-1" className="border rounded-lg">
             <AccordionTrigger className="p-4 text-xl font-semibold hover:no-underline">
-              1. Nhập thông tin
+              <div className="flex items-center gap-3">
+                <PencilLine className="h-6 w-6 text-blue-500" />
+                1. Nhập thông tin
+              </div>
             </AccordionTrigger>
             <AccordionContent className="p-6 border-t">
               <PlanInputForm planId={isNew ? null : planId} />
@@ -149,7 +152,10 @@ const TaoKeHoachDetail = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl font-semibold">2. Kết quả & Đề xuất</CardTitle>
+            <CardTitle className="text-xl font-semibold flex items-center gap-3">
+              <Sparkles className="h-6 w-6 text-purple-500" />
+              2. Kết quả & Đề xuất
+            </CardTitle>
             <CardDescription>Chiến lược nội dung do AI đề xuất sẽ được hiển thị ở đây.</CardDescription>
           </CardHeader>
           <CardContent>

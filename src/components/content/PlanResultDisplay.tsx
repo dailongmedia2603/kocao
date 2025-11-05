@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ContentPlan } from "@/types/contentPlan";
+import { showSuccess, showError } from "@/utils/toast";
 
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,9 +10,10 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 // Icons
-import { Bot, Loader2, ClipboardCheck, ListVideo, CalendarClock, Lightbulb, AlertCircle } from "lucide-react";
+import { Bot, Loader2, ClipboardCheck, ListVideo, CalendarClock, Lightbulb, AlertCircle, Plus } from "lucide-react";
 
 type PlanResultDisplayProps = {
   planId: string | null;
@@ -19,6 +21,7 @@ type PlanResultDisplayProps = {
 
 export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
   const isNew = planId === null;
+  const queryClient = useQueryClient();
 
   const { data: plan, isLoading, isError, error } = useQuery<ContentPlan | null>({
     queryKey: ['content_plan_detail', planId],
@@ -33,6 +36,24 @@ export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
       return data;
     },
     enabled: !isNew,
+  });
+
+  const generateMoreMutation = useMutation({
+    mutationFn: async () => {
+      if (!planId) throw new Error("Plan ID is required.");
+      const { data, error } = await supabase.functions.invoke('generate-more-video-ideas', {
+        body: { planId }
+      });
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+    },
+    onSuccess: () => {
+      showSuccess("Đã tạo thêm 10 ý tưởng mới!");
+      queryClient.invalidateQueries({ queryKey: ['content_plan_detail', planId] });
+    },
+    onError: (error: Error) => {
+      showError(`Lỗi: ${error.message}`);
+    }
   });
 
   const results = plan?.results;
@@ -133,8 +154,12 @@ export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2"><Lightbulb className="h-5 w-5 text-purple-500" /> {(results.video_ideas || []).length} Ý tưởng video</CardTitle>
+              <Button size="sm" onClick={() => generateMoreMutation.mutate()} disabled={generateMoreMutation.isPending}>
+                {generateMoreMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                Tạo thêm 10 ý tưởng
+              </Button>
             </CardHeader>
             <CardContent>
               <Accordion type="multiple" className="w-full space-y-2">
