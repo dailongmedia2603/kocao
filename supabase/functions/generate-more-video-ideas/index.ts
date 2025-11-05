@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getGcpAccessToken } from "@/vertex-ai-auth.ts";
+import { getGcpAccessToken } from "shared/vertex-ai-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
