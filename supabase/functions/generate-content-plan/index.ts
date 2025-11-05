@@ -80,56 +80,50 @@ serve(async (req) => {
     const { inputs, kocName } = await req.json();
     if (!inputs || !kocName) throw new Error("Missing 'inputs' or 'kocName' in request body.");
 
-    // 3. Construct the detailed prompt for the AI
+    // 3. Construct the detailed prompt for the AI in Vietnamese
     const fullPrompt = `
-      **ROLE:** You are a world-class content strategist for TikTok, specializing in building channels for KOCs (Key Opinion Consumers) who use a monologue (talking head) format.
+      **VAI TRÒ:** Bạn là một chuyên gia chiến lược nội dung hàng đầu cho TikTok, chuyên xây dựng kênh cho các KOC (Key Opinion Consumers) theo định dạng độc thoại (talking head).
 
-      **CONTEXT:** You are creating a content plan for a KOC named "${kocName}". Here is the information provided:
-      - **Main Topic:** ${inputs.topic}
-      - **Target Audience:** ${inputs.target_audience}
-      - **KOC Persona (Personality & Style):** ${inputs.koc_persona}
-      - **Channel Goals:** ${inputs.goals || 'Build brand awareness and increase followers.'}
-      - **Competitors/Reference Channels:** ${inputs.competitors || 'Not specified.'}
+      **BỐI CẢNH:** Bạn đang tạo một kế hoạch nội dung cho KOC có tên "${kocName}". Dưới đây là các thông tin được cung cấp:
+      - **Chủ đề chính:** ${inputs.topic}
+      - **Đối tượng mục tiêu:** ${inputs.target_audience}
+      - **Chân dung KOC (Tính cách & Phong cách):** ${inputs.koc_persona}
+      - **Mục tiêu kênh:** ${inputs.goals || 'Xây dựng nhận diện thương hiệu và tăng lượng người theo dõi.'}
 
-      **TASK:** Based on the context, generate a comprehensive content plan.
+      **NHIỆM VỤ:** Dựa trên bối cảnh trên, hãy tạo ra một kế hoạch nội dung toàn diện.
 
-      **OUTPUT FORMAT:** Your response MUST be a single, valid JSON object. Do not include any text, explanations, or markdown formatting like \`\`\`json before or after the JSON object. The JSON object must strictly follow this structure:
+      **ĐỊNH DẠNG ĐẦU RA:** Phản hồi của bạn BẮT BUỘC phải là một đối tượng JSON hợp lệ duy nhất. Không bao gồm bất kỳ văn bản, giải thích, hoặc định dạng markdown nào như \`\`\`json trước hoặc sau đối tượng JSON. Đối tượng JSON phải tuân thủ nghiêm ngặt cấu trúc sau:
       {
-        "overall_strategy": "A concise paragraph (3-4 sentences) summarizing the core content strategy, tone, and unique selling proposition for this KOC.",
+        "overall_strategy": "Một đoạn văn ngắn gọn (3-4 câu) tóm tắt chiến lược nội dung cốt lõi, tông giọng, và điểm bán hàng độc nhất (unique selling proposition) cho KOC này.",
         "content_pillars": [
-          "A string for the first content pillar (e.g., 'Product Reviews')",
-          "A string for the second content pillar (e.g., 'Educational Tips')",
-          "A string for the third content pillar (e.g., 'Personal Stories & Lifestyle')"
+          "Một chuỗi cho trụ cột nội dung đầu tiên (ví dụ: 'Đánh giá sản phẩm')",
+          "Một chuỗi cho trụ cột nội dung thứ hai (ví dụ: 'Mẹo hữu ích')",
+          "Một chuỗi cho trụ cột nội dung thứ ba (ví dụ: 'Câu chuyện cá nhân & Phong cách sống')"
         ],
         "posting_schedule": {
           "launch_phase": {
-            "videos_per_day": "A number (e.g., 2)",
-            "notes": "A brief explanation for this frequency (e.g., 'To quickly build momentum and test content types.')"
+            "videos_per_day": "Một con số (ví dụ: 2)",
+            "notes": "Giải thích ngắn gọn cho tần suất này (ví dụ: 'Để nhanh chóng tạo đà và thử nghiệm các loại nội dung.')"
           },
           "maintenance_phase": {
-            "videos_per_week": "A number (e.g., 4-5)",
-            "notes": "A brief explanation for this frequency (e.g., 'To maintain audience engagement without burnout.')"
+            "videos_per_week": "Một con số (ví dụ: 4-5)",
+            "notes": "Giải thích ngắn gọn cho tần suất này (ví dụ: 'Để duy trì tương tác của khán giả mà không bị kiệt sức.')"
           }
         },
         "video_ideas": [
           {
-            "pillar": "The exact name of a content pillar from the list above",
-            "topic": "A catchy, specific title for the video (max 15 words).",
-            "description": "A 1-2 sentence description of the video's content and key message."
-          },
-          {
-            "pillar": "The exact name of a content pillar from the list above",
-            "topic": "Another catchy video title.",
-            "description": "Another 1-2 sentence video description."
+            "pillar": "Tên chính xác của một trụ cột nội dung từ danh sách trên",
+            "topic": "Một tiêu đề video hấp dẫn, cụ thể (tối đa 15 từ).",
+            "description": "Mô tả 1-2 câu về nội dung và thông điệp chính của video."
           }
         ]
       }
       
-      **INSTRUCTIONS:**
-      - Generate exactly 3 unique and relevant content pillars.
-      - Generate a total of 10-15 video ideas, distributed among the 3 pillars.
-      - All content must be suitable for a monologue/talking-head video format.
-      - Ensure the tone and topics align with the KOC's persona and target audience.
+      **HƯỚNG DẪN:**
+      - Tạo ra chính xác 3 trụ cột nội dung độc đáo và phù hợp.
+      - Tạo tổng cộng 10-15 ý tưởng video, phân bổ đều cho 3 trụ cột.
+      - Tất cả nội dung phải phù hợp với định dạng video độc thoại/talking-head.
+      - Đảm bảo tông giọng và chủ đề phù hợp với chân dung KOC và đối tượng mục tiêu.
     `;
 
     // 4. Authenticate with Vertex AI
