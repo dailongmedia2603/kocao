@@ -142,7 +142,7 @@ serve(async (req) => {
 
     // 5. Call Vertex AI API
     const region = "us-central1";
-    const model = "gemini-1.5-pro-latest";
+    const model = "gemini-2.5-pro"; // SỬA LỖI: Đổi tên model thành "gemini-2.5-pro"
     const vertexUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent`;
 
     const vertexResponse = await fetch(vertexUrl, {
