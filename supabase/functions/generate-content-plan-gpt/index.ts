@@ -39,7 +39,7 @@ serve(async (req) => {
 
       **NHIỆM VỤ:** Dựa trên bối cảnh trên, hãy tạo ra một kế hoạch nội dung toàn diện.
 
-      **ĐỊNH DẠNG ĐẦU RA (YÊU CẦU BẮT BUỘC):** Phản hồi của bạn PHẢI là một đối tượng JSON hợp lệ duy nhất. Không bao gồm bất kỳ văn bản, giải thích, hoặc định dạng markdown nào như \`\`\`json trước hoặc sau đối tượng JSON. Đối tượng JSON phải tuân thủ nghiêm ngặt cấu trúc sau:
+      **ĐỊNH DẠNG ĐẦU RA (YÊU CẦU BẮT BUỘC):** Phản hồi của bạn PHẢI là một đối tượng JSON hợp lệ duy nhất. Không bao gồm bất kỳ văn bản, giải thích, hoặc định dạng markdown nào như \`\`\`json trước hoặc sau đối tượng JSON. Quan trọng: Hãy đảm bảo rằng tất cả các ký tự dấu ngoặc kép (") bên trong các giá trị chuỗi JSON đều được thoát đúng cách bằng một dấu gạch chéo ngược (\\"). Đối tượng JSON phải tuân thủ nghiêm ngặt cấu trúc sau:
       {
         "overall_strategy": "Một đoạn văn ngắn gọn (3-4 câu) tóm tắt chiến lược nội dung cốt lõi, tông giọng, và điểm bán hàng độc nhất (unique selling proposition) cho KOC này.",
         "content_pillars": [
