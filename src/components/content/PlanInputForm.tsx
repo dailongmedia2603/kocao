@@ -2,9 +2,11 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
+import { useNavigate } from "react-router-dom";
+import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
 
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -15,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Wand2, Loader2 } from "lucide-react";
+import { ContentPlan } from "@/types/contentPlan";
 
 const formSchema = z.object({
   koc_id: z.string().min(1, "Vui lòng chọn KOC."),
@@ -33,6 +36,8 @@ type PlanInputFormProps = {
 export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
   const { user } = useSession();
   const isNew = planId === null;
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { data: kocs, isLoading: isLoadingKocs } = useQuery({
     queryKey: ['kocs_for_plan', user?.id],
@@ -43,6 +48,17 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
       return data;
     },
     enabled: !!user,
+  });
+
+  const { data: plan, isLoading: isLoadingPlan } = useQuery<ContentPlan | null>({
+    queryKey: ['content_plan_detail', planId],
+    queryFn: async () => {
+      if (!planId) return null;
+      const { data, error } = await supabase.from('content_plans').select('*').eq('id', planId).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !isNew,
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -58,14 +74,66 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
     },
   });
 
+  useEffect(() => {
+    if (plan && plan.inputs) {
+      form.reset(plan.inputs as z.infer<typeof formSchema>);
+    }
+  }, [plan, form]);
+
+  const createPlanMutation = useMutation({
+    mutationFn: async (values: z.infer<typeof formSchema>) => {
+      if (!user) throw new Error("User not authenticated.");
+      const selectedKoc = kocs?.find(koc => koc.id === values.koc_id);
+      if (!selectedKoc) throw new Error("KOC not found.");
+
+      const toastId = showLoading("AI đang phân tích và tạo kế hoạch...");
+
+      try {
+        const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-content-plan', {
+          body: { inputs: values, kocName: selectedKoc.name }
+        });
+
+        if (functionError) throw functionError;
+        if (!functionData.success) throw new Error(functionData.error);
+
+        const { data: newPlan, error: insertError } = await supabase
+          .from('content_plans')
+          .insert({
+            user_id: user.id,
+            koc_id: values.koc_id,
+            name: values.name,
+            status: 'completed',
+            inputs: values,
+            results: functionData.results,
+          })
+          .select('id')
+          .single();
+
+        if (insertError) throw insertError;
+
+        dismissToast(toastId);
+        showSuccess("Tạo kế hoạch thành công!");
+        return newPlan;
+      } catch (error) {
+        dismissToast(toastId);
+        showError((error as Error).message);
+        throw error;
+      }
+    },
+    onSuccess: (newPlan) => {
+      queryClient.invalidateQueries({ queryKey: ['content_plans', user?.id] });
+      if (newPlan) {
+        navigate(`/tao-ke-hoach/${newPlan.id}`);
+      }
+    },
+  });
+
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    // Logic xử lý submit sẽ được thêm ở Giai đoạn 4
-    console.log(values);
+    createPlanMutation.mutate(values);
   };
 
-  if (!isNew) {
-    // Logic lấy dữ liệu plan đã có sẽ được thêm ở đây
-    return <Skeleton className="h-[500px] w-full" />;
+  if (isLoadingPlan) {
+    return <Skeleton className="h-[700px] w-full" />;
   }
 
   return (
@@ -81,7 +149,7 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
               <FormItem>
                 <FormLabel>Dành cho KOC</FormLabel>
                 {isLoadingKocs ? <Skeleton className="h-10 w-full" /> : (
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!isNew}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Chọn một KOC" /></SelectTrigger></FormControl>
                     <SelectContent>{kocs?.map(koc => <SelectItem key={koc.id} value={koc.id}>{koc.name}</SelectItem>)}</SelectContent>
                   </Select>
@@ -89,15 +157,18 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
                 <FormMessage />
               </FormItem>
             )} />
-            <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Tên kế hoạch</FormLabel><FormControl><Input placeholder="Ví dụ: Kế hoạch xây kênh review mỹ phẩm" {...field} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="topic" render={({ field }) => (<FormItem><FormLabel>Chủ đề chính</FormLabel><FormControl><Input placeholder="Ví dụ: Review mỹ phẩm cho da dầu mụn" {...field} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="target_audience" render={({ field }) => (<FormItem><FormLabel>Đối tượng mục tiêu</FormLabel><FormControl><Textarea placeholder="Mô tả độ tuổi, giới tính, sở thích, vấn đề họ gặp phải..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="koc_persona" render={({ field }) => (<FormItem><FormLabel>Chân dung KOC</FormLabel><FormControl><Textarea placeholder="Mô tả tính cách, phong cách nói chuyện (hài hước, chuyên gia, gần gũi...)" {...field} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="goals" render={({ field }) => (<FormItem><FormLabel>Mục tiêu kênh (Tùy chọn)</FormLabel><FormControl><Input placeholder="Ví dụ: Đạt 10,000 followers trong 3 tháng" {...field} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="competitors" render={({ field }) => (<FormItem><FormLabel>Kênh tham khảo (Tùy chọn)</FormLabel><FormControl><Textarea placeholder="Liệt kê một vài link kênh đối thủ hoặc kênh bạn muốn học hỏi" {...field} /></FormControl><FormMessage /></FormItem>)} />
-            <Button type="submit" className="w-full" disabled={true}>
-              <Wand2 className="mr-2 h-4 w-4" /> Tạo kế hoạch bằng AI (Sắp ra mắt)
-            </Button>
+            <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Tên kế hoạch</FormLabel><FormControl><Input placeholder="Ví dụ: Kế hoạch xây kênh review mỹ phẩm" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="topic" render={({ field }) => (<FormItem><FormLabel>Chủ đề chính</FormLabel><FormControl><Input placeholder="Ví dụ: Review mỹ phẩm cho da dầu mụn" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="target_audience" render={({ field }) => (<FormItem><FormLabel>Đối tượng mục tiêu</FormLabel><FormControl><Textarea placeholder="Mô tả độ tuổi, giới tính, sở thích, vấn đề họ gặp phải..." {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="koc_persona" render={({ field }) => (<FormItem><FormLabel>Chân dung KOC</FormLabel><FormControl><Textarea placeholder="Mô tả tính cách, phong cách nói chuyện (hài hước, chuyên gia, gần gũi...)" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="goals" render={({ field }) => (<FormItem><FormLabel>Mục tiêu kênh (Tùy chọn)</FormLabel><FormControl><Input placeholder="Ví dụ: Đạt 10,000 followers trong 3 tháng" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+            <FormField control={form.control} name="competitors" render={({ field }) => (<FormItem><FormLabel>Kênh tham khảo (Tùy chọn)</FormLabel><FormControl><Textarea placeholder="Liệt kê một vài link kênh đối thủ hoặc kênh bạn muốn học hỏi" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+            
+            {isNew && (
+              <Button type="submit" className="w-full" disabled={createPlanMutation.isPending}>
+                {createPlanMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang tạo...</> : <><Wand2 className="mr-2 h-4 w-4" /> Tạo kế hoạch bằng AI</>}
+              </Button>
+            )}
           </form>
         </Form>
       </CardContent>
