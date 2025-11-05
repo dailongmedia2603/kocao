@@ -84,13 +84,13 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
     }
   }, [plan, form]);
 
-  const createPlanMutation = useMutation({
+  const upsertPlanMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated.");
       const selectedKoc = kocs?.find(koc => koc.id === values.koc_id);
       if (!selectedKoc) throw new Error("KOC not found.");
 
-      const toastId = showLoading("AI đang phân tích và tạo kế hoạch...");
+      const toastId = showLoading(`AI đang ${isNew ? 'phân tích và tạo' : 'cập nhật'} kế hoạch...`);
 
       try {
         const functionName = values.ai_model === 'gpt' 
@@ -104,40 +104,51 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
         if (functionError) throw functionError;
         if (!functionData.success) throw new Error(functionData.error);
 
-        const { data: newPlan, error: insertError } = await supabase
-          .from('content_plans')
-          .insert({
-            user_id: user.id,
-            koc_id: values.koc_id,
-            name: values.name,
-            status: 'completed',
-            inputs: values,
-            results: functionData.results,
-          })
-          .select('id')
-          .single();
+        const payload = {
+          user_id: user.id,
+          koc_id: values.koc_id,
+          name: values.name,
+          status: 'completed',
+          inputs: values,
+          results: functionData.results,
+        };
 
-        if (insertError) throw insertError;
-
-        dismissToast(toastId);
-        showSuccess("Tạo kế hoạch thành công!");
-        return newPlan;
+        if (isNew) {
+          const { data: newPlan, error: insertError } = await supabase
+            .from('content_plans')
+            .insert(payload)
+            .select('id')
+            .single();
+          if (insertError) throw insertError;
+          return { newPlanId: newPlan.id };
+        } else {
+          const { error: updateError } = await supabase
+            .from('content_plans')
+            .update(payload)
+            .eq('id', planId!);
+          if (updateError) throw updateError;
+          return { newPlanId: null };
+        }
       } catch (error) {
         dismissToast(toastId);
         showError((error as Error).message);
         throw error;
       }
     },
-    onSuccess: (newPlan) => {
+    onSuccess: ({ newPlanId }) => {
+      const message = isNew ? "Tạo kế hoạch thành công!" : "Cập nhật kế hoạch thành công!";
+      showSuccess(message);
       queryClient.invalidateQueries({ queryKey: ['content_plans', user?.id] });
-      if (newPlan) {
-        navigate(`/tao-ke-hoach/${newPlan.id}`);
+      if (isNew && newPlanId) {
+        navigate(`/tao-ke-hoach/${newPlanId}`);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['content_plan_detail', planId] });
       }
     },
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    createPlanMutation.mutate(values);
+    upsertPlanMutation.mutate(values);
   };
 
   if (isLoadingPlan) {
@@ -155,7 +166,6 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
                 onValueChange={field.onChange}
                 defaultValue={field.value}
                 className="flex items-center space-x-4"
-                disabled={!isNew}
               >
                 <FormItem className="flex items-center space-x-2 space-y-0">
                   <FormControl><RadioGroupItem value="gemini" /></FormControl>
@@ -175,7 +185,7 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
             <FormItem>
               <FormLabel className="flex items-center gap-2"><User className="h-5 w-5 text-blue-500" /> Dành cho KOC</FormLabel>
               {isLoadingKocs ? <Skeleton className="h-10 w-full" /> : (
-                <Select onValueChange={field.onChange} value={field.value} disabled={!isNew}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl><SelectTrigger><SelectValue placeholder="Chọn một KOC" /></SelectTrigger></FormControl>
                   <SelectContent>{kocs?.map(koc => <SelectItem key={koc.id} value={koc.id}>{koc.name}</SelectItem>)}</SelectContent>
                 </Select>
@@ -183,22 +193,24 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
               <FormMessage />
             </FormItem>
           )} />
-          <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-blue-500" /> Tên kế hoạch</FormLabel><FormControl><Input placeholder="Ví dụ: Kế hoạch xây kênh review mỹ phẩm" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+          <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-blue-500" /> Tên kế hoạch</FormLabel><FormControl><Input placeholder="Ví dụ: Kế hoạch xây kênh review mỹ phẩm" {...field} /></FormControl><FormMessage /></FormItem>)} />
         </div>
-        <FormField control={form.control} name="topic" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Hash className="h-5 w-5 text-green-500" /> Lĩnh vực hoạt động/Chủ đề chính</FormLabel><FormControl><Input placeholder="Ví dụ: Marketing Online, Đầu tư Chứng khoán, Chăm sóc da..." {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
-        <FormField control={form.control} name="target_audience" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><UsersIcon className="h-5 w-5 text-green-500" /> Đối tượng người xem</FormLabel><FormControl><Textarea placeholder="Mô tả độ tuổi, giới tính, sở thích, vấn đề họ gặp phải..." {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
-        <FormField control={form.control} name="koc_persona" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Smile className="h-5 w-5 text-orange-500" /> Tính cách/Phong cách của KOC</FormLabel><FormControl><Textarea placeholder="Ví dụ: Hài hước, gần gũi; Chuyên nghiệp, điềm đạm; Năng động, truyền cảm hứng..." {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+        <FormField control={form.control} name="topic" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Hash className="h-5 w-5 text-green-500" /> Lĩnh vực hoạt động/Chủ đề chính</FormLabel><FormControl><Input placeholder="Ví dụ: Marketing Online, Đầu tư Chứng khoán, Chăm sóc da..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+        <FormField control={form.control} name="target_audience" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><UsersIcon className="h-5 w-5 text-green-500" /> Đối tượng người xem</FormLabel><FormControl><Textarea placeholder="Mô tả độ tuổi, giới tính, sở thích, vấn đề họ gặp phải..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+        <FormField control={form.control} name="koc_persona" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Smile className="h-5 w-5 text-orange-500" /> Tính cách/Phong cách của KOC</FormLabel><FormControl><Textarea placeholder="Ví dụ: Hài hước, gần gũi; Chuyên nghiệp, điềm đạm; Năng động, truyền cảm hứng..." {...field} /></FormControl><FormMessage /></FormItem>)} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField control={form.control} name="goals" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-purple-500" /> Mục tiêu chính (Tùy chọn)</FormLabel><FormControl><Input placeholder="Ví dụ: Tăng follow, bán sản phẩm, xây dựng thương hiệu cá nhân..." {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
-          <FormField control={form.control} name="strengths" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-purple-500" /> Điểm mạnh/Độc đáo (Tùy chọn)</FormLabel><FormControl><Input placeholder="Ví dụ: 10 năm kinh nghiệm, sản phẩm thủ công..." {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+          <FormField control={form.control} name="goals" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-purple-500" /> Mục tiêu chính (Tùy chọn)</FormLabel><FormControl><Input placeholder="Ví dụ: Tăng follow, bán sản phẩm, xây dựng thương hiệu cá nhân..." {...field} /></FormControl><FormMessage /></FormItem>)} />
+          <FormField control={form.control} name="strengths" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-purple-500" /> Điểm mạnh/Độc đáo (Tùy chọn)</FormLabel><FormControl><Input placeholder="Ví dụ: 10 năm kinh nghiệm, sản phẩm thủ công..." {...field} /></FormControl><FormMessage /></FormItem>)} />
         </div>
-        <FormField control={form.control} name="competitors" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><LinkIcon className="h-5 w-5 text-purple-500" /> Kênh tham khảo (Tùy chọn)</FormLabel><FormControl><Textarea placeholder="Liệt kê một vài tên kênh TikTok đối thủ hoặc kênh bạn muốn học hỏi" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+        <FormField control={form.control} name="competitors" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><LinkIcon className="h-5 w-5 text-purple-500" /> Kênh tham khảo (Tùy chọn)</FormLabel><FormControl><Textarea placeholder="Liệt kê một vài tên kênh TikTok đối thủ hoặc kênh bạn muốn học hỏi" {...field} /></FormControl><FormMessage /></FormItem>)} />
         
-        {isNew && (
-          <Button type="submit" className="w-full" disabled={createPlanMutation.isPending}>
-            {createPlanMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang tạo...</> : <><Wand2 className="mr-2 h-4 w-4" /> Tạo kế hoạch bằng AI</>}
-          </Button>
-        )}
+        <Button type="submit" className="w-full" disabled={upsertPlanMutation.isPending}>
+          {isNew ? (
+              upsertPlanMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang tạo...</> : <><Wand2 className="mr-2 h-4 w-4" /> Tạo kế hoạch bằng AI</>
+          ) : (
+              upsertPlanMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang cập nhật...</> : <><Wand2 className="mr-2 h-4 w-4" /> Cập nhật với AI</>
+          )}
+        </Button>
       </form>
     </Form>
   );

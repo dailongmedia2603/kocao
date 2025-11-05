@@ -9,6 +9,8 @@ import { ContentPlanWithKoc } from "@/types/contentPlan";
 
 type PlanCardProps = {
   plan: ContentPlanWithKoc;
+  onEdit: (plan: ContentPlanWithKoc) => void;
+  onDelete: (plan: ContentPlanWithKoc) => void;
 };
 
 const getInitials = (name: string) => name.split(" ").map((n) => n[0]).join("").toUpperCase();
@@ -20,7 +22,7 @@ const statusMap: { [key: string]: { text: string; className: string } } = {
   failed: { text: "Thất bại", className: "bg-red-100 text-red-800" },
 };
 
-export const PlanCard = ({ plan }: PlanCardProps) => {
+export const PlanCard = ({ plan, onEdit, onDelete }: PlanCardProps) => {
   const statusInfo = statusMap[plan.status] || statusMap.draft;
 
   return (
@@ -50,10 +52,10 @@ export const PlanCard = ({ plan }: PlanCardProps) => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={(e) => e.preventDefault()}>
+            <DropdownMenuItem onClick={(e) => { e.preventDefault(); onEdit(plan); }}>
               <Edit className="mr-2 h-4 w-4" /> Chỉnh sửa
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={(e) => e.preventDefault()}>
+            <DropdownMenuItem className="text-destructive" onClick={(e) => { e.preventDefault(); onDelete(plan); }}>
               <Trash2 className="mr-2 h-4 w-4" /> Xóa
             </DropdownMenuItem>
           </DropdownMenuContent>
