@@ -9,14 +9,13 @@ import { useNavigate } from "react-router-dom";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
 
 // UI Components
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Wand2, Loader2 } from "lucide-react";
+import { Wand2, Loader2, User, ClipboardList, Hash, Users as UsersIcon, Smile, TrendingUp, Link as LinkIcon } from "lucide-react";
 import { ContentPlan } from "@/types/contentPlan";
 
 const formSchema = z.object({
@@ -137,41 +136,37 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>1. Nhập thông tin</CardTitle>
-        <CardDescription>Cung cấp thông tin càng chi tiết, AI sẽ đề xuất càng chính xác.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField control={form.control} name="koc_id" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Dành cho KOC</FormLabel>
-                {isLoadingKocs ? <Skeleton className="h-10 w-full" /> : (
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!isNew}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Chọn một KOC" /></SelectTrigger></FormControl>
-                    <SelectContent>{kocs?.map(koc => <SelectItem key={koc.id} value={koc.id}>{koc.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                )}
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Tên kế hoạch</FormLabel><FormControl><Input placeholder="Ví dụ: Kế hoạch xây kênh review mỹ phẩm" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="topic" render={({ field }) => (<FormItem><FormLabel>Chủ đề chính</FormLabel><FormControl><Input placeholder="Ví dụ: Review mỹ phẩm cho da dầu mụn" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="target_audience" render={({ field }) => (<FormItem><FormLabel>Đối tượng mục tiêu</FormLabel><FormControl><Textarea placeholder="Mô tả độ tuổi, giới tính, sở thích, vấn đề họ gặp phải..." {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="koc_persona" render={({ field }) => (<FormItem><FormLabel>Chân dung KOC</FormLabel><FormControl><Textarea placeholder="Mô tả tính cách, phong cách nói chuyện (hài hước, chuyên gia, gần gũi...)" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="goals" render={({ field }) => (<FormItem><FormLabel>Mục tiêu kênh (Tùy chọn)</FormLabel><FormControl><Input placeholder="Ví dụ: Đạt 10,000 followers trong 3 tháng" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
-            <FormField control={form.control} name="competitors" render={({ field }) => (<FormItem><FormLabel>Kênh tham khảo (Tùy chọn)</FormLabel><FormControl><Textarea placeholder="Liệt kê một vài link kênh đối thủ hoặc kênh bạn muốn học hỏi" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
-            
-            {isNew && (
-              <Button type="submit" className="w-full" disabled={createPlanMutation.isPending}>
-                {createPlanMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang tạo...</> : <><Wand2 className="mr-2 h-4 w-4" /> Tạo kế hoạch bằng AI</>}
-              </Button>
-            )}
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField control={form.control} name="koc_id" render={({ field }) => (
+            <FormItem>
+              <FormLabel className="flex items-center gap-2"><User className="h-5 w-5 text-blue-500" /> Dành cho KOC</FormLabel>
+              {isLoadingKocs ? <Skeleton className="h-10 w-full" /> : (
+                <Select onValueChange={field.onChange} value={field.value} disabled={!isNew}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Chọn một KOC" /></SelectTrigger></FormControl>
+                  <SelectContent>{kocs?.map(koc => <SelectItem key={koc.id} value={koc.id}>{koc.name}</SelectItem>)}</SelectContent>
+                </Select>
+              )}
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><ClipboardList className="h-5 w-5 text-blue-500" /> Tên kế hoạch</FormLabel><FormControl><Input placeholder="Ví dụ: Kế hoạch xây kênh review mỹ phẩm" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+        </div>
+        <FormField control={form.control} name="topic" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Hash className="h-5 w-5 text-green-500" /> Chủ đề chính</FormLabel><FormControl><Input placeholder="Ví dụ: Review mỹ phẩm cho da dầu mụn" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+        <FormField control={form.control} name="target_audience" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><UsersIcon className="h-5 w-5 text-green-500" /> Đối tượng mục tiêu</FormLabel><FormControl><Textarea placeholder="Mô tả độ tuổi, giới tính, sở thích, vấn đề họ gặp phải..." {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+        <FormField control={form.control} name="koc_persona" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Smile className="h-5 w-5 text-orange-500" /> Chân dung KOC</FormLabel><FormControl><Textarea placeholder="Mô tả tính cách, phong cách nói chuyện (hài hước, chuyên gia, gần gũi...)" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField control={form.control} name="goals" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-purple-500" /> Mục tiêu kênh (Tùy chọn)</FormLabel><FormControl><Input placeholder="Ví dụ: Đạt 10,000 followers trong 3 tháng" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+          <FormField control={form.control} name="competitors" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><LinkIcon className="h-5 w-5 text-purple-500" /> Kênh tham khảo (Tùy chọn)</FormLabel><FormControl><Textarea placeholder="Liệt kê một vài link kênh đối thủ hoặc kênh bạn muốn học hỏi" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
+        </div>
+        
+        {isNew && (
+          <Button type="submit" className="w-full" disabled={createPlanMutation.isPending}>
+            {createPlanMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang tạo...</> : <><Wand2 className="mr-2 h-4 w-4" /> Tạo kế hoạch bằng AI</>}
+          </Button>
+        )}
+      </form>
+    </Form>
   );
 };
