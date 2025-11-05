@@ -88,7 +88,7 @@ export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
       sections.push({
         title: `PHẦN ${partNumber}: ${title}`,
         content,
-        Icon,
+        icon: Icon,
         value: `item-${partNumber}`
       });
     }
