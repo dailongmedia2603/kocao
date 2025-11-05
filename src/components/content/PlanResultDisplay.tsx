@@ -96,7 +96,7 @@ export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {results.content_pillars.map((pillar: string) => <Badge key={pillar} variant="secondary" className="text-base py-1 px-3">{pillar}</Badge>)}
+                {(results.content_pillars || []).map((pillar: string) => <Badge key={pillar} variant="secondary" className="text-base py-1 px-3">{pillar}</Badge>)}
               </div>
             </CardContent>
           </Card>
@@ -111,13 +111,13 @@ export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
                 <TableBody>
                   <TableRow>
                     <TableCell className="font-medium">Triển khai</TableCell>
-                    <TableCell>{results.posting_schedule.launch_phase.videos_per_day} video/ngày</TableCell>
-                    <TableCell className="text-xs">{results.posting_schedule.launch_phase.notes}</TableCell>
+                    <TableCell>{results.posting_schedule?.launch_phase?.videos_per_day} video/ngày</TableCell>
+                    <TableCell className="text-xs">{results.posting_schedule?.launch_phase?.notes}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-medium">Duy trì</TableCell>
-                    <TableCell>{results.posting_schedule.maintenance_phase.videos_per_week} video/tuần</TableCell>
-                    <TableCell className="text-xs">{results.posting_schedule.maintenance_phase.notes}</TableCell>
+                    <TableCell>{results.posting_schedule?.maintenance_phase?.videos_per_week} video/tuần</TableCell>
+                    <TableCell className="text-xs">{results.posting_schedule?.maintenance_phase?.notes}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -126,16 +126,16 @@ export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Lightbulb className="h-5 w-5 text-purple-500" /> {results.video_ideas.length} Ý tưởng video</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Lightbulb className="h-5 w-5 text-purple-500" /> {(results.video_ideas || []).length} Ý tưởng video</CardTitle>
             </CardHeader>
             <CardContent>
               <Accordion type="multiple" className="w-full space-y-2">
-                {results.content_pillars.map((pillar: string) => (
+                {(results.content_pillars || []).map((pillar: string) => (
                   <AccordionItem value={pillar} key={pillar} className="border rounded-md">
                     <AccordionTrigger className="p-3 font-medium hover:no-underline">{pillar}</AccordionTrigger>
                     <AccordionContent className="p-4 border-t">
                       <ul className="list-disc pl-5 space-y-3 text-sm">
-                        {results.video_ideas.filter((idea: any) => idea.pillar === pillar).map((idea: any) => (
+                        {(results.video_ideas || []).filter((idea: any) => idea.pillar === pillar).map((idea: any) => (
                           <li key={idea.topic}>
                             <strong className="font-semibold">{idea.topic}:</strong>
                             <p className="text-muted-foreground">{idea.description}</p>
