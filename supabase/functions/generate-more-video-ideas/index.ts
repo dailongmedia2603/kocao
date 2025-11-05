@@ -1,46 +1,13 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getGcpAccessToken } from "../_shared/vertex-ai-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// --- START: Vertex AI Helper Functions ---
-async function importPrivateKey(pem: string): Promise<CryptoKey> {
-  const pemHeader = "-----BEGIN PRIVATE KEY-----";
-  const pemFooter = "-----END PRIVATE KEY-----";
-  const pemContents = pem.replace(pemHeader, "").replace(pemFooter, "").replace(/\s/g, "");
-  const binaryDer = atob(pemContents);
-  const arrayBuffer = new ArrayBuffer(binaryDer.length);
-  const uint8Array = new Uint8Array(arrayBuffer);
-  for (let i = 0; i < binaryDer.length; i++) {
-    uint8Array[i] = binaryDer.charCodeAt(i);
-  }
-  return await crypto.subtle.importKey("pkcs8", uint8Array, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, true, ["sign"]);
-}
-function base64url(buffer: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-}
-async function getGcpAccessToken(credentials: any): Promise<string> {
-  const privateKey = await importPrivateKey(credentials.private_key);
-  const header = { alg: "RS256", typ: "JWT" };
-  const now = Math.floor(Date.now() / 1000);
-  const payload = { iss: credentials.client_email, scope: "https://www.googleapis.com/auth/cloud-platform", aud: "https://oauth2.googleapis.com/token", exp: now + 3600, iat: now };
-  const encoder = new TextEncoder();
-  const encodedHeader = base64url(encoder.encode(JSON.stringify(header)));
-  const encodedPayload = base64url(encoder.encode(JSON.stringify(payload)));
-  const dataToSign = encoder.encode(`${encodedHeader}.${encodedPayload}`);
-  const signature = await crypto.subtle.sign({ name: "RSASSA-PKCS1-v1_5" }, privateKey, dataToSign);
-  const jwt = `${encodedHeader}.${encodedPayload}.${base64url(signature)}`;
-  const response = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: jwt }) });
-  const data = await response.json();
-  if (!response.ok) throw new Error(`Google Auth Error: ${data.error_description || "Failed to fetch access token."}`);
-  return data.access_token;
-}
-// --- END: Vertex AI Helper Functions ---
 
 const GPT_API_URL = "https://chatbot.qcv.vn/api/chat-vision";
 
@@ -77,8 +44,7 @@ serve(async (req) => {
       3.  **ĐÚNG CẤU TRÚC:** Phản hồi của bạn PHẢI là một mảng JSON hợp lệ chứa 10 đối tượng. Mỗi đối tượng phải có cấu trúc: \`{ "pillar": "tên_trụ_cột", "topic": "tiêu_đề_video", "description": "kịch_bản_chi_tiết" }\`.
       4.  **KỊCH BẢN CHI TIẾT:** Phần 'description' phải là một kịch bản hoàn chỉnh, liền mạch (150-250 từ), không phải mô tả ngắn.
       5.  **XỬ LÝ KÝ TỰ ĐẶC BIỆT:** Tất cả các ký tự dấu ngoặc kép (") bên trong các giá trị chuỗi JSON phải được thoát đúng cách bằng một dấu gạch chéo ngược (\\").
-      
-      **QUAN TRỌNG:** Chỉ trả về duy nhất mảng JSON. Tuyệt đối không thêm bất kỳ văn bản, giải thích, tiêu đề hay ghi chú nào khác trước hoặc sau mảng JSON.
+      6.  **KHÔNG GIẢI THÍCH:** Chỉ trả về mảng JSON, không thêm bất kỳ văn bản nào khác.
     `;
 
     let newIdeas;
