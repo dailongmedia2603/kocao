@@ -76,7 +76,8 @@ serve(async (req) => {
       2.  **SÁNG TẠO & THỰC TẾ:** Khai thác các insight mới, các câu chuyện thực tế, hoặc các góc nhìn độc đáo chưa được đề cập.
       3.  **ĐÚNG CẤU TRÚC:** Phản hồi của bạn PHẢI là một mảng JSON hợp lệ chứa 10 đối tượng. Mỗi đối tượng phải có cấu trúc: \`{ "pillar": "tên_trụ_cột", "topic": "tiêu_đề_video", "description": "kịch_bản_chi_tiết" }\`.
       4.  **KỊCH BẢN CHI TIẾT:** Phần 'description' phải là một kịch bản hoàn chỉnh, liền mạch (150-250 từ), không phải mô tả ngắn.
-      5.  **KHÔNG GIẢI THÍCH:** Chỉ trả về mảng JSON, không thêm bất kỳ văn bản nào khác.
+      5.  **XỬ LÝ KÝ TỰ ĐẶC BIỆT:** Tất cả các ký tự dấu ngoặc kép (") bên trong các giá trị chuỗi JSON phải được thoát đúng cách bằng một dấu gạch chéo ngược (\\").
+      6.  **KHÔNG GIẢI THÍCH:** Chỉ trả về mảng JSON, không thêm bất kỳ văn bản nào khác.
     `;
 
     let newIdeas;
