@@ -5,6 +5,7 @@ import FacebookApiSettings from "@/components/settings/FacebookApiSettings";
 import VoiceApiSettings from "@/components/settings/VoiceApiSettings";
 import DreamfaceApiSettings from "@/components/settings/DreamfaceApiSettings";
 import VertexAiSettings from "@/components/settings/VertexAiSettings";
+import GptCustomApiSettings from "@/components/settings/GptCustomApiSettings"; // Import component mới
 import { Mic, Film, BrainCircuit } from "lucide-react";
 import { FaTiktok, FaFacebook } from "react-icons/fa";
 import { cn } from "@/lib/utils";
@@ -12,6 +13,7 @@ import { Button } from "@/components/ui/button";
 
 const TABS_CONFIG = [
   { value: "vertex-ai-api", label: "Gemini Vertex AI", icon: BrainCircuit, component: <VertexAiSettings /> },
+  { value: "gpt-custom-api", label: "API GPT Custom", icon: BrainCircuit, component: <GptCustomApiSettings /> }, // Thêm tab mới
   { value: "tiktok-api", label: "API TikTok", icon: FaTiktok, component: <TiktokApiSettings /> },
   { value: "facebook-api", label: "API Facebook", icon: FaFacebook, component: <FacebookApiSettings /> },
   { value: "voice-api", label: "API Voice", icon: Mic, component: <VoiceApiSettings /> },
