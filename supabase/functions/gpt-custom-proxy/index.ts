@@ -24,10 +24,10 @@ serve(async (req) => {
       externalApiFormData.append("prompt", prompt);
     }
 
-    // API yêu cầu key là 'images[]' cho mỗi file
+    // SỬA LỖI: API yêu cầu nhiều trường có cùng tên 'images' thay vì 'images[]'
     images.forEach((imageFile) => {
       if (imageFile instanceof File) {
-        externalApiFormData.append("images[]", imageFile, imageFile.name);
+        externalApiFormData.append("images", imageFile, imageFile.name);
       }
     });
 
