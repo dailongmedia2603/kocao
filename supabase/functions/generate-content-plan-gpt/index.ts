@@ -26,27 +26,59 @@ serve(async (req) => {
     if (!inputs || !kocName) throw new Error("Missing 'inputs' or 'kocName' in request body.");
 
     const fullPrompt = `
-      **VAI TRÒ:** Bạn là một chuyên gia chiến lược nội dung hàng đầu cho TikTok.
+      **ROLE:** You are a top-tier content strategist for TikTok.
 
-      **BỐI CẢNH:** Bạn đang tạo một kế hoạch nội dung cho KOC có tên "${kocName}". Dưới đây là các thông tin được cung cấp:
-      - **Chủ đề chính:** ${inputs.topic}
-      - **Đối tượng mục tiêu:** ${inputs.target_audience}
-      - **Chân dung KOC (Tính cách & Phong cách):** ${inputs.koc_persona}
-      - **Mục tiêu kênh:** ${inputs.goals || 'Xây dựng nhận diện thương hiệu và tăng lượng người theo dõi.'}
+      **CONTEXT:** You are creating a content plan for a KOC named "${kocName}". Here is the provided information:
+      - **Main Topic:** ${inputs.topic}
+      - **Target Audience:** ${inputs.target_audience}
+      - **KOC Persona (Personality & Style):** ${inputs.koc_persona}
+      - **Channel Goals:** ${inputs.goals || 'Build brand awareness and increase follower count.'}
 
-      **NHIỆM VỤ:** Dựa trên bối cảnh trên, hãy tạo ra một kế hoạch nội dung toàn diện, chi tiết và dễ đọc.
+      **TASK:** Based on the context above, create a comprehensive, detailed, and easy-to-read content plan.
 
-      **YÊU CẦU ĐẦU RA:**
-      Hãy trình bày kế hoạch dưới dạng văn bản được định dạng rõ ràng bằng markdown. Kế hoạch phải bao gồm các phần sau:
+      **OUTPUT REQUIREMENTS:**
+      You MUST format the output using the following custom tags. Do NOT use Markdown headings.
 
-      1.  **Chiến lược tổng thể:** Một đoạn văn ngắn gọn (3-4 câu) tóm tắt chiến lược nội dung cốt lõi.
-      2.  **Các trụ cột nội dung chính:** Liệt kê 3 trụ cột nội dung chính.
-      3.  **Lịch đăng đề xuất:** Đề xuất lịch đăng cho giai đoạn đầu và giai đoạn duy trì.
-      4.  **10-15 Ý tưởng video chi tiết:** Với mỗi ý tưởng, hãy cung cấp:
-          - **Tiêu đề video hấp dẫn.**
-          - **Kịch bản chi tiết (dạng văn nói, khoảng 150-250 từ) bao gồm câu mở đầu, các ý chính và lời kêu gọi hành động.**
+      <TITLE>
+      Content Plan Title Here
+      </TITLE>
 
-      **QUAN TRỌNG:** Trình bày rõ ràng, chuyên nghiệp và chỉ trả về nội dung kế hoạch.
+      <STRATEGY>
+      A concise paragraph (3-4 sentences) summarizing the core content strategy.
+      </STRATEGY>
+
+      <PILLARS>
+      <PILLAR>
+      <PILLAR_TITLE>Pillar 1 Title</PILLAR_TITLE>
+      <PILLAR_CONTENT>Description of the first content pillar.</PILLAR_CONTENT>
+      </PILLAR>
+      <PILLAR>
+      <PILLAR_TITLE>Pillar 2 Title</PILLAR_TITLE>
+      <PILLAR_CONTENT>Description of the second content pillar.</PILLAR_CONTENT>
+      </PILLAR>
+      <PILLAR>
+      <PILLAR_TITLE>Pillar 3 Title</PILLAR_TITLE>
+      <PILLAR_CONTENT>Description of the third content pillar.</PILLAR_CONTENT>
+      </PILLAR>
+      </PILLARS>
+
+      <SCHEDULE>
+      Proposed posting schedule for the initial and maintenance phases.
+      </SCHEDULE>
+
+      <IDEAS>
+      <IDEA>
+      <IDEA_TITLE>Catchy Video Title 1</IDEA_TITLE>
+      <IDEA_SCRIPT>Detailed script (conversational style, ~150-250 words) including an opening hook, main points, and a call to action.</IDEA_SCRIPT>
+      </IDEA>
+      <IDEA>
+      <IDEA_TITLE>Catchy Video Title 2</IDEA_TITLE>
+      <IDEA_SCRIPT>Detailed script for the second idea.</IDEA_SCRIPT>
+      </IDEA>
+      ... (Generate 10-15 ideas in total)
+      </IDEAS>
+
+      **IMPORTANT:** Adhere strictly to this tag-based format. Do not add any extra explanations, notes, or markdown formatting outside of the content within the tags.
     `;
 
     const externalApiFormData = new FormData();

@@ -6,7 +6,13 @@ export interface ParsedContentPlan {
   ideas: { title: string; script: string }[];
 }
 
-export function parseContentPlan(markdown: string): ParsedContentPlan {
+const extractContent = (text: string, tag: string): string => {
+  const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i');
+  const match = text.match(regex);
+  return match ? match[1].trim() : '';
+};
+
+export function parseContentPlan(text: string): ParsedContentPlan {
   const result: ParsedContentPlan = {
     title: '',
     strategy: '',
@@ -15,66 +21,36 @@ export function parseContentPlan(markdown: string): ParsedContentPlan {
     ideas: [],
   };
 
-  // Extract Title
-  const titleMatch = markdown.match(/^#\s*(.*)/);
-  result.title = titleMatch ? titleMatch[1].trim() : 'Kế hoạch nội dung';
+  result.title = extractContent(text, 'TITLE') || 'Kế hoạch nội dung';
+  result.strategy = extractContent(text, 'STRATEGY');
+  result.schedule = extractContent(text, 'SCHEDULE');
 
-  // Helper to get content between two headings or until the end
-  const getContentBetween = (startHeading: RegExp, endHeading: RegExp): string => {
-    const startMatch = markdown.match(startHeading);
-    if (!startMatch) return '';
-    
-    const startIndex = startMatch.index! + startMatch[0].length;
-    let content = markdown.substring(startIndex);
-    
-    const endMatch = content.match(endHeading);
-    if (endMatch) {
-      content = content.substring(0, endMatch.index!);
-    }
-    
-    return content.trim();
-  };
-
-  // Define headings based on the AI's output format like "1. **Title**"
-  const strategyHeading = /\d+\.\s*\*\*Chiến lược tổng thể\*\*/i;
-  const pillarsHeading = /\d+\.\s*\*\*Các trụ cột nội dung chính\*\*/i;
-  const scheduleHeading = /\d+\.\s*\*\*Lịch đăng đề xuất\*\*/i;
-  const ideasHeading = /\d+\..*?\*\*.*?Ý tưởng video chi tiết\*\*/i;
-
-  // Extract sections
-  result.strategy = getContentBetween(strategyHeading, pillarsHeading);
-  const pillarsBlock = getContentBetween(pillarsHeading, scheduleHeading);
-  result.schedule = getContentBetween(scheduleHeading, ideasHeading);
-  const ideasBlock = getContentBetween(ideasHeading, /(\n\s*Hy vọng kế hoạch này|\n\s*$)/i); // Match until the final sentence or end of string
-
-  // Parse Pillars
+  const pillarsBlock = extractContent(text, 'PILLARS');
   if (pillarsBlock) {
-    // Matches format: 1. **"Pillar Title"**: Description
-    const pillarRegex = /\d+\.\s*\*\*\"([^\"]+)\"\*\*:\s*([\s\S]*?)(?=\n\d+\.\s*\*\*|\n*$)/g;
+    const pillarRegex = /<PILLAR>([\s\S]*?)<\/PILLAR>/gi;
     let match;
     while ((match = pillarRegex.exec(pillarsBlock)) !== null) {
-      result.pillars.push({
-        title: `Cột ${result.pillars.length + 1}: "${match[1]}"`,
-        content: match[2].trim(),
-      });
+      const pillarContent = match[1];
+      const title = extractContent(pillarContent, 'PILLAR_TITLE');
+      const content = extractContent(pillarContent, 'PILLAR_CONTENT');
+      if (title && content) {
+        result.pillars.push({ title, content });
+      }
     }
   }
 
-  // Parse Ideas
+  const ideasBlock = extractContent(text, 'IDEAS');
   if (ideasBlock) {
-    // Split by "**Ý tưởng X:**" or "**Y tưởng X:**"
-    const ideaSplits = ideasBlock.split(/\n\s*\*\*(?:Ý|Y) tưởng \d+:/i).filter(s => s.trim() !== '');
-    ideaSplits.forEach(split => {
-      const titleMatch = split.match(/\*\*Tiêu đề:\*\*\s*(.*)/);
-      const scriptMatch = split.match(/\*\*Kịch bản:\*\*\s*([\s\S]*)/);
-      
-      const title = titleMatch ? titleMatch[1].trim() : '';
-      const script = scriptMatch ? scriptMatch[1].trim() : '';
-
+    const ideaRegex = /<IDEA>([\s\S]*?)<\/IDEA>/gi;
+    let match;
+    while ((match = ideaRegex.exec(ideasBlock)) !== null) {
+      const ideaContent = match[1];
+      const title = extractContent(ideaContent, 'IDEA_TITLE');
+      const script = extractContent(ideaContent, 'IDEA_SCRIPT');
       if (title && script) {
         result.ideas.push({ title, script });
       }
-    });
+    }
   }
 
   return result;
