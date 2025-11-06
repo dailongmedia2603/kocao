@@ -90,11 +90,15 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
           <Card><CardHeader><CardTitle className="flex items-center gap-3"><Calendar className="h-6 w-6 text-orange-500" />Lịch đăng đề xuất</CardTitle></CardHeader><CardContent><article className="prose prose-sm max-w-none"><ReactMarkdown>{parsedContent.schedule}</ReactMarkdown></article></CardContent></Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-3">
                 <Lightbulb className="h-6 w-6 text-purple-500" />
-                {allIdeas.length} Ý tưởng video chi tiết
+                Chủ đề video chi tiết ({allIdeas.length})
               </CardTitle>
+              <Button onClick={onGenerateMore} disabled={isGeneratingMore}>
+                {isGeneratingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                Tạo thêm 10 idea
+              </Button>
             </CardHeader>
             <CardContent>
               <Accordion type="multiple" className="w-full space-y-2">
@@ -107,12 +111,6 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
                   </AccordionItem>
                 ))}
               </Accordion>
-              <div className="mt-6 flex justify-center">
-                <Button onClick={onGenerateMore} disabled={isGeneratingMore}>
-                  {isGeneratingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                  Tạo thêm 10 idea
-                </Button>
-              </div>
             </CardContent>
           </Card>
         </div>
