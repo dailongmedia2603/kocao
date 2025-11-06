@@ -130,8 +130,10 @@ Deno.serve(async (req) => {
 
     let newIdeas;
     try {
-      // The answer itself is a JSON string, so we need to parse it
-      newIdeas = JSON.parse(responseData.answer);
+      // The answer itself is a JSON string, often wrapped in markdown, so we need to clean it up and parse it.
+      const rawAnswer = responseData.answer;
+      const jsonString = rawAnswer.replace(/```json\n?|```/g, '').trim();
+      newIdeas = JSON.parse(jsonString);
     } catch (e) {
       console.error("Failed to parse JSON from GPT response:", responseData.answer);
       throw new Error("Phản hồi từ AI không phải là JSON hợp lệ.");
