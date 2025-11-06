@@ -96,7 +96,7 @@ type ConfigurePromptDialogProps = {
 };
 
 type PromptEditorProps = {
-  templateType: 'content_plan_gemini' | 'content_plan_gpt' | 'generate_more_ideas_gemini';
+  templateType: 'content_plan_gemini' | 'generate_more_ideas_gemini';
 };
 
 const PromptEditor = ({ templateType }: PromptEditorProps) => {
@@ -198,19 +198,15 @@ export const ConfigurePromptDialog = ({ isOpen, onOpenChange }: ConfigurePromptD
           <DialogTitle>Cấu hình Prompt Tạo Kế Hoạch</DialogTitle>
           <DialogDescription>Tùy chỉnh prompt sẽ được gửi đến AI để tạo kế hoạch nội dung.</DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="gemini" className="w-full mt-4">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3">
-            <TabsTrigger value="gemini">Tạo Kế hoạch (Gemini)</TabsTrigger>
-            <TabsTrigger value="gpt">Tạo Kế hoạch (GPT)</TabsTrigger>
-            <TabsTrigger value="more_ideas_gemini">Tạo thêm Idea (Gemini)</TabsTrigger>
+        <Tabs defaultValue="create_plan" className="w-full mt-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="create_plan">Tạo Kế hoạch</TabsTrigger>
+            <TabsTrigger value="more_ideas">Tạo thêm Idea</TabsTrigger>
           </TabsList>
-          <TabsContent value="gemini" className="pt-4">
+          <TabsContent value="create_plan" className="pt-4">
             <PromptEditor templateType="content_plan_gemini" />
           </TabsContent>
-          <TabsContent value="gpt" className="pt-4">
-            <PromptEditor templateType="content_plan_gpt" />
-          </TabsContent>
-          <TabsContent value="more_ideas_gemini" className="pt-4">
+          <TabsContent value="more_ideas" className="pt-4">
             <PromptEditor templateType="generate_more_ideas_gemini" />
           </TabsContent>
         </Tabs>
