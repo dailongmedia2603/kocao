@@ -11,9 +11,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PlanCard } from "@/components/content/PlanCard";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { showSuccess, showError } from "@/utils/toast";
+import { ConfigurePromptDialog } from "@/components/content/ConfigurePromptDialog";
 
 // Icons
-import { Plus, AlertCircle, ClipboardList, Loader2 } from "lucide-react";
+import { Plus, AlertCircle, ClipboardList, Loader2, Settings } from "lucide-react";
 
 // Type Definitions
 import { ContentPlanWithKoc } from "@/types/contentPlan";
@@ -23,6 +24,7 @@ const TaoKeHoach = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [planToDelete, setPlanToDelete] = useState<ContentPlanWithKoc | null>(null);
+  const [isConfigureOpen, setIsConfigureOpen] = useState(false);
 
   const { data: plans = [], isLoading, isError, error } = useQuery<ContentPlanWithKoc[]>({
     queryKey: ["content_plans", user?.id],
@@ -70,11 +72,16 @@ const TaoKeHoach = () => {
             <h1 className="text-3xl font-bold">Lên Kế Hoạch Nội Dung</h1>
             <p className="text-muted-foreground mt-1">Xây dựng chiến lược và định hướng nội dung cho kênh KOC của bạn.</p>
           </div>
-          <Button asChild className="bg-red-600 hover:bg-red-700 text-white w-full md:w-auto">
-            <Link to="/tao-ke-hoach/new">
-              <Plus className="mr-2 h-4 w-4" /> Tạo kế hoạch mới
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <Button variant="outline" onClick={() => setIsConfigureOpen(true)}>
+              <Settings className="mr-2 h-4 w-4" /> Cấu hình prompt
+            </Button>
+            <Button asChild className="bg-red-600 hover:bg-red-700 text-white">
+              <Link to="/tao-ke-hoach/new">
+                <Plus className="mr-2 h-4 w-4" /> Tạo kế hoạch mới
+              </Link>
+            </Button>
+          </div>
         </header>
 
         {isLoading && (
@@ -138,6 +145,8 @@ const TaoKeHoach = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <ConfigurePromptDialog isOpen={isConfigureOpen} onOpenChange={setIsConfigureOpen} />
     </>
   );
 };
