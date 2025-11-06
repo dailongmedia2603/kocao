@@ -108,10 +108,16 @@ const TaoKeHoachDetail = () => {
 
   const generateMoreIdeasMutation = useMutation({
     mutationFn: async () => {
-      if (!planId) throw new Error("Plan ID is required.");
+      if (!planId || !plan || !plan.inputs) throw new Error("Dữ liệu kế hoạch không đầy đủ.");
+      
+      const model = (plan.inputs as any).ai_model || 'gemini';
+      const functionName = model === 'gpt' 
+        ? 'generate-more-video-ideas-gpt' 
+        : 'generate-more-video-ideas';
+
       const toastId = showLoading("AI đang tạo thêm ý tưởng...");
       try {
-        const { data, error } = await supabase.functions.invoke('generate-more-video-ideas', {
+        const { data, error } = await supabase.functions.invoke(functionName, {
           body: { planId }
         });
         if (error) throw error;

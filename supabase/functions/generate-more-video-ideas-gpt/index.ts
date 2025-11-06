@@ -6,61 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// --- START: Vertex AI Helper Functions ---
-async function importPrivateKey(pem: string): Promise<CryptoKey> {
-  const pemHeader = "-----BEGIN PRIVATE KEY-----";
-  const pemFooter = "-----END PRIVATE KEY-----";
-  const pemContents = pem.replace(pemHeader, "").replace(pemFooter, "").replace(/\s/g, "");
-  const binaryDer = atob(pemContents);
-  const arrayBuffer = new ArrayBuffer(binaryDer.length);
-  const uint8Array = new Uint8Array(arrayBuffer);
-  for (let i = 0; i < binaryDer.length; i++) {
-    uint8Array[i] = binaryDer.charCodeAt(i);
-  }
-  return await crypto.subtle.importKey(
-    "pkcs8",
-    uint8Array,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    true,
-    ["sign"]
-  );
-}
-
-function base64url(buffer: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-}
-
-async function getGcpAccessToken(credentials: any): Promise<string> {
-  const privateKey = await importPrivateKey(credentials.private_key);
-  const header = { alg: "RS256", typ: "JWT" };
-  const now = Math.floor(Date.now() / 1000);
-  const payload = {
-    iss: credentials.client_email,
-    scope: "https://www.googleapis.com/auth/cloud-platform",
-    aud: "https://oauth2.googleapis.com/token",
-    exp: now + 3600,
-    iat: now,
-  };
-  const encoder = new TextEncoder();
-  const encodedHeader = base64url(encoder.encode(JSON.stringify(header)));
-  const encodedPayload = base64url(encoder.encode(JSON.stringify(payload)));
-  const dataToSign = encoder.encode(`${encodedHeader}.${encodedPayload}`);
-  const signature = await crypto.subtle.sign({ name: "RSASSA-PKCS1-v1_5" }, privateKey, dataToSign);
-  const jwt = `${encodedHeader}.${encodedPayload}.${base64url(signature)}`;
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: jwt }),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(`Google Auth Error: ${data.error_description || "Failed to fetch access token."}`);
-  return data.access_token;
-}
-// --- END: Vertex AI Helper Functions ---
-
+const API_URL = "https://chatbot.qcv.vn/api/chat-vision";
 
 // --- START INLINED PARSER ---
 const extractContentByTag = (text: string, tag: string): string => {
@@ -152,7 +98,7 @@ Deno.serve(async (req) => {
       .from('prompt_templates')
       .select('content')
       .eq('user_id', plan.user_id)
-      .eq('template_type', 'generate_more_ideas_gemini')
+      .eq('template_type', 'generate_more_ideas_gemini') // Use the shared prompt
       .single();
 
     const promptTemplate = customPromptData?.content || MORE_IDEAS_DEFAULT_PROMPT;
@@ -164,50 +110,30 @@ Deno.serve(async (req) => {
       .replace(/{{KOC_INFO}}/g, plan.inputs.koc_persona)
       .replace(/{{EXISTING_IDEAS}}/g, existingIdeasText || 'Không có');
 
-    // --- START: Vertex AI Authentication & API Call ---
-    const credentialsJson = Deno.env.get("GOOGLE_CREDENTIALS_JSON");
-    if (!credentialsJson) throw new Error("Secret GOOGLE_CREDENTIALS_JSON is not configured in Supabase Vault.");
-    const credentials = JSON.parse(credentialsJson);
-    const projectId = credentials.project_id;
-    if (!projectId) throw new Error("The credentials JSON in the secret does not contain a 'project_id'.");
-    const accessToken = await getGcpAccessToken(credentials);
+    const externalApiFormData = new FormData();
+    externalApiFormData.append("prompt", fullPrompt);
 
-    const region = "us-central1";
-    const model = "gemini-2.5-pro"; // Or another suitable model
-    const vertexUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent`;
-
-    const vertexResponse = await fetch(vertexUrl, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ "role": "user", "parts": [{ "text": fullPrompt }] }],
-        generationConfig: { 
-          temperature: 0.8, 
-          topP: 0.95,
-          responseMimeType: "application/json"
-        },
-      }),
+    const response = await fetch(API_URL, {
+      method: "POST",
+      body: externalApiFormData,
     });
 
-    if (!vertexResponse.ok) {
-      const errorBody = await vertexResponse.text();
-      throw new Error(`Vertex AI API Error (Status: ${vertexResponse.status}): ${errorBody}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Lỗi từ API GPT Custom: ${response.status} - ${errorText}`);
     }
 
-    const vertexData = await vertexResponse.json();
-    if (!vertexData.candidates || vertexData.candidates.length === 0) {
-      if (vertexData?.promptFeedback?.blockReason) throw new Error(`Content blocked by safety settings: ${vertexData.promptFeedback.blockReason}.`);
-      throw new Error("Vertex AI returned an empty response.");
+    const responseData = await response.json();
+    if (!responseData.answer) {
+        throw new Error("API GPT Custom không trả về trường 'answer'.");
     }
-
-    const text = vertexData.candidates[0].content.parts[0].text;
-    // --- END: Vertex AI Authentication & API Call ---
 
     let newIdeas;
     try {
-      newIdeas = JSON.parse(text);
+      // The answer itself is a JSON string, so we need to parse it
+      newIdeas = JSON.parse(responseData.answer);
     } catch (e) {
-      console.error("Failed to parse JSON from Gemini:", text);
+      console.error("Failed to parse JSON from GPT response:", responseData.answer);
       throw new Error("Phản hồi từ AI không phải là JSON hợp lệ.");
     }
 
