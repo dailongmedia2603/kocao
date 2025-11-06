@@ -142,9 +142,18 @@ Deno.serve(async (req) => {
     if (!Array.isArray(newIdeas)) throw new Error("Phản hồi của AI không ở định dạng mảng như mong đợi.");
 
     const updatedIdeas = [...(plan.results.video_ideas || []), ...newIdeas];
+    const existingLogs = plan.results.logs || [];
+    const newLogEntry = {
+      timestamp: new Date().toISOString(),
+      action: 'generate_more_ideas',
+      model_used: 'gpt-custom',
+      prompt: fullPrompt
+    };
+    const updatedLogs = [...existingLogs, newLogEntry];
+
     const { error: updateError } = await supabaseClient
       .from('content_plans')
-      .update({ results: { ...plan.results, video_ideas: updatedIdeas } })
+      .update({ results: { ...plan.results, video_ideas: updatedIdeas, logs: updatedLogs } })
       .eq('id', planId);
 
     if (updateError) throw updateError;
