@@ -65,19 +65,31 @@ const TaoKeHoachDetail = () => {
         });
 
         if (functionError) throw functionError;
-        if (!functionData.success) throw new Error(functionData.error);
+        if (!functionData.success || !functionData.results || !functionData.results.content) {
+          throw new Error(functionData.error || "Phản hồi từ AI không hợp lệ hoặc không chứa nội dung.");
+        }
 
-        const newResults = functionData.results;
-        const newLogEntry = newResults.logs[0];
-        newLogEntry.action = 'regenerate';
-        newLogEntry.timestamp = new Date().toISOString();
+        const newContent = functionData.results.content;
+        
+        const newLogEntry = {
+          ...(functionData.results.logs?.[0] || {}),
+          action: 'regenerate',
+          timestamp: new Date().toISOString(),
+        };
 
         const oldLogs = plan.results?.logs || [];
         const combinedLogs = [...oldLogs, newLogEntry];
 
-        const updatedResults = { ...newResults, logs: combinedLogs };
+        const updatedResults = {
+          content: newContent,
+          logs: combinedLogs,
+        };
 
-        const { error: updateError } = await supabase.from('content_plans').update({ results: updatedResults, status: 'completed' }).eq('id', plan.id);
+        const { error: updateError } = await supabase
+          .from('content_plans')
+          .update({ results: updatedResults, status: 'completed' })
+          .eq('id', plan.id);
+          
         if (updateError) throw updateError;
 
         dismissToast(toastId);
