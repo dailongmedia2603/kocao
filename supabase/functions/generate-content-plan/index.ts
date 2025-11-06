@@ -1,56 +1,67 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getGcpAccessToken } from "../_shared/vertex-ai-auth.ts";
+
+// --- START: Inlined Vertex AI Helper Functions ---
+async function importPrivateKey(pem: string): Promise<CryptoKey> {
+  const pemHeader = "-----BEGIN PRIVATE KEY-----";
+  const pemFooter = "-----END PRIVATE KEY-----";
+  const pemContents = pem.replace(pemHeader, "").replace(pemFooter, "").replace(/\s/g, "");
+  const binaryDer = atob(pemContents);
+  const arrayBuffer = new ArrayBuffer(binaryDer.length);
+  const uint8Array = new Uint8Array(arrayBuffer);
+  for (let i = 0; i < binaryDer.length; i++) {
+    uint8Array[i] = binaryDer.charCodeAt(i);
+  }
+  return await crypto.subtle.importKey(
+    "pkcs8",
+    uint8Array,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    true,
+    ["sign"]
+  );
+}
+
+function base64url(buffer: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+}
+
+async function getGcpAccessToken(credentials: any): Promise<string> {
+  const privateKey = await importPrivateKey(credentials.private_key);
+  const header = { alg: "RS256", typ: "JWT" };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: credentials.client_email,
+    scope: "https://www.googleapis.com/auth/cloud-platform",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  };
+  const encoder = new TextEncoder();
+  const encodedHeader = base64url(encoder.encode(JSON.stringify(header)));
+  const encodedPayload = base64url(encoder.encode(JSON.stringify(payload)));
+  const dataToSign = encoder.encode(`${encodedHeader}.${encodedPayload}`);
+  const signature = await crypto.subtle.sign({ name: "RSASSA-PKCS1-v1_5" }, privateKey, dataToSign);
+  const jwt = `${encodedHeader}.${encodedPayload}.${base64url(signature)}`;
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: jwt }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(`Google Auth Error: ${data.error_description || "Failed to fetch access token."}`);
+  return data.access_token;
+}
+// --- END: Inlined Vertex AI Helper Functions ---
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const DEFAULT_PROMPT = `
-**ROLE:** You are a top-tier content strategist for TikTok.
-
-**CONTEXT:** You are creating a content plan for a KOC named "{{KOC_NAME}}". Here is the provided information:
-- **Main Topic:** {{TOPIC}}
-- **Target Audience:** {{TARGET_AUDIENCE}}
-- **KOC Persona (Personality & Style):** {{KOC_PERSONA}}
-- **Channel Goals:** {{GOALS}}
-
-**TASK:** Based on the context above, create a comprehensive, detailed, and easy-to-read content plan.
-
-**OUTPUT REQUIREMENTS:**
-You MUST format the output using the following custom tags. Do NOT use Markdown headings.
-
-<TITLE>
-Content Plan Title Here
-</TITLE>
-
-<STRATEGY>
-A concise paragraph (3-4 sentences) summarizing the core content strategy.
-</STRATEGY>
-
-<PILLARS>
-<PILLAR>
-<PILLAR_TITLE>Pillar 1 Title</PILLAR_TITLE>
-<PILLAR_CONTENT>Description of the first content pillar.</PILLAR_CONTENT>
-</PILLAR>
-</PILLARS>
-
-<SCHEDULE>
-Proposed posting schedule for the initial and maintenance phases.
-</SCHEDULE>
-
-<IDEAS>
-<IDEA>
-<IDEA_TITLE>Catchy Video Title 1</IDEA_TITLE>
-<IDEA_SCRIPT>Detailed script (conversational style, ~150-250 words) including an opening hook, main points, and a call to action.</IDEA_SCRIPT>
-</IDEA>
-</IDEAS>
-
-**IMPORTANT:** Adhere strictly to this tag-based format. Do not add any extra explanations, notes, or markdown formatting outside of the content within the tags.
-`.trim();
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -67,7 +78,6 @@ serve(async (req) => {
     const { inputs, kocName } = await req.json();
     if (!inputs || !kocName) throw new Error("Missing 'inputs' or 'kocName' in request body.");
 
-    // Fetch custom prompt or use default
     const { data: customPromptData } = await supabaseClient
       .from('prompt_templates')
       .select('content')
@@ -75,7 +85,48 @@ serve(async (req) => {
       .eq('template_type', 'content_plan_gemini')
       .single();
 
-    let promptTemplate = customPromptData?.content || DEFAULT_PROMPT;
+    let promptTemplate = customPromptData?.content || `
+      **ROLE:** You are a top-tier content strategist for TikTok.
+
+      **CONTEXT:** You are creating a content plan for a KOC named "{{KOC_NAME}}". Here is the provided information:
+      - **Main Topic:** {{TOPIC}}
+      - **Target Audience:** {{TARGET_AUDIENCE}}
+      - **KOC Persona (Personality & Style):** {{KOC_PERSONA}}
+      - **Channel Goals:** {{GOALS}}
+
+      **TASK:** Based on the context above, create a comprehensive, detailed, and easy-to-read content plan.
+
+      **OUTPUT REQUIREMENTS:**
+      You MUST format the output using the following custom tags. Do NOT use Markdown headings.
+
+      <TITLE>
+      Content Plan Title Here
+      </TITLE>
+
+      <STRATEGY>
+      A concise paragraph (3-4 sentences) summarizing the core content strategy.
+      </STRATEGY>
+
+      <PILLARS>
+      <PILLAR>
+      <PILLAR_TITLE>Pillar 1 Title</PILLAR_TITLE>
+      <PILLAR_CONTENT>Description of the first content pillar.</PILLAR_CONTENT>
+      </PILLAR>
+      </PILLARS>
+
+      <SCHEDULE>
+      Proposed posting schedule for the initial and maintenance phases.
+      </SCHEDULE>
+
+      <IDEAS>
+      <IDEA>
+      <IDEA_TITLE>Catchy Video Title 1</IDEA_TITLE>
+      <IDEA_SCRIPT>Detailed script (conversational style, ~150-250 words) including an opening hook, main points, and a call to action.</IDEA_SCRIPT>
+      </IDEA>
+      </IDEAS>
+
+      **IMPORTANT:** Adhere strictly to this tag-based format. Do not add any extra explanations, notes, or markdown formatting outside of the content within the tags.
+    `.trim();
 
     const fullPrompt = promptTemplate
       .replace(/{{KOC_NAME}}/g, kocName)
