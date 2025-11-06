@@ -10,15 +10,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Button } from "@/components/ui/button";
 
 // Icons
-import { Bot, Loader2, AlertCircle, Target, Columns, Calendar, Lightbulb } from "lucide-react";
+import { Bot, Loader2, AlertCircle, Target, Columns, Calendar, Lightbulb, Sparkles } from "lucide-react";
 
 type PlanResultDisplayProps = {
   planId: string | null;
+  onGenerateMore: () => void;
+  isGeneratingMore: boolean;
 };
 
-export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
+export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: PlanResultDisplayProps) => {
   const isNew = planId === null;
 
   const { data: plan, isLoading, isError, error } = useQuery<ContentPlan | null>({
@@ -38,11 +41,25 @@ export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
         return parseContentPlan(plan.results.content);
       } catch (e) {
         console.error("Failed to parse content plan:", e);
-        return null; // Parsing failed
+        return null;
       }
     }
     return null;
   }, [plan?.results?.content]);
+
+  const allIdeas = useMemo(() => {
+    const initialIdeas = parsedContent?.ideas.map(idea => ({
+      title: idea.title,
+      script: idea.script,
+    })) || [];
+
+    const additionalIdeas = (plan?.results?.video_ideas || []).map((idea: any) => ({
+      title: idea.topic,
+      script: idea.description,
+    }));
+
+    return [...initialIdeas, ...additionalIdeas];
+  }, [parsedContent, plan?.results?.video_ideas]);
 
   const renderContent = () => {
     if (isLoading) {
@@ -72,7 +89,32 @@ export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
 
           <Card><CardHeader><CardTitle className="flex items-center gap-3"><Calendar className="h-6 w-6 text-orange-500" />Lịch đăng đề xuất</CardTitle></CardHeader><CardContent><article className="prose prose-sm max-w-none"><ReactMarkdown>{parsedContent.schedule}</ReactMarkdown></article></CardContent></Card>
 
-          <Card><CardHeader><CardTitle className="flex items-center gap-3"><Lightbulb className="h-6 w-6 text-purple-500" />{parsedContent.ideas.length} Ý tưởng video chi tiết</CardTitle></CardHeader><CardContent><Accordion type="multiple" className="w-full space-y-2">{parsedContent.ideas.map((idea, index) => (<AccordionItem value={`idea-${index}`} key={index} className="border rounded-lg"><AccordionTrigger className="p-4 font-semibold text-left hover:no-underline">{idea.title}</AccordionTrigger><AccordionContent className="p-4 border-t"><article className="prose prose-sm max-w-none"><ReactMarkdown>{idea.script}</ReactMarkdown></article></AccordionContent></AccordionItem>))}</Accordion></CardContent></Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <Lightbulb className="h-6 w-6 text-purple-500" />
+                {allIdeas.length} Ý tưởng video chi tiết
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Accordion type="multiple" className="w-full space-y-2">
+                {allIdeas.map((idea, index) => (
+                  <AccordionItem value={`idea-${index}`} key={index} className="border rounded-lg">
+                    <AccordionTrigger className="p-4 font-semibold text-left hover:no-underline">{idea.title}</AccordionTrigger>
+                    <AccordionContent className="p-4 border-t">
+                      <article className="prose prose-sm max-w-none"><ReactMarkdown>{idea.script}</ReactMarkdown></article>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+              <div className="mt-6 flex justify-center">
+                <Button onClick={onGenerateMore} disabled={isGeneratingMore}>
+                  {isGeneratingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  Tạo thêm 10 idea
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       );
     }

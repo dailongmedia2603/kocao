@@ -36,14 +36,6 @@ A concise paragraph (3-4 sentences) summarizing the core content strategy.
 <PILLAR_TITLE>Pillar 1 Title</PILLAR_TITLE>
 <PILLAR_CONTENT>Description of the first content pillar.</PILLAR_CONTENT>
 </PILLAR>
-<PILLAR>
-<PILLAR_TITLE>Pillar 2 Title</PILLAR_TITLE>
-<PILLAR_CONTENT>Description of the second content pillar.</PILLAR_CONTENT>
-</PILLAR>
-<PILLAR>
-<PILLAR_TITLE>Pillar 3 Title</PILLAR_TITLE>
-<PILLAR_CONTENT>Description of the third content pillar.</PILLAR_CONTENT>
-</PILLAR>
 </PILLARS>
 
 <SCHEDULE>
@@ -68,15 +60,54 @@ const DYNAMIC_VARIABLES = [
   { variable: "{{GOALS}}", description: "Mục tiêu của kênh" },
 ];
 
+const MORE_IDEAS_DEFAULT_PROMPT = `
+Based on the following content strategy, generate 10 new, creative, and distinct video ideas.
+Do not repeat any of the existing ideas provided below.
+
+**Content Strategy:**
+- Overall Strategy: {{STRATEGY}}
+- Content Pillars: {{PILLARS}}
+- Target Audience: {{TARGET_AUDIENCE}}
+- KOC/Channel Info: {{KOC_INFO}}
+
+**Existing Video Ideas (Do NOT repeat these):**
+{{EXISTING_IDEAS}}
+
+Your response must be a valid JSON array of 10 objects. Each object must have this exact structure:
+{
+  "pillar": "string",
+  "topic": "string",
+  "description": "string"
+}
+The "pillar" value must be one of the provided Content Pillars.
+`.trim();
+
+const MORE_IDEAS_DYNAMIC_VARIABLES = [
+  { variable: "{{STRATEGY}}", description: "Chiến lược tổng thể (từ kết quả)" },
+  { variable: "{{PILLARS}}", description: "Các trụ cột nội dung (từ kết quả)" },
+  { variable: "{{TARGET_AUDIENCE}}", description: "Đối tượng mục tiêu (từ input)" },
+  { variable: "{{KOC_INFO}}", description: "Thông tin KOC (từ input)" },
+  { variable: "{{EXISTING_IDEAS}}", description: "Danh sách các ý tưởng đã có" },
+];
+
 type ConfigurePromptDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 };
 
-const PromptEditor = ({ templateType }: { templateType: 'content_plan_gemini' | 'content_plan_gpt' }) => {
+type PromptEditorProps = {
+  templateType: 'content_plan_gemini' | 'content_plan_gpt' | 'generate_more_ideas_gemini';
+};
+
+const PromptEditor = ({ templateType }: PromptEditorProps) => {
   const { user } = useSession();
   const queryClient = useQueryClient();
-  const [prompt, setPrompt] = useState(DEFAULT_PROMPT);
+  
+  const isMoreIdeasPrompt = templateType === 'generate_more_ideas_gemini';
+  const defaultPrompt = isMoreIdeasPrompt ? MORE_IDEAS_DEFAULT_PROMPT : DEFAULT_PROMPT;
+  const dynamicVariables = isMoreIdeasPrompt ? MORE_IDEAS_DYNAMIC_VARIABLES : DYNAMIC_VARIABLES;
+
+  const [prompt, setPrompt] = useState(defaultPrompt);
 
   const { data, isLoading } = useQuery({
     queryKey: ['prompt_template', user?.id, templateType],
@@ -88,7 +119,7 @@ const PromptEditor = ({ templateType }: { templateType: 'content_plan_gemini' | 
         .eq('user_id', user.id)
         .eq('template_type', templateType)
         .single();
-      if (error && error.code !== 'PGRST116') throw error; // Ignore "not found" error
+      if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
     enabled: !!user,
@@ -98,9 +129,9 @@ const PromptEditor = ({ templateType }: { templateType: 'content_plan_gemini' | 
     if (data?.content) {
       setPrompt(data.content);
     } else {
-      setPrompt(DEFAULT_PROMPT);
+      setPrompt(defaultPrompt);
     }
-  }, [data]);
+  }, [data, defaultPrompt]);
 
   const upsertMutation = useMutation({
     mutationFn: async (newContent: string) => {
@@ -142,7 +173,7 @@ const PromptEditor = ({ templateType }: { templateType: 'content_plan_gemini' | 
         <h4 className="font-semibold">Biến dữ liệu động</h4>
         <p className="text-xs text-muted-foreground">Bấm để sao chép và dán vào prompt của bạn.</p>
         <div className="space-y-2">
-          {DYNAMIC_VARIABLES.map(({ variable, description }) => (
+          {dynamicVariables.map(({ variable, description }) => (
             <div key={variable} className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
               <div>
                 <code className="text-sm font-semibold">{variable}</code>
@@ -168,15 +199,19 @@ export const ConfigurePromptDialog = ({ isOpen, onOpenChange }: ConfigurePromptD
           <DialogDescription>Tùy chỉnh prompt sẽ được gửi đến AI để tạo kế hoạch nội dung.</DialogDescription>
         </DialogHeader>
         <Tabs defaultValue="gemini" className="w-full mt-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="gemini">Prompt cho Gemini</TabsTrigger>
-            <TabsTrigger value="gpt">Prompt cho GPT</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-3">
+            <TabsTrigger value="gemini">Tạo Kế hoạch (Gemini)</TabsTrigger>
+            <TabsTrigger value="gpt">Tạo Kế hoạch (GPT)</TabsTrigger>
+            <TabsTrigger value="more_ideas_gemini">Tạo thêm Idea (Gemini)</TabsTrigger>
           </TabsList>
           <TabsContent value="gemini" className="pt-4">
             <PromptEditor templateType="content_plan_gemini" />
           </TabsContent>
           <TabsContent value="gpt" className="pt-4">
             <PromptEditor templateType="content_plan_gpt" />
+          </TabsContent>
+          <TabsContent value="more_ideas_gemini" className="pt-4">
+            <PromptEditor templateType="generate_more_ideas_gemini" />
           </TabsContent>
         </Tabs>
       </DialogContent>

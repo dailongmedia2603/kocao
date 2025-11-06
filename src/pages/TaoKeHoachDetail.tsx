@@ -81,6 +81,7 @@ const TaoKeHoachDetail = () => {
         const combinedLogs = [...oldLogs, newLogEntry];
 
         const updatedResults = {
+          ...plan.results,
           content: newContent,
           logs: combinedLogs,
         };
@@ -97,6 +98,29 @@ const TaoKeHoachDetail = () => {
       } catch (error) {
         dismissToast(toastId);
         showError((error as Error).message);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['content_plan_detail', planId] });
+    },
+  });
+
+  const generateMoreIdeasMutation = useMutation({
+    mutationFn: async () => {
+      if (!planId) throw new Error("Plan ID is required.");
+      const toastId = showLoading("AI đang tạo thêm ý tưởng...");
+      try {
+        const { data, error } = await supabase.functions.invoke('generate-more-video-ideas', {
+          body: { planId }
+        });
+        if (error) throw error;
+        if (!data.success) throw new Error(data.error);
+        dismissToast(toastId);
+        showSuccess("Đã tạo thêm 10 ý tưởng mới!");
+      } catch (error) {
+        dismissToast(toastId);
+        showError(`Lỗi: ${(error as Error).message}`);
         throw error;
       }
     },
@@ -163,7 +187,11 @@ const TaoKeHoachDetail = () => {
             <CardDescription>Chiến lược nội dung do AI đề xuất sẽ được hiển thị ở đây.</CardDescription>
           </CardHeader>
           <CardContent>
-            <PlanResultDisplay planId={isNew ? null : planId} />
+            <PlanResultDisplay 
+              planId={isNew ? null : planId}
+              onGenerateMore={() => generateMoreIdeasMutation.mutate()}
+              isGeneratingMore={generateMoreIdeasMutation.isPending}
+            />
           </CardContent>
         </Card>
       </div>
