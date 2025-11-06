@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ContentPlan } from "@/types/contentPlan";
-import { showError } from "@/utils/toast";
+import ReactMarkdown from "react-markdown";
 
 // UI Components
 import { Card, CardContent } from "@/components/ui/card";
@@ -82,7 +82,7 @@ export const PlanResultDisplay = ({ planId }: PlanResultDisplayProps) => {
         <Card>
           <CardContent className="p-6">
             <article className="prose prose-sm max-w-none">
-              <pre className="whitespace-pre-wrap font-sans">{results.content}</pre>
+              <ReactMarkdown>{results.content}</ReactMarkdown>
             </article>
           </CardContent>
         </Card>
