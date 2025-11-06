@@ -149,7 +149,7 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
             <FormControl>
               <RadioGroup
                 onValueChange={field.onChange}
-                defaultValue={field.value}
+                value={field.value}
                 className="flex items-center space-x-4"
                 disabled={!isNew}
               >
