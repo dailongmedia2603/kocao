@@ -55,6 +55,7 @@ const StatusBadge = ({ status }: { status: string }) => {
           {status}
         </Badge>
       );
+    case 'Lỗi tạo voice':
     case 'Lỗi tạo video':
     case 'Lỗi tạo content':
       return <Badge variant="destructive">{status}</Badge>;
@@ -73,19 +74,19 @@ const IdeaCardMobile = ({ idea, onGenerateScript, onEdit, onDelete, onViewConten
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" className="h-7 w-7 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            {(idea.status === 'Chưa sử dụng' || !idea.new_content) && (
+                            {(idea.status === 'Chưa sử dụng' || !idea.new_content || idea.status === 'Lỗi tạo content') && (
                                 <DropdownMenuItem onClick={() => onGenerateScript(idea)} disabled={isGeneratingScript}>
-                                    <Wand2 className="mr-2 h-4 w-4" /> Tạo kịch bản
+                                    <Wand2 className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo content' ? 'Tạo lại kịch bản' : 'Tạo kịch bản'}
                                 </DropdownMenuItem>
                             )}
-                            {idea.status === 'Đã có content' && (
+                            {(idea.status === 'Đã có content' || idea.status === 'Lỗi tạo voice') && (
                                 <DropdownMenuItem onClick={() => onCreateVoice(idea.id)} disabled={isCreatingVoice}>
-                                    <Mic className="mr-2 h-4 w-4" /> Tạo voice
+                                    <Mic className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo voice' ? 'Tạo lại voice' : 'Tạo voice'}
                                 </DropdownMenuItem>
                             )}
-                            {idea.status === 'Đã tạo voice' && (
+                            {(idea.status === 'Đã tạo voice' || idea.status === 'Lỗi tạo video') && (
                                 <DropdownMenuItem onClick={() => onCreateVideo(idea.id)} disabled={isCreatingVideo}>
-                                    <Video className="mr-2 h-4 w-4" /> Tạo video
+                                    <Video className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo video' ? 'Tạo lại video' : 'Tạo video'}
                                 </DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => onEdit(idea)}>
@@ -282,9 +283,9 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {(idea.status === 'Chưa sử dụng' || !idea.new_content) && (<DropdownMenuItem onClick={() => handleGenerateNow(idea)} disabled={generateContentMutation.isPending}><Wand2 className="mr-2 h-4 w-4" /> Tạo kịch bản</DropdownMenuItem>)}
-                          {idea.status === 'Đã có content' && (<DropdownMenuItem onClick={() => createVoiceMutation.mutate(idea.id)} disabled={createVoiceMutation.isPending}><Mic className="mr-2 h-4 w-4" /> Tạo voice</DropdownMenuItem>)}
-                          {idea.status === 'Đã tạo voice' && (<DropdownMenuItem onClick={() => createVideoMutation.mutate(idea.id)} disabled={createVideoMutation.isPending}><Video className="mr-2 h-4 w-4" /> Tạo video</DropdownMenuItem>)}
+                          {(idea.status === 'Chưa sử dụng' || !idea.new_content || idea.status === 'Lỗi tạo content') && (<DropdownMenuItem onClick={() => handleGenerateNow(idea)} disabled={generateContentMutation.isPending}><Wand2 className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo content' ? 'Tạo lại kịch bản' : 'Tạo kịch bản'}</DropdownMenuItem>)}
+                          {(idea.status === 'Đã có content' || idea.status === 'Lỗi tạo voice') && (<DropdownMenuItem onClick={() => createVoiceMutation.mutate(idea.id)} disabled={createVoiceMutation.isPending}><Mic className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo voice' ? 'Tạo lại voice' : 'Tạo voice'}</DropdownMenuItem>)}
+                          {(idea.status === 'Đã tạo voice' || idea.status === 'Lỗi tạo video') && (<DropdownMenuItem onClick={() => createVideoMutation.mutate(idea.id)} disabled={createVideoMutation.isPending}><Video className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo video' ? 'Tạo lại video' : 'Tạo video'}</DropdownMenuItem>)}
                           <DropdownMenuItem onClick={() => handleEdit(idea)}><Edit className="mr-2 h-4 w-4" /> Sửa</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDelete(idea)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Xóa</DropdownMenuItem>
                         </DropdownMenuContent>
