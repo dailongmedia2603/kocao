@@ -59,7 +59,7 @@ const TaoKeHoachDetail = () => {
       const toastId = showLoading("AI đang phân tích và tạo lại kế hoạch...");
 
       try {
-        const functionName = (plan.inputs as any).ai_model === 'gpt' ? 'generate-content-plan-gpt' : 'generate-content-plan';
+        const functionName = 'generate-content-plan-gpt';
         const { data: functionData, error: functionError } = await supabase.functions.invoke(functionName, {
           body: { inputs: plan.inputs, kocName: koc.name }
         });
@@ -110,10 +110,7 @@ const TaoKeHoachDetail = () => {
     mutationFn: async () => {
       if (!planId || !plan || !plan.inputs) throw new Error("Dữ liệu kế hoạch không đầy đủ.");
       
-      const model = (plan.inputs as any).ai_model || 'gemini';
-      const functionName = model === 'gpt' 
-        ? 'generate-more-video-ideas-gpt' 
-        : 'generate-more-video-ideas';
+      const functionName = 'generate-more-video-ideas-gpt';
 
       const toastId = showLoading("AI đang tạo thêm ý tưởng...");
       try {

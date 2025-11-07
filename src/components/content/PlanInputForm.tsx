@@ -15,12 +15,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Wand2, Loader2, User, ClipboardList, Hash, Users as UsersIcon, Smile, TrendingUp, Bot } from "lucide-react";
+import { Wand2, Loader2, User, ClipboardList, Hash, Users as UsersIcon, Smile, TrendingUp } from "lucide-react";
 import { ContentPlan } from "@/types/contentPlan";
 
 const formSchema = z.object({
-  ai_model: z.enum(["gemini", "gpt"]).default("gemini"),
   koc_id: z.string().min(1, "Vui lòng chọn KOC."),
   name: z.string().min(1, "Tên kế hoạch không được để trống."),
   topic: z.string().min(1, "Chủ đề chính không được để trống."),
@@ -64,7 +62,6 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      ai_model: "gemini",
       koc_id: "",
       name: "",
       topic: "",
@@ -89,9 +86,7 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
       const toastId = showLoading("AI đang phân tích và tạo kế hoạch...");
 
       try {
-        const functionName = values.ai_model === 'gpt' 
-          ? 'generate-content-plan-gpt' 
-          : 'generate-content-plan';
+        const functionName = 'generate-content-plan-gpt';
 
         const { data: functionData, error: functionError } = await supabase.functions.invoke(functionName, {
           body: { inputs: values, kocName: selectedKoc.name }
@@ -143,29 +138,6 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField control={form.control} name="ai_model" render={({ field }) => (
-          <FormItem>
-            <FormLabel className="flex items-center gap-2"><Bot className="h-5 w-5 text-blue-500" /> Chọn AI</FormLabel>
-            <FormControl>
-              <RadioGroup
-                onValueChange={field.onChange}
-                value={field.value}
-                className="flex items-center space-x-4"
-                disabled={!isNew}
-              >
-                <FormItem className="flex items-center space-x-2 space-y-0">
-                  <FormControl><RadioGroupItem value="gemini" /></FormControl>
-                  <FormLabel className="font-normal">Gemini</FormLabel>
-                </FormItem>
-                <FormItem className="flex items-center space-x-2 space-y-0">
-                  <FormControl><RadioGroupItem value="gpt" /></FormControl>
-                  <FormLabel className="font-normal">GPT</FormLabel>
-                </FormItem>
-              </RadioGroup>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField control={form.control} name="koc_id" render={({ field }) => (
             <FormItem>
