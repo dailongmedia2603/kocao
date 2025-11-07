@@ -43,12 +43,16 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
   const addIdeaToKocMutation = useMutation({
     mutationFn: async ({ kocId, ideaTitle, ideaScript }: { kocId: string, ideaTitle: string, ideaScript: string }) => {
       if (!user) throw new Error("User not authenticated.");
+      
+      // Gộp tiêu đề và kịch bản thành một nội dung duy nhất
+      const combinedContent = `**${ideaTitle}**\n\n${ideaScript}`;
+
       const { error } = await supabase.from('koc_content_ideas').insert({
         koc_id: kocId,
         user_id: user.id,
-        idea_content: ideaTitle,
-        new_content: ideaScript,
-        status: 'Đã có content',
+        idea_content: combinedContent, // Lưu nội dung đã gộp
+        new_content: null, // Để trống cột kịch bản mới
+        status: 'Chưa sử dụng', // Đặt trạng thái là "Chưa sử dụng"
       });
       if (error) throw error;
     },
