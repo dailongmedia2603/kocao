@@ -128,18 +128,28 @@ Deno.serve(async (req) => {
         throw new Error("API GPT Custom không trả về trường 'answer'.");
     }
 
-    let newIdeas;
-    try {
-      // The answer itself is a JSON string, often wrapped in markdown, so we need to clean it up and parse it.
-      const rawAnswer = responseData.answer;
-      const jsonString = rawAnswer.replace(/```json\n?|```/g, '').trim();
-      newIdeas = JSON.parse(jsonString);
-    } catch (e) {
-      console.error("Failed to parse JSON from GPT response:", responseData.answer);
-      throw new Error("Phản hồi từ AI không phải là JSON hợp lệ.");
+    const rawAnswer = responseData.answer;
+    const newIdeas = [];
+    
+    const ideaRegex = /<IDEA>([\s\S]*?)<\/IDEA>/gi;
+    let match;
+    while ((match = ideaRegex.exec(rawAnswer)) !== null) {
+        const ideaContent = match[1];
+        const title = extractContentByTag(ideaContent, 'IDEA_TITLE');
+        const script = extractContentByTag(ideaContent, 'IDEA_SCRIPT');
+        if (title && script) {
+            newIdeas.push({
+                pillar: "Bổ sung", // Pillar không được cung cấp, sử dụng giá trị mặc định
+                topic: title,
+                description: script,
+            });
+        }
     }
 
-    if (!Array.isArray(newIdeas)) throw new Error("Phản hồi của AI không ở định dạng mảng như mong đợi.");
+    if (newIdeas.length === 0) {
+        console.error("Failed to parse any ideas from GPT response:", rawAnswer);
+        throw new Error("Phản hồi từ AI không thể được phân tích cú pháp. Định dạng không mong đợi.");
+    }
 
     const updatedIdeas = [...(plan.results.video_ideas || []), ...newIdeas];
     const existingLogs = plan.results.logs || [];
