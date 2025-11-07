@@ -15,7 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from "@/components/ui/button";
 
 // Icons
-import { Bot, Loader2, AlertCircle, Target, Columns, Calendar, Lightbulb, Sparkles, PlusCircle } from "lucide-react";
+import { Bot, Loader2, AlertCircle, Target, Columns, Calendar, Lightbulb, Sparkles, PlusCircle, CheckCircle } from "lucide-react";
 
 type PlanResultDisplayProps = {
   planId: string | null;
@@ -40,19 +40,37 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
     enabled: !isNew,
   });
 
+  const { data: existingKocIdeas } = useQuery<{ idea_content: string }[]>({
+    queryKey: ['koc_content_ideas', plan?.koc_id],
+    queryFn: async () => {
+      if (!plan?.koc_id) return [];
+      const { data, error } = await supabase
+        .from('koc_content_ideas')
+        .select('idea_content')
+        .eq('koc_id', plan.koc_id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!plan?.koc_id,
+  });
+
+  const existingIdeaContents = useMemo(() => {
+    if (!existingKocIdeas) return new Set();
+    return new Set(existingKocIdeas.map(idea => idea.idea_content));
+  }, [existingKocIdeas]);
+
   const addIdeaToKocMutation = useMutation({
     mutationFn: async ({ kocId, ideaTitle, ideaScript }: { kocId: string, ideaTitle: string, ideaScript: string }) => {
       if (!user) throw new Error("User not authenticated.");
       
-      // Gộp tiêu đề và kịch bản thành một nội dung duy nhất
       const combinedContent = `**${ideaTitle}**\n\n${ideaScript}`;
 
       const { error } = await supabase.from('koc_content_ideas').insert({
         koc_id: kocId,
         user_id: user.id,
-        idea_content: combinedContent, // Lưu nội dung đã gộp
-        new_content: null, // Để trống cột kịch bản mới
-        status: 'Chưa sử dụng', // Đặt trạng thái là "Chưa sử dụng"
+        idea_content: combinedContent,
+        new_content: null,
+        status: 'Chưa sử dụng',
       });
       if (error) throw error;
     },
@@ -150,32 +168,39 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
             </CardHeader>
             <CardContent>
               <Accordion type="multiple" className="w-full space-y-2">
-                {allIdeas.map((idea, index) => (
-                  <AccordionItem value={`idea-${index}`} key={index} className="border rounded-lg">
-                    <AccordionTrigger className="p-4 font-semibold text-left hover:no-underline">
-                      <div className="flex items-center justify-between w-full gap-4">
-                        <span className="flex-1">{idea.title}</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="flex-shrink-0"
-                          onClick={(e) => handleAddIdeaToKoc(e, idea)}
-                          disabled={addIdeaToKocMutation.isPending}
-                        >
-                          {addingIdeaTitle === idea.title ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <PlusCircle className="h-4 w-4" />
-                          )}
-                          <span className="ml-2 hidden sm:inline">Add vào kênh</span>
-                        </Button>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="p-4 border-t">
-                      <article className="prose prose-sm max-w-none"><ReactMarkdown>{idea.script}</ReactMarkdown></article>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
+                {allIdeas.map((idea, index) => {
+                  const combinedContent = `**${idea.title}**\n\n${idea.script}`;
+                  const isAdded = existingIdeaContents.has(combinedContent);
+
+                  return (
+                    <AccordionItem value={`idea-${index}`} key={index} className="border rounded-lg">
+                      <AccordionTrigger className="p-4 font-semibold text-left hover:no-underline">
+                        <div className="flex items-center justify-between w-full gap-4">
+                          <span className="flex-1">{idea.title}</span>
+                          <Button
+                            variant={isAdded ? "secondary" : "outline"}
+                            size="sm"
+                            className="flex-shrink-0"
+                            onClick={(e) => !isAdded && handleAddIdeaToKoc(e, idea)}
+                            disabled={addIdeaToKocMutation.isPending || isAdded}
+                          >
+                            {addingIdeaTitle === idea.title ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : isAdded ? (
+                              <CheckCircle className="h-4 w-4" />
+                            ) : (
+                              <PlusCircle className="h-4 w-4" />
+                            )}
+                            <span className="ml-2 hidden sm:inline">{isAdded ? "Đã thêm" : "Add vào kênh"}</span>
+                          </Button>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="p-4 border-t">
+                        <article className="prose prose-sm max-w-none"><ReactMarkdown>{idea.script}</ReactMarkdown></article>
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
               </Accordion>
             </CardContent>
           </Card>
