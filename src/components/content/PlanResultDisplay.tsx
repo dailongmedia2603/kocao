@@ -1,9 +1,11 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ContentPlan } from "@/types/contentPlan";
 import ReactMarkdown from "react-markdown";
 import { parseContentPlan } from "@/lib/contentPlanParser";
+import { useSession } from "@/contexts/SessionContext";
+import { showSuccess, showError } from "@/utils/toast";
 
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +15,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from "@/components/ui/button";
 
 // Icons
-import { Bot, Loader2, AlertCircle, Target, Columns, Calendar, Lightbulb, Sparkles } from "lucide-react";
+import { Bot, Loader2, AlertCircle, Target, Columns, Calendar, Lightbulb, Sparkles, PlusCircle } from "lucide-react";
 
 type PlanResultDisplayProps = {
   planId: string | null;
@@ -23,6 +25,9 @@ type PlanResultDisplayProps = {
 
 export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: PlanResultDisplayProps) => {
   const isNew = planId === null;
+  const { user } = useSession();
+  const queryClient = useQueryClient();
+  const [addingIdeaTitle, setAddingIdeaTitle] = useState<string | null>(null);
 
   const { data: plan, isLoading, isError, error } = useQuery<ContentPlan | null>({
     queryKey: ['content_plan_detail', planId],
@@ -34,6 +39,45 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
     },
     enabled: !isNew,
   });
+
+  const addIdeaToKocMutation = useMutation({
+    mutationFn: async ({ kocId, ideaTitle, ideaScript }: { kocId: string, ideaTitle: string, ideaScript: string }) => {
+      if (!user) throw new Error("User not authenticated.");
+      const { error } = await supabase.from('koc_content_ideas').insert({
+        koc_id: kocId,
+        user_id: user.id,
+        idea_content: ideaTitle,
+        new_content: ideaScript,
+        status: 'Đã có content',
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      showSuccess(`Đã thêm idea "${variables.ideaTitle}" vào kênh KOC!`);
+      queryClient.invalidateQueries({ queryKey: ['koc_content_ideas', variables.kocId] });
+    },
+    onError: (err: Error) => {
+      showError(`Lỗi: ${err.message}`);
+    },
+    onSettled: () => {
+      setAddingIdeaTitle(null);
+    },
+  });
+
+  const handleAddIdeaToKoc = (e: React.MouseEvent, idea: { title: string; script: string }) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (plan?.koc_id) {
+      setAddingIdeaTitle(idea.title);
+      addIdeaToKocMutation.mutate({
+        kocId: plan.koc_id,
+        ideaTitle: idea.title,
+        ideaScript: idea.script,
+      });
+    } else {
+      showError("Không tìm thấy thông tin KOC của kế hoạch này.");
+    }
+  };
 
   const parsedContent = useMemo(() => {
     if (plan?.results?.content) {
@@ -104,7 +148,25 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
               <Accordion type="multiple" className="w-full space-y-2">
                 {allIdeas.map((idea, index) => (
                   <AccordionItem value={`idea-${index}`} key={index} className="border rounded-lg">
-                    <AccordionTrigger className="p-4 font-semibold text-left hover:no-underline">{idea.title}</AccordionTrigger>
+                    <AccordionTrigger className="p-4 font-semibold text-left hover:no-underline">
+                      <div className="flex items-center justify-between w-full gap-4">
+                        <span className="flex-1">{idea.title}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-shrink-0"
+                          onClick={(e) => handleAddIdeaToKoc(e, idea)}
+                          disabled={addIdeaToKocMutation.isPending}
+                        >
+                          {addingIdeaTitle === idea.title ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <PlusCircle className="h-4 w-4" />
+                          )}
+                          <span className="ml-2 hidden sm:inline">Add vào kênh</span>
+                        </Button>
+                      </div>
+                    </AccordionTrigger>
                     <AccordionContent className="p-4 border-t">
                       <article className="prose prose-sm max-w-none"><ReactMarkdown>{idea.script}</ReactMarkdown></article>
                     </AccordionContent>
