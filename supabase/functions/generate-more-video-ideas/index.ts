@@ -63,7 +63,7 @@ async function getGcpAccessToken(credentials: any): Promise<string> {
 // --- END: Vertex AI Helper Functions ---
 
 
-// --- START INLINED PARSER ---
+// --- START: Helper Functions ---
 const extractContentByTag = (text: string, tag: string): string => {
   const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i');
   const match = text.match(regex);
@@ -99,7 +99,40 @@ function parseContentPlan(text: string) {
   }
   return result;
 }
-// --- END INLINED PARSER ---
+
+function parseAIResponse(rawText: string): any[] {
+  const cleanedText = rawText.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, '$1').trim();
+
+  try {
+    const ideas = JSON.parse(cleanedText);
+    if (Array.isArray(ideas) && ideas.length > 0) {
+      if (ideas[0].topic && ideas[0].description) {
+        return ideas;
+      }
+    }
+  } catch (e) {
+    console.log("JSON parsing failed, falling back to tag parsing.");
+  }
+
+  const newIdeas = [];
+  const ideaRegex = /<IDEA>([\s\S]*?)<\/IDEA>/gi;
+  let match;
+  while ((match = ideaRegex.exec(cleanedText)) !== null) {
+    const ideaContent = match[1];
+    const title = extractContentByTag(ideaContent, 'IDEA_TITLE');
+    const script = extractContentByTag(ideaContent, 'IDEA_SCRIPT');
+    if (title && script) {
+      newIdeas.push({
+        pillar: "Bổ sung",
+        topic: title,
+        description: script,
+      });
+    }
+  }
+  
+  return newIdeas;
+}
+// --- END: Helper Functions ---
 
 const MORE_IDEAS_DEFAULT_PROMPT = `
 Based on the following content strategy, generate 10 new, creative, and distinct video ideas.
@@ -202,17 +235,13 @@ serve(async (req) => {
     }
 
     const text = vertexData.candidates[0].content.parts[0].text;
-    // --- END: Vertex AI Authentication & API Call ---
+    const newIdeas = parseAIResponse(text);
 
-    let newIdeas;
-    try {
-      newIdeas = JSON.parse(text);
-    } catch (e) {
-      console.error("Failed to parse JSON from Gemini:", text);
-      throw new Error("Phản hồi từ AI không phải là JSON hợp lệ.");
+    if (newIdeas.length === 0) {
+      console.error("Failed to parse any ideas from Gemini response:", text);
+      throw new Error("Phản hồi từ AI không thể được phân tích cú pháp.");
     }
-
-    if (!Array.isArray(newIdeas)) throw new Error("Phản hồi của AI không ở định dạng mảng như mong đợi.");
+    // --- END: Vertex AI Authentication & API Call ---
 
     const updatedIdeas = [...(plan.results.video_ideas || []), ...newIdeas];
     const existingLogs = plan.results.logs || [];

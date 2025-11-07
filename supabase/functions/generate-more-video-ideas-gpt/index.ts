@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 const corsHeaders = {
@@ -9,7 +8,7 @@ const corsHeaders = {
 
 const API_URL = "https://chatbot.qcv.vn/api/chat-vision";
 
-// --- START INLINED PARSER ---
+// --- START: Helper Functions ---
 const extractContentByTag = (text: string, tag: string): string => {
   const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i');
   const match = text.match(regex);
@@ -45,7 +44,45 @@ function parseContentPlan(text: string) {
   }
   return result;
 }
-// --- END INLINED PARSER ---
+
+function parseAIResponse(rawText: string): any[] {
+  // 1. Clean the text: remove markdown code blocks and trim whitespace
+  const cleanedText = rawText.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, '$1').trim();
+
+  // 2. Try parsing as JSON first
+  try {
+    const ideas = JSON.parse(cleanedText);
+    if (Array.isArray(ideas) && ideas.length > 0) {
+      // Validate structure
+      if (ideas[0].topic && ideas[0].description) {
+        return ideas;
+      }
+    }
+  } catch (e) {
+    // JSON parsing failed, proceed to tag parsing
+    console.log("JSON parsing failed, falling back to tag parsing.");
+  }
+
+  // 3. Fallback to parsing with custom tags
+  const newIdeas = [];
+  const ideaRegex = /<IDEA>([\s\S]*?)<\/IDEA>/gi;
+  let match;
+  while ((match = ideaRegex.exec(cleanedText)) !== null) {
+    const ideaContent = match[1];
+    const title = extractContentByTag(ideaContent, 'IDEA_TITLE');
+    const script = extractContentByTag(ideaContent, 'IDEA_SCRIPT');
+    if (title && script) {
+      newIdeas.push({
+        pillar: "Bổ sung",
+        topic: title,
+        description: script,
+      });
+    }
+  }
+  
+  return newIdeas;
+}
+// --- END: Helper Functions ---
 
 const MORE_IDEAS_DEFAULT_PROMPT = `
 Based on the following content strategy, generate 10 new, creative, and distinct video ideas.
@@ -69,7 +106,7 @@ Your response must be a valid JSON array of 10 objects. Each object must have th
 The "pillar" value must be one of the provided Content Pillars.
 `.trim();
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -130,22 +167,7 @@ serve(async (req) => {
     }
 
     const rawAnswer = responseData.answer;
-    const newIdeas = [];
-    
-    const ideaRegex = /<IDEA>([\s\S]*?)<\/IDEA>/gi;
-    let match;
-    while ((match = ideaRegex.exec(rawAnswer)) !== null) {
-        const ideaContent = match[1];
-        const title = extractContentByTag(ideaContent, 'IDEA_TITLE');
-        const script = extractContentByTag(ideaContent, 'IDEA_SCRIPT');
-        if (title && script) {
-            newIdeas.push({
-                pillar: "Bổ sung", // Pillar không được cung cấp, sử dụng giá trị mặc định
-                topic: title,
-                description: script,
-            });
-        }
-    }
+    const newIdeas = parseAIResponse(rawAnswer);
 
     if (newIdeas.length === 0) {
         console.error("Failed to parse any ideas from GPT response:", rawAnswer);
