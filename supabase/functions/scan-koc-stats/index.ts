@@ -17,15 +17,24 @@ serve(async (_req) => {
     
     const { data: tokenData, error: tokenError } = await supabaseAdmin.from("user_tiktok_tokens").select("access_token").limit(1).single();
     if (tokenError || !tokenData) {
-      throw new Error("Chưa có Access Token TikTok nào được cấu hình trong hệ thống.");
+      console.warn("No TikTok access token found in the system. Skipping KOC scan.");
+      return new Response(JSON.stringify({ message: "Skipping scan: No TikTok access token configured." }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
     }
     const accessToken = tokenData.access_token;
 
-    const { data: kocs, error: fetchError } = await supabaseAdmin.from("kocs").select("id, channel_url, user_id").not("channel_url", "is", null);
+    // Fetch a batch of KOCs that need updating to prevent timeouts
+    const twentyThreeHoursAgo = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString();
+    const { data: kocs, error: fetchError } = await supabaseAdmin
+      .from("kocs")
+      .select("id, channel_url, user_id")
+      .not("channel_url", "is", null)
+      .or(`stats_updated_at.is.null,stats_updated_at.lt.${twentyThreeHoursAgo}`)
+      .limit(20); // Process up to 20 KOCs per run
+
     if (fetchError) throw fetchError;
 
     if (!kocs || kocs.length === 0) {
-      return new Response(JSON.stringify({ message: "Không có KOC nào để quét." }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+      return new Response(JSON.stringify({ message: "No KOCs require scanning at this time." }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
     }
 
     const scanPromises = kocs.map(async (koc) => {
@@ -40,7 +49,6 @@ serve(async (_req) => {
 
         const apiData = await response.json();
 
-        // Xử lý lỗi cụ thể từ API
         if (apiData.data && apiData.data.statusCode) {
             console.error(`Lỗi API cho KOC ${koc.id} (statusCode: ${apiData.data.statusCode}): ${apiData.data.statusMsg || 'No status message'}`);
             return { id: koc.id, status: 'failed', reason: `API Error ${apiData.data.statusCode}` };
@@ -51,8 +59,17 @@ serve(async (_req) => {
 
         if (userInfo && statsData) {
           const { followerCount, heartCount, videoCount } = statsData;
-          const { nickname, uniqueId, createTime } = userInfo;
-          const { error: updateError } = await supabaseAdmin.from("kocs").update({ follower_count: parseInt(followerCount, 10), like_count: parseInt(heartCount, 10), video_count: parseInt(videoCount, 10), channel_nickname: nickname, channel_unique_id: uniqueId, channel_created_at: new Date(createTime * 1000).toISOString(), stats_updated_at: new Date().toISOString() }).eq("id", koc.id);
+          const { nickname, uniqueId, createTime, avatarLarger } = userInfo;
+          const { error: updateError } = await supabaseAdmin.from("kocs").update({ 
+              follower_count: parseInt(followerCount, 10), 
+              like_count: parseInt(heartCount, 10), 
+              video_count: parseInt(videoCount, 10), 
+              channel_nickname: nickname, 
+              channel_unique_id: uniqueId, 
+              channel_created_at: new Date(createTime * 1000).toISOString(), 
+              stats_updated_at: new Date().toISOString(),
+              avatar_url: avatarLarger 
+            }).eq("id", koc.id);
           if (updateError) {
             console.error(`Lỗi DB cho KOC ${koc.id}:`, updateError.message);
             return { id: koc.id, status: 'failed', reason: 'DB update error' };
