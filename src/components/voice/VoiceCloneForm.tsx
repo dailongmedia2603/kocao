@@ -40,11 +40,13 @@ export const VoiceCloneForm = () => {
 
   const cloneVoiceMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
+      const file = values.file[0];
       const formData = new FormData();
       formData.append("voice_name", values.voice_name);
       formData.append("preview_text", values.preview_text);
-      formData.append("file", values.file[0]);
-      formData.append("fileName", values.file[0].name); // Gửi tên tệp một cách tường minh
+      formData.append("file", file);
+      formData.append("fileName", file.name); // Gửi tên tệp một cách tường minh
+      formData.append("fileType", file.type); // Gửi loại tệp một cách tường minh
 
       const { data, error } = await supabase.functions.invoke("voice-clone-proxy", { body: formData });
       if (error) throw new Error(error.message);
