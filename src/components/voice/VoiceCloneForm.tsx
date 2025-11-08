@@ -40,12 +40,38 @@ export const VoiceCloneForm = () => {
 
   const cloneVoiceMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      const formData = new FormData();
-      formData.append("voice_name", values.voice_name);
-      formData.append("preview_text", values.preview_text);
-      formData.append("file", values.file[0]);
+      if (!user) throw new Error("User not authenticated.");
+      
+      const file = values.file[0];
+      const filePath = `${user.id}/${Date.now()}-${file.name}`;
 
-      const { data, error } = await supabase.functions.invoke("voice-clone-proxy", { body: formData });
+      // 1. Upload file to Supabase Storage first
+      const { error: uploadError } = await supabase.storage
+        .from('voice_clone_samples')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw new Error(`Lỗi tải file lên: ${uploadError.message}`);
+      }
+
+      // 2. Get public URL of the uploaded file
+      const { data: { publicUrl } } = supabase.storage
+        .from('voice_clone_samples')
+        .getPublicUrl(filePath);
+
+      if (!publicUrl) {
+        throw new Error("Không thể lấy được URL của file đã tải lên.");
+      }
+
+      // 3. Call the Edge Function with the URL, not the file
+      const { data, error } = await supabase.functions.invoke("voice-clone-proxy", { 
+        body: {
+          voice_name: values.voice_name,
+          preview_text: values.preview_text,
+          file_url: publicUrl,
+        }
+      });
+
       if (error) throw new Error(error.message);
       if (data.error) throw new Error(data.error);
       if (!data.success) throw new Error(data.message || "Clone voice thất bại.");
