@@ -13,7 +13,17 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { VoiceCloneLogDialog } from "./VoiceCloneLogDialog";
 
-const fetchClonedVoices = async (userId: string) => {
+type ClonedVoice = {
+  voice_id: string;
+  user_id: string;
+  voice_name: string;
+  sample_audio: string | null;
+  cover_url: string | null;
+  created_at: string;
+  status?: 'cloning'; 
+};
+
+const fetchClonedVoices = async (userId: string): Promise<ClonedVoice[]> => {
   if (!userId) return [];
   const { data, error } = await supabase
     .from('cloned_voices')
@@ -21,30 +31,25 @@ const fetchClonedVoices = async (userId: string) => {
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return data;
+  return data as ClonedVoice[];
 };
 
-const VoiceItem = ({ voice }: { voice: any }) => {
+const VoiceItem = ({ voice }: { voice: ClonedVoice }) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
 
   const deleteMutation = useMutation({
     mutationFn: async (voiceId: string) => {
       try {
-        // First, attempt to delete from the external API
         await callVoiceApi({ path: `v1m/voice/clone/${voiceId}`, method: "DELETE" });
       } catch (error: any) {
-        // If the error is "Voice not found", we can ignore it and proceed.
-        // Any other error should be re-thrown.
         if (error.message && error.message.toLowerCase().includes('voice not found')) {
           console.warn(`Voice ${voiceId} not found on external API, proceeding with local deletion.`);
         } else {
-          // Re-throw other errors
           throw error;
         }
       }
       
-      // Then, delete from our database regardless of the external API result (if it was a 'not found' error)
       const { error: dbError } = await supabase.from('cloned_voices').delete().eq('voice_id', voiceId);
       if (dbError) throw dbError;
     },
@@ -55,6 +60,7 @@ const VoiceItem = ({ voice }: { voice: any }) => {
     onError: (error: Error) => showError(`Lỗi: ${error.message}`),
   });
 
+  const isCloning = voice.status === 'cloning';
   const hasValidSample = voice.sample_audio && voice.sample_audio.startsWith('http');
 
   return (
@@ -69,7 +75,7 @@ const VoiceItem = ({ voice }: { voice: any }) => {
             <div className="flex items-center gap-2 mt-1">
               <Badge variant="outline" className="text-yellow-800 border-yellow-200">
                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                Đang tạo file mẫu...
+                {isCloning ? 'Đang clone...' : 'Đang tạo file mẫu...'}
               </Badge>
             </div>
           )}
@@ -77,7 +83,7 @@ const VoiceItem = ({ voice }: { voice: any }) => {
       </div>
       <AlertDialog>
         <AlertDialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" disabled={isCloning}><Trash2 className="h-4 w-4" /></Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>Xóa giọng nói "{voice.voice_name}"?</AlertDialogTitle><AlertDialogDescription>Hành động này không thể hoàn tác.</AlertDialogDescription></AlertDialogHeader>
@@ -98,7 +104,7 @@ export const ClonedVoiceList = () => {
   const { user } = useSession();
   const [isLogOpen, setIsLogOpen] = useState(false);
 
-  const { data: voices, isLoading, isError, error, isFetching } = useQuery({
+  const { data: voices, isLoading, isError, error, isFetching } = useQuery<ClonedVoice[]>({
     queryKey: ["cloned_voices_db", user?.id],
     queryFn: () => fetchClonedVoices(user!.id),
     enabled: !!user,

@@ -27,6 +27,16 @@ const formSchema = z.object({
     ),
 });
 
+type ClonedVoice = {
+  voice_id: string;
+  user_id: string;
+  voice_name: string;
+  sample_audio: string | null;
+  cover_url: string | null;
+  created_at: string;
+  status?: 'cloning'; 
+};
+
 export const VoiceCloneForm = () => {
   const queryClient = useQueryClient();
   const { user } = useSession();
@@ -51,13 +61,37 @@ export const VoiceCloneForm = () => {
       if (!data.success) throw new Error(data.message || "Clone voice thất bại.");
       return data;
     },
+    onMutate: async (newVoiceData) => {
+      await queryClient.cancelQueries({ queryKey: ["cloned_voices_db", user?.id] });
+      const previousVoices = queryClient.getQueryData<ClonedVoice[]>(["cloned_voices_db", user?.id]);
+
+      queryClient.setQueryData<ClonedVoice[]>(["cloned_voices_db", user?.id], (old) => {
+        const optimisticVoice: ClonedVoice = {
+          voice_id: `temp-${Date.now()}`,
+          user_id: user!.id,
+          voice_name: newVoiceData.voice_name,
+          sample_audio: null,
+          cover_url: null,
+          created_at: new Date().toISOString(),
+          status: 'cloning',
+        };
+        return old ? [optimisticVoice, ...old] : [optimisticVoice];
+      });
+
+      form.reset();
+      return { previousVoices };
+    },
+    onError: (err: Error, _newVoice, context) => {
+      if (context?.previousVoices) {
+        queryClient.setQueryData(["cloned_voices_db", user?.id], context.previousVoices);
+      }
+      showError(`Lỗi: ${err.message}`);
+    },
     onSuccess: () => {
       showSuccess("Gửi yêu cầu clone thành công! Giọng nói sẽ sớm xuất hiện trong danh sách.");
-      queryClient.invalidateQueries({ queryKey: ["cloned_voices_db", user?.id] });
-      form.reset();
     },
-    onError: (error: Error) => {
-      showError(`Lỗi: ${error.message}`);
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["cloned_voices_db", user?.id] });
     },
   });
 
