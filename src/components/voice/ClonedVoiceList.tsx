@@ -30,11 +30,23 @@ const VoiceItem = ({ voice }: { voice: any }) => {
 
   const deleteMutation = useMutation({
     mutationFn: async (voiceId: string) => {
-      // First, delete from the external API
-      await callVoiceApi({ path: `v1m/voice/clone/${voiceId}`, method: "DELETE" });
-      // Then, delete from our database
-      const { error } = await supabase.from('cloned_voices').delete().eq('voice_id', voiceId);
-      if (error) throw error;
+      try {
+        // First, attempt to delete from the external API
+        await callVoiceApi({ path: `v1m/voice/clone/${voiceId}`, method: "DELETE" });
+      } catch (error: any) {
+        // If the error is "Voice not found", we can ignore it and proceed.
+        // Any other error should be re-thrown.
+        if (error.message && error.message.toLowerCase().includes('voice not found')) {
+          console.warn(`Voice ${voiceId} not found on external API, proceeding with local deletion.`);
+        } else {
+          // Re-throw other errors
+          throw error;
+        }
+      }
+      
+      // Then, delete from our database regardless of the external API result (if it was a 'not found' error)
+      const { error: dbError } = await supabase.from('cloned_voices').delete().eq('voice_id', voiceId);
+      if (dbError) throw dbError;
     },
     onSuccess: () => {
       showSuccess("Xóa giọng nói thành công!");
