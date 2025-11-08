@@ -67,6 +67,9 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
       const selectedVoice = voices?.find(v => v.voice_id === values.clonedVoiceId);
       if (!selectedVoice) throw new Error("Giọng nói đã chọn không hợp lệ.");
 
+      let template = null;
+      let templateError = null;
+
       // 1. Lấy KOC đã chọn để tìm template mặc định của nó
       const { data: selectedKoc, error: kocError } = await supabase
         .from('kocs')
@@ -74,23 +77,48 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
         .eq('id', values.kocId)
         .single();
 
-      if (kocError || !selectedKoc) {
-        throw new Error("Không thể tìm thấy KOC đã chọn.");
+      if (kocError) throw new Error("Không thể tìm thấy KOC đã chọn.");
+
+      // 2. Ưu tiên template mặc định của KOC
+      if (selectedKoc.default_prompt_template_id) {
+        ({ data: template, error: templateError } = await supabase
+          .from('ai_prompt_templates')
+          .select('id, name')
+          .eq('id', selectedKoc.default_prompt_template_id)
+          .single());
       }
 
-      if (!selectedKoc.default_prompt_template_id) {
-        throw new Error("KOC này chưa được cấu hình template AI mặc định. Vui lòng vào chi tiết KOC, tab Idea Content để cấu hình.");
+      // 3. Nếu không có, tìm template mặc định của người dùng
+      if (!template) {
+        ({ data: template, error: templateError } = await supabase
+          .from('ai_prompt_templates')
+          .select('id, name')
+          .eq('user_id', user.id)
+          .eq('is_default', true)
+          .single());
       }
 
-      // 2. Lấy thông tin chi tiết của template mặc định đó
-      const { data: defaultTemplate, error: templateError } = await supabase
-        .from('ai_prompt_templates')
-        .select('id, name')
-        .eq('id', selectedKoc.default_prompt_template_id)
-        .single();
-      
-      if (templateError || !defaultTemplate) {
-        throw new Error("Không tìm thấy template AI mặc định đã được cấu hình cho KOC này. Template có thể đã bị xóa.");
+      // 4. Nếu vẫn không có, tìm template mặc định của admin
+      if (!template) {
+        const { data: adminUser, error: adminError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'admin')
+          .limit(1)
+          .single();
+
+        if (adminUser && !adminError) {
+          ({ data: template, error: templateError } = await supabase
+            .from('ai_prompt_templates')
+            .select('id, name')
+            .eq('user_id', adminUser.id)
+            .eq('is_default', true)
+            .single());
+        }
+      }
+
+      if (!template) {
+        throw new Error("KOC này chưa được cấu hình template AI mặc định và không tìm thấy template mặc định nào khác. Vui lòng vào chi tiết KOC, tab Idea Content để cấu hình.");
       }
 
       const { data: newProject, error: projectError } = await supabase
@@ -109,8 +137,8 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
         koc_id: values.kocId,
         cloned_voice_id: values.clonedVoiceId,
         cloned_voice_name: selectedVoice.voice_name,
-        ai_prompt_template_id: defaultTemplate.id,
-        ai_prompt: defaultTemplate.name,
+        ai_prompt_template_id: template.id,
+        ai_prompt: template.name,
       });
 
       if (campaignError) {
