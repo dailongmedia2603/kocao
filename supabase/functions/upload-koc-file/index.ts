@@ -5,6 +5,21 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST,OPTIONS" };
 
+const slugify = (text: string) => {
+  const a = 'àáâäæãåāăąçćčđďèéêëēėęěğǵḧîïíīįìłḿñńǹňôöòóœøōõőṕŕřßśšşșťțûüùúūǘůűųẃẍÿýžźż·/_,:;'
+  const b = 'aaaaaaaaaacccddeeeeeeeegghiiiiiilmnnnnoooooooooprrsssssttuuuuuuuuuwxyyzzz------'
+  const p = new RegExp(a.split('').join('|'), 'g')
+
+  return text.toString().toLowerCase()
+    .replace(/\s+/g, '-') // Replace spaces with -
+    .replace(p, c => b.charAt(a.indexOf(c))) // Replace special characters
+    .replace(/&/g, '-and-') // Replace & with 'and'
+    .replace(/[^\w\.\-]+/g, '') // Remove all non-word chars except dot and hyphen
+    .replace(/\-\-+/g, '-') // Replace multiple - with single -
+    .replace(/^-+/, '') // Trim - from start of text
+    .replace(/-+$/, '') // Trim - from end of text
+}
+
 const isVideo = (contentType) => {
   return contentType && contentType.startsWith('video/');
 };
@@ -18,13 +33,16 @@ serve(async (req) => {
     const formData = await req.formData();
     const file = formData.get("file");
     const folderPath = formData.get("folderPath");
-    const fileName = formData.get("fileName");
+    const fileName = formData.get("fileName"); // Original filename
     const kocId = formData.get("kocId");
     const userId = formData.get("userId");
 
     if (!file || !folderPath || !fileName || !kocId || !userId) {
       throw new Error("Thiếu thông tin tệp, folderPath, fileName, kocId, hoặc userId.");
     }
+
+    const sanitizedFileName = slugify(fileName);
+    const r2Key = `${folderPath}/${Date.now()}-${sanitizedFileName}`;
 
     const fileBuffer = await file.arrayBuffer();
     const s3 = new S3Client({
@@ -34,7 +52,6 @@ serve(async (req) => {
     });
 
     const bucket = Deno.env.get("R2_BUCKET_NAME");
-    const r2Key = `${folderPath}/${Date.now()}-${fileName}`;
 
     await s3.send(new PutObjectCommand({ Bucket: bucket, Key: r2Key, Body: fileBuffer, ContentType: file.type }));
 
@@ -42,19 +59,15 @@ serve(async (req) => {
       koc_id: kocId,
       user_id: userId,
       r2_key: r2Key,
-      display_name: fileName,
+      display_name: fileName, // Keep original name for display
     }).select('id').single();
 
     if (dbError) throw new Error(`Lỗi lưu vào database: ${dbError.message}`);
 
-    // BƯỚC 3: KÍCH HOẠT TẠO THUMBNAIL TỰ ĐỘNG
     if (newFile && isVideo(file.type)) {
-      // Gọi hàm generate-thumbnail mà không cần chờ (fire-and-forget)
-      // để không làm chậm quá trình upload của người dùng.
       supabaseAdmin.functions.invoke("generate-thumbnail", {
         body: { r2_key: r2Key, file_id: newFile.id },
       }).catch(err => {
-        // Ghi lại lỗi nếu việc gọi hàm thất bại, nhưng không làm sập hàm chính
         console.error(`Lỗi khi kích hoạt generate-thumbnail cho file ${newFile.id}:`, err.message);
       });
     }

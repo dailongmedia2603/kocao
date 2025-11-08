@@ -31,13 +31,31 @@ serve(async (req) => {
     }
     const apiKey = apiKeyData.api_key;
     
-    const formData = await req.formData();
-    const voiceName = formData.get("voice_name") as string;
-    logPayload.request_payload = { voice_name: voiceName, preview_text: formData.get("preview_text"), language_tag: "Vietnamese" };
-    formData.append("language_tag", "Vietnamese");
+    const originalFormData = await req.formData();
+    const voiceName = originalFormData.get("voice_name") as string;
+    const previewText = originalFormData.get("preview_text") as string;
+    const originalFile = originalFormData.get("file") as File;
+
+    if (!originalFile) {
+      throw new Error("File âm thanh là bắt buộc.");
+    }
+
+    // Sanitize the filename before sending to the external API
+    const fileExtension = originalFile.name.split('.').pop() || 'mp3';
+    const sanitizedFileName = `audio-sample-${Date.now()}.${fileExtension}`;
+    const sanitizedFile = new File([originalFile], sanitizedFileName, { type: originalFile.type });
+
+    // Reconstruct FormData for the external API
+    const externalApiFormData = new FormData();
+    externalApiFormData.append("voice_name", voiceName);
+    externalApiFormData.append("preview_text", previewText);
+    externalApiFormData.append("file", sanitizedFile);
+    externalApiFormData.append("language_tag", "Vietnamese");
+
+    logPayload.request_payload = { voice_name: voiceName, preview_text: previewText, language_tag: "Vietnamese", original_filename: originalFile.name };
     
     const apiUrl = "https://gateway.vivoo.work/v1m/voice/clone";
-    const response = await fetch(apiUrl, { method: "POST", headers: { "xi-api-key": apiKey }, body: formData });
+    const response = await fetch(apiUrl, { method: "POST", headers: { "xi-api-key": apiKey }, body: externalApiFormData });
     const responseData = await response.json();
     
     logPayload.status_code = response.status;
