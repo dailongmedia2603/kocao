@@ -31,19 +31,10 @@ serve(async (req) => {
     }
     const apiKey = apiKeyData.api_key;
     
-    const { voice_name, preview_text, file_url } = await req.json();
-    if (!voice_name || !preview_text || !file_url) {
-      throw new Error("Thiếu thông tin voice_name, preview_text, hoặc file_url.");
-    }
-
-    logPayload.request_payload = { voice_name, preview_text, file_url, language_tag: "Vietnamese" };
-    
-    const formData = new FormData();
-    formData.append("voice_name", voice_name);
-    formData.append("preview_text", preview_text);
+    const formData = await req.formData();
+    const voiceName = formData.get("voice_name") as string;
+    logPayload.request_payload = { voice_name: voiceName, preview_text: formData.get("preview_text"), language_tag: "Vietnamese" };
     formData.append("language_tag", "Vietnamese");
-    // The external API expects a file URL, not a file blob
-    formData.append("file", file_url);
     
     const apiUrl = "https://gateway.vivoo.work/v1m/voice/clone";
     const response = await fetch(apiUrl, { method: "POST", headers: { "xi-api-key": apiKey }, body: formData });
@@ -66,7 +57,7 @@ serve(async (req) => {
                 .insert({
                     voice_id: newVoiceId,
                     user_id: user.id,
-                    voice_name: voice_name,
+                    voice_name: voiceName,
                     sample_audio: responseData.sample_audio || null,
                     cover_url: responseData.cover_url || null,
                 });
