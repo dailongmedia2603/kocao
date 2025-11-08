@@ -32,15 +32,30 @@ serve(async (req) => {
       userId = authUser.id;
     }
 
-    const { data: systemApiKeys, error: apiKeyError } = await supabaseAdmin
+    // Fetch user-specific API key
+    const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
       .select("api_key")
-      .limit(1);
+      .eq("user_id", userId)
+      .limit(1)
+      .single();
       
-    if (apiKeyError || !systemApiKeys || systemApiKeys.length === 0) {
-      throw new Error("Chưa có bất kỳ API Key Voice nào được cấu hình trong toàn bộ hệ thống.");
+    let apiKey;
+    if (apiKeyError || !apiKeyData) {
+      // Fallback to system-wide key if user has no key
+      console.warn(`No API key for user ${userId}, falling back to system-wide key.`);
+      const { data: systemApiKeys, error: systemApiKeyError } = await supabaseAdmin
+        .from("user_voice_api_keys")
+        .select("api_key")
+        .limit(1);
+      
+      if (systemApiKeyError || !systemApiKeys || systemApiKeys.length === 0) {
+        throw new Error("Chưa có bất kỳ API Key Voice nào được cấu hình trong toàn bộ hệ thống.");
+      }
+      apiKey = systemApiKeys[0].api_key;
+    } else {
+      apiKey = apiKeyData.api_key;
     }
-    const apiKey = systemApiKeys[0].api_key;
 
     const voice_name = body?.voice_name;
     const cloned_voice_id = body?.voice_setting?.voice_id;
@@ -81,8 +96,6 @@ serve(async (req) => {
       throw new Error(errorMessage);
     }
 
-    // FIX: Ensure the response is always a structured object before spreading.
-    // If the API returns a primitive (string, number, boolean) or an array, wrap it in a 'data' property.
     const payload = (typeof responseData === 'object' && responseData !== null && !Array.isArray(responseData))
       ? { ...responseData }
       : { data: responseData };
