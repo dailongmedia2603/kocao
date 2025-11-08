@@ -9,21 +9,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const slugify = (text: string) => {
-  const a = 'àáâäæãåāăąçćčđďèéêëēėęěğǵḧîïíīįìłḿñńǹňôöòóœøōõőṕŕřßśšşșťțûüùúūǘůűųẃẍÿýžźż·/_,:;'
-  const b = 'aaaaaaaaaacccddeeeeeeeegghiiiiiilmnnnnoooooooooprrsssssttuuuuuuuuuwxyyzzz------'
-  const p = new RegExp(a.split('').join('|'), 'g')
-
-  return text.toString().toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(p, c => b.charAt(a.indexOf(c)))
-    .replace(/&/g, '-and-')
-    .replace(/[^\w\.\-]+/g, '')
-    .replace(/\-\-+/g, '-')
-    .replace(/^-+/, '')
-    .replace(/-+$/, '')
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -33,16 +18,19 @@ serve(async (req) => {
   let logPayload = { user_id: null, request_url: "https://gateway.vivoo.work/v1m/voice/clone", request_payload: {}, response_body: null, status_code: null, status_text: null };
 
   try {
+    // 1. Xác thực người dùng
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Thiếu thông tin xác thực.");
     const { data: { user } } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
     if (!user) throw new Error("Người dùng không hợp lệ.");
     logPayload.user_id = user.id;
 
+    // 2. Lấy API Key dùng chung
     const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.from("user_voice_api_keys").select("api_key").limit(1).single();
     if (apiKeyError || !apiKeyData) throw new Error("Chưa có API Key Voice nào được cấu hình trong hệ thống.");
     const apiKey = apiKeyData.api_key;
     
+    // 3. Nhận dữ liệu từ form
     const originalFormData = await req.formData();
     const voiceName = originalFormData.get("voice_name") as string;
     const previewText = originalFormData.get("preview_text") as string;
@@ -55,6 +43,7 @@ serve(async (req) => {
     }
     logPayload.request_payload = { voice_name: voiceName, preview_text: previewText, original_filename: fileName };
 
+    // 4. Tải file trực tiếp lên R2
     const R2_ACCOUNT_ID = Deno.env.get("R2_ACCOUNT_ID");
     const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID");
     const R2_SECRET_ACCESS_KEY = Deno.env.get("R2_SECRET_ACCESS_KEY");
@@ -64,14 +53,19 @@ serve(async (req) => {
 
     const s3 = new S3Client({ region: "auto", endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`, credentials: { accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_ACCESS_KEY } });
     
-    const sanitizedFileName = slugify(fileName);
-    const r2Key = `voice-clone-samples/${user.id}/${Date.now()}-${sanitizedFileName}`;
+    const r2Key = `voice-clone-samples/${user.id}/${Date.now()}-${fileName}`;
     const fileBuffer = await originalFile.arrayBuffer();
 
-    await s3.send(new PutObjectCommand({ Bucket: R2_BUCKET_NAME, Key: r2Key, Body: fileBuffer, ContentType: fileType }));
+    try {
+      await s3.send(new PutObjectCommand({ Bucket: R2_BUCKET_NAME, Key: r2Key, Body: fileBuffer, ContentType: fileType }));
+    } catch (r2Error) {
+      throw new Error(`Lỗi tải file lên bộ nhớ đệm (R2): ${r2Error.message}`);
+    }
+    
     const publicFileUrl = `${R2_PUBLIC_URL}/${r2Key}`;
     logPayload.request_payload.file_url_on_r2 = publicFileUrl;
 
+    // 5. Gọi API Clone Voice với URL
     const apiUrl = "https://gateway.vivoo.work/v1m/voice/clone";
     const apiBody = {
       voice_name: voiceName,
@@ -93,6 +87,7 @@ serve(async (req) => {
 
     if (!response.ok) throw new Error(responseData.message || `API clone voice báo lỗi với mã ${response.status}`);
 
+    // 6. Lưu kết quả vào DB
     if (responseData.success === true) {
         const newVoiceId = responseData.clone_voice_id;
         if (!newVoiceId) throw new Error("API không trả về ID giọng nói đã clone.");

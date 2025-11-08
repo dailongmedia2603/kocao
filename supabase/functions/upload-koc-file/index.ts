@@ -5,21 +5,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST,OPTIONS" };
 
-const slugify = (text: string) => {
-  const a = 'àáâäæãåāăąçćčđďèéêëēėęěğǵḧîïíīįìłḿñńǹňôöòóœøōõőṕŕřßśšşșťțûüùúūǘůűųẃẍÿýžźż·/_,:;'
-  const b = 'aaaaaaaaaacccddeeeeeeeegghiiiiiilmnnnnoooooooooprrsssssttuuuuuuuuuwxyyzzz------'
-  const p = new RegExp(a.split('').join('|'), 'g')
-
-  return text.toString().toLowerCase()
-    .replace(/\s+/g, '-') // Replace spaces with -
-    .replace(p, c => b.charAt(a.indexOf(c))) // Replace special characters
-    .replace(/&/g, '-and-') // Replace & with 'and'
-    .replace(/[^\w\.\-]+/g, '') // Remove all non-word chars except dot and hyphen
-    .replace(/\-\-+/g, '-') // Replace multiple - with single -
-    .replace(/^-+/, '') // Trim - from start of text
-    .replace(/-+$/, '') // Trim - from end of text
-}
-
 const isVideo = (contentType) => {
   return contentType && contentType.startsWith('video/');
 };
@@ -41,8 +26,7 @@ serve(async (req) => {
       throw new Error("Thiếu thông tin tệp, folderPath, fileName, kocId, hoặc userId.");
     }
 
-    const sanitizedFileName = slugify(fileName);
-    const r2Key = `${folderPath}/${Date.now()}-${sanitizedFileName}`;
+    const r2Key = `${folderPath}/${Date.now()}-${fileName}`;
 
     const fileBuffer = await file.arrayBuffer();
     const s3 = new S3Client({
