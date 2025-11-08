@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { S3Client, PutObjectCommand } from "npm:@aws-sdk/client-s3@^3.609.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,102 +9,119 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const slugify = (text: string) => {
+  const a = 'àáâäæãåāăąçćčđďèéêëēėęěğǵḧîïíīįìłḿñńǹňôöòóœøōõőṕŕřßśšşșťțûüùúūǘůűųẃẍÿýžźż·/_,:;'
+  const b = 'aaaaaaaaaacccddeeeeeeeegghiiiiiilmnnnnoooooooooprrsssssttuuuuuuuuuwxyyzzz------'
+  const p = new RegExp(a.split('').join('|'), 'g')
+
+  return text.toString().toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(p, c => b.charAt(a.indexOf(c)))
+    .replace(/&/g, '-and-')
+    .replace(/[^\w\.\-]+/g, '')
+    .replace(/\-\-+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '')
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  
   let logPayload = { user_id: null, request_url: "https://gateway.vivoo.work/v1m/voice/clone", request_payload: {}, response_body: null, status_code: null, status_text: null };
 
   try {
+    // 1. Xác thực người dùng
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing Authorization header");
-    
+    if (!authHeader) throw new Error("Thiếu thông tin xác thực.");
     const { data: { user } } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (!user) throw new Error("User not found");
+    if (!user) throw new Error("Người dùng không hợp lệ.");
     logPayload.user_id = user.id;
 
+    // 2. Lấy API Key dùng chung
     const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.from("user_voice_api_keys").select("api_key").limit(1).single();
-    if (apiKeyError || !apiKeyData) {
-      throw new Error("Chưa có API Key Voice nào được cấu hình trong hệ thống. Vui lòng liên hệ quản trị viên.");
-    }
+    if (apiKeyError || !apiKeyData) throw new Error("Chưa có API Key Voice nào được cấu hình trong hệ thống.");
     const apiKey = apiKeyData.api_key;
     
+    // 3. Nhận dữ liệu từ form
     const originalFormData = await req.formData();
     const voiceName = originalFormData.get("voice_name") as string;
     const previewText = originalFormData.get("preview_text") as string;
     const originalFile = originalFormData.get("file") as File;
 
-    if (!originalFile) {
-      throw new Error("File âm thanh là bắt buộc.");
-    }
+    if (!originalFile) throw new Error("File âm thanh là bắt buộc.");
+    logPayload.request_payload = { voice_name: voiceName, preview_text: previewText, original_filename: originalFile.name };
 
-    // Sanitize the filename before sending to the external API
-    const fileExtension = originalFile.name.split('.').pop() || 'mp3';
-    const sanitizedFileName = `audio-sample-${Date.now()}.${fileExtension}`;
-    const sanitizedFile = new File([originalFile], sanitizedFileName, { type: originalFile.type });
+    // 4. Tải file trực tiếp lên R2
+    const R2_ACCOUNT_ID = Deno.env.get("R2_ACCOUNT_ID");
+    const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID");
+    const R2_SECRET_ACCESS_KEY = Deno.env.get("R2_SECRET_ACCESS_KEY");
+    const R2_BUCKET_NAME = Deno.env.get("R2_BUCKET_NAME");
+    const R2_PUBLIC_URL = Deno.env.get("R2_PUBLIC_URL");
+    if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET_NAME || !R2_PUBLIC_URL) throw new Error("Thiếu cấu hình R2.");
 
-    // Reconstruct FormData for the external API
-    const externalApiFormData = new FormData();
-    externalApiFormData.append("voice_name", voiceName);
-    externalApiFormData.append("preview_text", previewText);
-    externalApiFormData.append("file", sanitizedFile);
-    externalApiFormData.append("language_tag", "Vietnamese");
-
-    logPayload.request_payload = { voice_name: voiceName, preview_text: previewText, language_tag: "Vietnamese", original_filename: originalFile.name };
+    const s3 = new S3Client({ region: "auto", endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`, credentials: { accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_ACCESS_KEY } });
     
+    const sanitizedFileName = slugify(originalFile.name);
+    const r2Key = `voice-clone-samples/${user.id}/${Date.now()}-${sanitizedFileName}`;
+    const fileBuffer = await originalFile.arrayBuffer();
+
+    await s3.send(new PutObjectCommand({ Bucket: R2_BUCKET_NAME, Key: r2Key, Body: fileBuffer, ContentType: originalFile.type }));
+    const publicFileUrl = `${R2_PUBLIC_URL}/${r2Key}`;
+    logPayload.request_payload.file_url_on_r2 = publicFileUrl;
+
+    // 5. Gọi API Clone Voice với URL
     const apiUrl = "https://gateway.vivoo.work/v1m/voice/clone";
-    const response = await fetch(apiUrl, { method: "POST", headers: { "xi-api-key": apiKey }, body: externalApiFormData });
+    const apiBody = {
+      voice_name: voiceName,
+      preview_text: previewText,
+      file_url: publicFileUrl, // Gửi URL thay vì file
+      language_tag: "Vietnamese",
+    };
+
+    const response = await fetch(apiUrl, { 
+      method: "POST", 
+      headers: { "xi-api-key": apiKey, "Content-Type": "application/json" }, 
+      body: JSON.stringify(apiBody) 
+    });
     const responseData = await response.json();
     
     logPayload.status_code = response.status;
     logPayload.status_text = response.statusText;
     logPayload.response_body = responseData;
 
-    if (!response.ok) {
-      throw new Error(responseData.message || JSON.stringify(responseData));
-    }
+    if (!response.ok) throw new Error(responseData.message || `API báo lỗi với mã ${response.status}`);
 
+    // 6. Lưu kết quả vào DB
     if (responseData.success === true) {
         const newVoiceId = responseData.clone_voice_id;
+        if (!newVoiceId) throw new Error("API không trả về ID giọng nói đã clone.");
 
-        if (newVoiceId) {
-            const { error: insertError } = await supabaseAdmin
-                .from('cloned_voices')
-                .insert({
-                    voice_id: newVoiceId,
-                    user_id: user.id,
-                    voice_name: voiceName,
-                    sample_audio: responseData.sample_audio || null,
-                    cover_url: responseData.cover_url || null,
-                });
-            
-            if (insertError) {
-                console.error("Failed to save cloned voice to DB:", insertError);
-                throw new Error(`Lỗi lưu trữ giọng nói vào CSDL: ${insertError.message}. Vui lòng thử lại hoặc liên hệ hỗ trợ.`);
-            }
-        } else {
-            console.error("Clone successful according to API, but no clone_voice_id was returned. Response data:", JSON.stringify(responseData));
-            throw new Error("Clone thành công nhưng API không trả về ID giọng nói. Vui lòng kiểm tra lại sau hoặc liên hệ hỗ trợ.");
-        }
+        const { error: insertError } = await supabaseAdmin
+            .from('cloned_voices')
+            .insert({
+                voice_id: newVoiceId,
+                user_id: user.id,
+                voice_name: voiceName,
+                sample_audio: responseData.sample_audio || null, // API có thể trả về sample ngay
+                cover_url: responseData.cover_url || null,
+            });
+        if (insertError) throw new Error(`Lỗi lưu vào CSDL: ${insertError.message}`);
     } else {
-        throw new Error(responseData.message || "API báo lỗi không thành công mà không có thông báo chi tiết.");
+        throw new Error(responseData.message || "API báo lỗi không thành công.");
     }
 
     return new Response(JSON.stringify(responseData), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     logPayload.response_body = { error: err.message };
-    if (!logPayload.status_code) {
-      logPayload.status_code = 500;
-      logPayload.status_text = "Internal Server Error";
-    }
-    return new Response(JSON.stringify({ error: err.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!logPayload.status_code) logPayload.status_code = 500;
+    return new Response(JSON.stringify({ success: false, error: err.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } finally {
     if (logPayload.user_id) {
       const { error: logError } = await supabaseAdmin.from("voice_clone_logs").insert(logPayload);
-      if (logError) console.error("Failed to write to voice_clone_logs:", logError);
+      if (logError) console.error("Lỗi ghi log clone voice:", logError);
     }
   }
 });
