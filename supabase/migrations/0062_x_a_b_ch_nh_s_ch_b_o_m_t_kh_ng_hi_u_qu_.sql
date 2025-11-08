@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Allow authenticated users to read admin templates" ON public.ai_prompt_templates;
