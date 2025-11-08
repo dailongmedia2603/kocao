@@ -10,9 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2, UploadCloud } from "lucide-react";
+import { useSession } from "@/contexts/SessionContext";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
-const ACCEPTED_AUDIO_TYPES = ["audio/mpeg"];
 
 const formSchema = z.object({
   voice_name: z.string().min(1, "Tên giọng nói không được để trống."),
@@ -22,13 +22,14 @@ const formSchema = z.object({
     .refine((files) => files?.length === 1, "Vui lòng chọn một file.")
     .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, `Kích thước file tối đa là 20MB.`)
     .refine(
-      (files) => ACCEPTED_AUDIO_TYPES.includes(files?.[0]?.type),
-      "Chỉ hỗ trợ file .mp3."
+      (files) => files?.[0]?.type.startsWith('audio/'),
+      "Vui lòng chọn một file âm thanh."
     ),
 });
 
 export const VoiceCloneForm = () => {
   const queryClient = useQueryClient();
+  const { user } = useSession();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -52,7 +53,7 @@ export const VoiceCloneForm = () => {
     },
     onSuccess: () => {
       showSuccess("Gửi yêu cầu clone thành công! Giọng nói sẽ sớm xuất hiện trong danh sách.");
-      queryClient.invalidateQueries({ queryKey: ["cloned_voices"] });
+      queryClient.invalidateQueries({ queryKey: ["cloned_voices_db", user?.id] });
       form.reset();
     },
     onError: (error: Error) => {
@@ -68,7 +69,7 @@ export const VoiceCloneForm = () => {
     <Card>
       <CardHeader>
         <CardTitle>Tạo Giọng Nói Mới</CardTitle>
-        <CardDescription>Tải lên một file âm thanh (.mp3, tối đa 20MB) để tạo ra một giọng nói tùy chỉnh.</CardDescription>
+        <CardDescription>Tải lên một file âm thanh (tối đa 20MB) để tạo ra một giọng nói tùy chỉnh.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -91,7 +92,7 @@ export const VoiceCloneForm = () => {
               <FormItem>
                 <FormLabel>File âm thanh</FormLabel>
                 <FormControl>
-                  <Input type="file" accept="audio/mpeg" onChange={(e) => field.onChange(e.target.files)} />
+                  <Input type="file" accept="audio/*" onChange={(e) => field.onChange(e.target.files)} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
