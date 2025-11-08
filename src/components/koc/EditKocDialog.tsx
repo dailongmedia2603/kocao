@@ -11,7 +11,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { callVoiceApi } from "@/lib/voiceApi";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type Koc = {
@@ -43,13 +42,15 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
   const { user } = useSession();
 
   const { data: voices, isLoading: isLoadingVoices } = useQuery<ClonedVoice[]>({
-    queryKey: ['cloned_voices'],
+    queryKey: ['cloned_voices_for_user', user?.id],
     queryFn: async () => {
-      const response = await callVoiceApi({ path: "v1m/voice/clone", method: "GET" });
-      if (response && response.data) {
-        return response.data.filter((v: any) => v.voice_status === 2);
-      }
-      return [];
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('cloned_voices')
+        .select('voice_id, voice_name')
+        .eq('user_id', user.id);
+      if (error) throw error;
+      return data as ClonedVoice[];
     },
     enabled: !!user && isOpen,
   });
