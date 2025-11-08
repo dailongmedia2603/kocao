@@ -38,6 +38,8 @@ export const VoiceCloneForm = () => {
     },
   });
 
+  const fileRef = form.register("file");
+
   const cloneVoiceMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       const file = values.file[0];
@@ -45,8 +47,8 @@ export const VoiceCloneForm = () => {
       formData.append("voice_name", values.voice_name);
       formData.append("preview_text", values.preview_text);
       formData.append("file", file);
-      formData.append("fileName", file.name); // Gửi tên tệp một cách tường minh
-      formData.append("fileType", file.type); // Gửi loại tệp một cách tường minh
+      formData.append("fileName", file.name);
+      formData.append("fileType", file.type);
 
       const { data, error } = await supabase.functions.invoke("voice-clone-proxy", { body: formData });
       if (error) throw new Error(error.message);
@@ -91,11 +93,11 @@ export const VoiceCloneForm = () => {
                 <FormMessage />
               </FormItem>
             )} />
-            <FormField control={form.control} name="file" render={({ field }) => (
+            <FormField control={form.control} name="file" render={() => (
               <FormItem>
                 <FormLabel>File âm thanh</FormLabel>
                 <FormControl>
-                  <Input type="file" accept="audio/*" onChange={(e) => field.onChange(e.target.files)} />
+                  <Input type="file" accept="audio/*" {...fileRef} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
