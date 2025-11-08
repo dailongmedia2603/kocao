@@ -120,16 +120,6 @@ const fetchKocFiles = async (kocId: string): Promise<KocFile[]> => {
   return data.files as KocFile[];
 };
 
-const fetchVideoScripts = async (kocId: string) => {
-  const { data, error } = await supabase
-    .from('video_scripts')
-    .select('*, news_posts(content, voice_task_id)')
-    .eq('koc_id', kocId)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data as VideoScript[];
-};
-
 const fetchIdeas = async (kocId: string) => {
   const { data, error } = await supabase.functions.invoke('get-koc-ideas', {
     body: { kocId },
@@ -245,9 +235,18 @@ const KocDetail = () => {
     enabled: !!kocId,
   });
 
-  const { data: videoScripts, isLoading: areScriptsLoading } = useQuery<VideoScript[]>({
-    queryKey: ["video_scripts", kocId],
-    queryFn: () => fetchVideoScripts(kocId!),
+  const { data: automationCampaigns, isLoading: areCampaignsLoading } = useQuery({
+    queryKey: ["automation_campaigns_for_koc", kocId],
+    queryFn: async () => {
+        if (!kocId) return [];
+        const { data, error } = await supabase
+            .from('automation_campaigns')
+            .select('*')
+            .eq('koc_id', kocId)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
+    },
     enabled: !!kocId,
   });
 
@@ -288,36 +287,6 @@ const KocDetail = () => {
     });
     return map;
   }, [dreamfaceTasks]);
-
-  const voiceTaskIds = useMemo(() => 
-    videoScripts
-        ?.map(script => script.news_posts?.voice_task_id)
-        .filter((id): id is string => !!id) 
-    || [], 
-  [videoScripts]);
-
-  const { data: voiceTasks } = useQuery<VoiceTask[]>({
-      queryKey: ['voice_tasks_for_scripts', voiceTaskIds],
-      queryFn: async () => {
-          if (voiceTaskIds.length === 0) return [];
-          const { data, error } = await supabase
-              .from('voice_tasks')
-              .select('id, status, audio_url')
-              .in('id', voiceTaskIds);
-          if (error) throw error;
-          return data;
-      },
-      enabled: voiceTaskIds.length > 0,
-      refetchInterval: (query) => {
-        const data = query.state.data as VoiceTask[] | undefined;
-        return data?.some(task => task.status === 'doing') ? 10000 : false;
-      },
-  });
-
-  const voiceTasksMap = useMemo(() => {
-      if (!voiceTasks) return new Map<string, VoiceTask>();
-      return new Map(voiceTasks.map(task => [task.id, task]));
-  }, [voiceTasks]);
 
   const generatedFiles = useMemo(() => files?.filter(file => file.r2_key.includes('/generated/')) || [], [files]);
   const sourceVideos = useMemo(() => files?.filter(file => file.r2_key.includes('/sources/videos/')) || [], [files]);
@@ -530,39 +499,25 @@ const KocDetail = () => {
               : (<p className="text-sm text-muted-foreground text-center py-8">Chưa có video nguồn.</p>)}
             </TabsContent>
             <TabsContent value="auto-scripts" className="mt-4">
-              {areScriptsLoading ? <Skeleton className="h-48 w-full" /> : videoScripts && videoScripts.length > 0 ? (
+              {areCampaignsLoading ? <Skeleton className="h-48 w-full" /> : automationCampaigns && automationCampaigns.length > 0 ? (
                 <div className="space-y-3">
-                  {videoScripts.map(script => {
-                    const voiceTaskId = script.news_posts?.voice_task_id;
-                    const voiceTask = voiceTaskId ? voiceTasksMap.get(voiceTaskId) : null;
-                    return (
-                      <Card key={script.id}>
+                  {automationCampaigns.map((campaign: any) => (
+                    <Link to={`/automation/${campaign.id}`} key={campaign.id} className="block hover:bg-muted/50 rounded-lg transition-colors">
+                      <Card className="cursor-pointer">
                         <CardContent className="p-3">
                           <div className="flex justify-between items-start">
-                            <p className="font-semibold text-sm flex-1 pr-2">{script.name}</p>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild><Button variant="ghost" className="h-7 w-7 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => { setSelectedScript(script); setIsViewScriptOpen(true); }}>Xem kịch bản</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => { setSelectedScript(script); setIsViewLogOpen(true); }} disabled={!script.ai_prompt}>Xem Log</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setScriptToDelete(script)} className="text-destructive">Xóa</DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <p className="font-semibold text-sm flex-1 pr-2">{campaign.name}</p>
+                            <Badge variant={campaign.status === 'active' ? 'default' : 'secondary'} className={campaign.status === 'active' ? 'bg-green-100 text-green-800' : ''}>
+                              {campaign.status === 'active' ? 'Đang chạy' : 'Tạm dừng'}
+                            </Badge>
                           </div>
-                          <p className="text-xs text-muted-foreground truncate mt-1">Nguồn: {script.news_posts?.content || 'N/A'}</p>
-                          {voiceTask && (
-                            <div className="mt-2">
-                              {voiceTask.status === 'done' && voiceTask.audio_url ? <audio controls src={voiceTask.audio_url} className="h-8 w-full" />
-                              : voiceTask.status === 'doing' ? <Badge variant="outline" className="text-blue-800 border-blue-200"><Loader2 className="mr-1 h-3 w-3 animate-spin" />Đang xử lý</Badge>
-                              : <Badge variant="destructive">Lỗi</Badge>}
-                            </div>
-                          )}
+                          <p className="text-xs text-muted-foreground mt-1">Giọng nói: {campaign.cloned_voice_name}</p>
                         </CardContent>
                       </Card>
-                    )
-                  })}
+                    </Link>
+                  ))}
                 </div>
-              ) : (<p className="text-sm text-muted-foreground text-center py-8">Chưa có kịch bản nào.</p>)}
+              ) : (<p className="text-sm text-muted-foreground text-center py-8">Chưa có chiến dịch nào.</p>)}
             </TabsContent>
             <TabsContent value="idea-content" className="mt-4">
               <IdeaContentTab kocId={koc.id} ideas={ideas} isLoading={areIdeasLoading} isMobile={true} defaultTemplateId={koc.default_prompt_template_id} />
@@ -645,116 +600,37 @@ const KocDetail = () => {
                   <Card>
                     <CardHeader>
                       <CardTitle>Automation</CardTitle>
-                      <CardDescription>Các kịch bản được tạo tự động cho KOC này.</CardDescription>
+                      <CardDescription>Các chiến dịch tự động được thiết lập cho KOC này.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Tên kịch bản</TableHead>
-                            <TableHead>Nguồn tin tức</TableHead>
-                            <TableHead>Ngày tạo</TableHead>
-                            <TableHead>Nội dung</TableHead>
-                            <TableHead>Log</TableHead>
-                            <TableHead>Voice</TableHead>
-                            <TableHead className="text-right">Hành động</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {areScriptsLoading ? (
-                            <TableRow>
-                              <TableCell colSpan={7} className="h-24 text-center">
-                                <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-                              </TableCell>
-                            </TableRow>
-                          ) : videoScripts && videoScripts.length > 0 ? (
-                            videoScripts.map((script) => {
-                              const voiceTaskId = script.news_posts?.voice_task_id;
-                              const voiceTask = voiceTaskId ? voiceTasksMap.get(voiceTaskId) : null;
-                              return (
-                                <TableRow key={script.id}>
-                                  <TableCell className="font-medium">{script.name}</TableCell>
-                                  <TableCell>
-                                    <p className="max-w-xs truncate" title={script.news_posts?.content || ''}>
-                                      {script.news_posts?.content || 'N/A'}
-                                    </p>
-                                  </TableCell>
-                                  <TableCell>
-                                    {format(new Date(script.created_at), "dd/MM/yyyy HH:mm", { locale: vi })}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Button
-                                      variant="link"
-                                      className="p-0 h-auto"
-                                      onClick={() => {
-                                        setSelectedScript(script);
-                                        setIsViewScriptOpen(true);
-                                      }}
-                                    >
-                                      Xem chi tiết
-                                    </Button>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Button
-                                      variant="link"
-                                      className="p-0 h-auto"
-                                      disabled={!script.ai_prompt}
-                                      onClick={() => {
-                                        setSelectedScript(script);
-                                        setIsViewLogOpen(true);
-                                      }}
-                                    >
-                                      Xem log
-                                    </Button>
-                                  </TableCell>
-                                  <TableCell>
-                                    {voiceTask ? (
-                                        voiceTask.status === 'done' && voiceTask.audio_url ? (
-                                            <audio controls src={voiceTask.audio_url} className="h-8 w-full max-w-[150px]" />
-                                        ) : voiceTask.status === 'doing' ? (
-                                            <Badge variant="outline" className="text-blue-800 border-blue-200">
-                                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                                Đang xử lý
-                                            </Badge>
-                                        ) : voiceTask.status === 'error' ? (
-                                            <Badge variant="destructive">Lỗi</Badge>
-                                        ) : (
-                                            <Badge variant="secondary">Đang chờ</Badge>
-                                        )
-                                    ) : (
-                                        <span className="text-muted-foreground text-xs">Chưa có</span>
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" className="h-8 w-8 p-0">
-                                          <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                        <DropdownMenuItem
-                                          className="text-destructive"
-                                          onClick={() => setScriptToDelete(script)}
-                                        >
-                                          <Trash2 className="mr-2 h-4 w-4" />
-                                          Xóa
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </TableCell>
-                                </TableRow>
-                              )
-                            })
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={7} className="h-24 text-center">
-                                Chưa có kịch bản tự động nào.
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                      {areCampaignsLoading ? (
+                        <div className="space-y-4">
+                          <Skeleton className="h-20 w-full" />
+                        </div>
+                      ) : automationCampaigns && automationCampaigns.length > 0 ? (
+                        <div className="space-y-4">
+                          {(automationCampaigns as any[]).map((campaign) => (
+                            <Link to={`/automation/${campaign.id}`} key={campaign.id} className="block hover:bg-muted/50 rounded-lg transition-colors">
+                              <Card className="cursor-pointer">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                  <div>
+                                    <p className="font-semibold">{campaign.name}</p>
+                                    <p className="text-sm text-muted-foreground">Giọng nói: {campaign.cloned_voice_name}</p>
+                                  </div>
+                                  <Badge variant={campaign.status === 'active' ? 'default' : 'secondary'} className={campaign.status === 'active' ? 'bg-green-100 text-green-800' : ''}>
+                                    {campaign.status === 'active' ? 'Đang chạy' : 'Tạm dừng'}
+                                  </Badge>
+                                </CardContent>
+                              </Card>
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-10 text-muted-foreground">
+                          <Bot className="mx-auto h-12 w-12" />
+                          <p className="mt-2">KOC này chưa được gán vào chiến dịch tự động nào.</p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
