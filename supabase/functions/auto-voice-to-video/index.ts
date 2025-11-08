@@ -63,7 +63,7 @@ serve(async (req) => {
           .single();
 
         if (videoError || !sourceVideo) {
-          throw new Error(`Không tìm thấy video nguồn nào cho KOC ${idea.koc_id}.`);
+          throw new Error(`Không tìm thấy video nguồn nào cho KOC ${idea.koc_id}. Vui lòng tải video nguồn lên.`);
         }
         const sourceVideoUrl = `${R2_PUBLIC_URL}/${sourceVideo.r2_key}`;
 

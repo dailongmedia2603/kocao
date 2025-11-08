@@ -32,30 +32,17 @@ serve(async (req) => {
       userId = authUser.id;
     }
 
-    // Fetch user-specific API key
+    // Lấy một API key dùng chung trong hệ thống
     const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
       .select("api_key")
-      .eq("user_id", userId)
       .limit(1)
       .single();
       
-    let apiKey;
     if (apiKeyError || !apiKeyData) {
-      // Fallback to system-wide key if user has no key
-      console.warn(`No API key for user ${userId}, falling back to system-wide key.`);
-      const { data: systemApiKeys, error: systemApiKeyError } = await supabaseAdmin
-        .from("user_voice_api_keys")
-        .select("api_key")
-        .limit(1);
-      
-      if (systemApiKeyError || !systemApiKeys || systemApiKeys.length === 0) {
-        throw new Error("Chưa có bất kỳ API Key Voice nào được cấu hình trong toàn bộ hệ thống.");
-      }
-      apiKey = systemApiKeys[0].api_key;
-    } else {
-      apiKey = apiKeyData.api_key;
+      throw new Error("Chưa có bất kỳ API Key Voice nào được cấu hình trong toàn bộ hệ thống.");
     }
+    const apiKey = apiKeyData.api_key;
 
     const voice_name = body?.voice_name;
     const cloned_voice_id = body?.voice_setting?.voice_id;
