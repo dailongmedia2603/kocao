@@ -31,16 +31,18 @@ serve(async (req) => {
     if (ideaError || !idea) throw new Error(`Idea with ID ${ideaId} not found.`);
     if (!idea.new_content) throw new Error("Idea does not have content to generate voice from.");
 
-    // 2. Find a campaign for the KOC to get voice settings
-    const { data: campaign, error: campaignError } = await supabaseAdmin
-      .from('automation_campaigns')
-      .select('cloned_voice_id, cloned_voice_name')
-      .eq('koc_id', idea.koc_id)
-      .limit(1)
+    // 2. Find the KOC and its default voice settings
+    const { data: koc, error: kocError } = await supabaseAdmin
+      .from('kocs')
+      .select('default_cloned_voice_id, default_cloned_voice_name')
+      .eq('id', idea.koc_id)
       .single();
 
-    if (campaignError || !campaign) {
-      throw new Error(`No campaign configured for KOC ${idea.koc_id}. Cannot determine which voice to use.`);
+    if (kocError || !koc) {
+      throw new Error(`KOC with ID ${idea.koc_id} not found.`);
+    }
+    if (!koc.default_cloned_voice_id || !koc.default_cloned_voice_name) {
+      throw new Error(`KOC này chưa được cấu hình giọng nói mặc định. Vui lòng vào Chỉnh sửa KOC để thiết lập.`);
     }
 
     // 3. Update idea status to 'Đang tạo voice'
@@ -56,8 +58,8 @@ serve(async (req) => {
           text: idea.new_content,
           voice_name: `ManualVoice for Idea ${idea.id.substring(0, 8)}`,
           model: "speech-2.5-hd-preview",
-          voice_setting: { voice_id: campaign.cloned_voice_id },
-          cloned_voice_name: campaign.cloned_voice_name
+          voice_setting: { voice_id: koc.default_cloned_voice_id },
+          cloned_voice_name: koc.default_cloned_voice_name
         }
       }
     });
@@ -76,6 +78,12 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Error in manual-create-voice-from-idea:", error);
+    // Rollback status if something fails
+    const { ideaId } = await req.json().catch(() => ({}));
+    if (ideaId) {
+        const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+        await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đã có content', error_message: error.message }).eq('id', ideaId);
+    }
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
   }
 });
