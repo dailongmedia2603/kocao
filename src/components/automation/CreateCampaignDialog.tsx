@@ -67,17 +67,6 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
       const selectedVoice = voices?.find(v => v.voice_id === values.clonedVoiceId);
       if (!selectedVoice) throw new Error("Giọng nói đã chọn không hợp lệ.");
 
-      // Sử dụng RPC function để tìm template mặc định một cách an toàn
-      const { data: templateData, error: templateError } = await supabase
-        .rpc('get_default_template_for_koc', { p_koc_id: values.kocId })
-        .single();
-
-      if (templateError || !templateData) {
-        throw new Error("KOC này chưa được cấu hình template AI mặc định và không tìm thấy template mặc định nào khác. Vui lòng vào chi tiết KOC, tab Idea Content để cấu hình.");
-      }
-      
-      const template = templateData as { id: string; name: string };
-
       const { data: newProject, error: projectError } = await supabase
         .from("projects")
         .insert({ user_id: user.id, name: `Project for: ${values.name}` })
@@ -86,6 +75,7 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
 
       if (projectError) throw new Error(`Lỗi tạo project: ${projectError.message}`);
 
+      // Gửi dữ liệu, trigger sẽ tự động điền ai_prompt_template_id và ai_prompt
       const { error: campaignError } = await supabase.from("automation_campaigns").insert({
         user_id: user.id,
         project_id: newProject.id,
@@ -94,13 +84,12 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
         koc_id: values.kocId,
         cloned_voice_id: values.clonedVoiceId,
         cloned_voice_name: selectedVoice.voice_name,
-        ai_prompt_template_id: template.id,
-        ai_prompt: template.name,
       });
 
       if (campaignError) {
+        // Nếu có lỗi (ví dụ: trigger báo không tìm thấy prompt), xóa project đã tạo
         await supabase.from("projects").delete().eq("id", newProject.id);
-        throw new Error(`Lỗi tạo chiến dịch: ${campaignError.message}`);
+        throw new Error(campaignError.message);
       }
     },
     onSuccess: () => {
