@@ -5,7 +5,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
-import { callVoiceApi } from "@/lib/voiceApi";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -45,13 +44,16 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
   });
 
   const { data: voices, isLoading: isLoadingVoices } = useQuery<ClonedVoice[]>({
-    queryKey: ['cloned_voices'],
+    queryKey: ['cloned_voices_for_user', user?.id],
     queryFn: async () => {
-      const response = await callVoiceApi({ path: "v1m/voice/clone", method: "GET" });
-      if (response && response.data) {
-        return response.data.filter((v: any) => v.voice_status === 2);
-      }
-      return [];
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('cloned_voices')
+        .select('voice_id, voice_name')
+        .eq('user_id', user.id)
+        .not('sample_audio', 'is', null); // Chỉ hiển thị các voice đã sẵn sàng
+      if (error) throw error;
+      return data as ClonedVoice[];
     },
     enabled: !!user,
   });
