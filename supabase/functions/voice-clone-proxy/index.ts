@@ -50,9 +50,11 @@ serve(async (req) => {
     const voiceName = originalFormData.get("voice_name") as string;
     const previewText = originalFormData.get("preview_text") as string;
     const originalFile = originalFormData.get("file") as File;
+    const fileName = originalFormData.get("fileName") as string;
 
     if (!originalFile) throw new Error("File âm thanh là bắt buộc.");
-    logPayload.request_payload = { voice_name: voiceName, preview_text: previewText, original_filename: originalFile.name };
+    if (!fileName) throw new Error("Tên file là bắt buộc.");
+    logPayload.request_payload = { voice_name: voiceName, preview_text: previewText, original_filename: fileName };
 
     // 4. Tải file trực tiếp lên R2
     const R2_ACCOUNT_ID = Deno.env.get("R2_ACCOUNT_ID");
@@ -64,11 +66,16 @@ serve(async (req) => {
 
     const s3 = new S3Client({ region: "auto", endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`, credentials: { accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_ACCESS_KEY } });
     
-    const sanitizedFileName = slugify(originalFile.name);
+    const sanitizedFileName = slugify(fileName);
     const r2Key = `voice-clone-samples/${user.id}/${Date.now()}-${sanitizedFileName}`;
     const fileBuffer = await originalFile.arrayBuffer();
 
-    await s3.send(new PutObjectCommand({ Bucket: R2_BUCKET_NAME, Key: r2Key, Body: fileBuffer, ContentType: originalFile.type }));
+    try {
+      await s3.send(new PutObjectCommand({ Bucket: R2_BUCKET_NAME, Key: r2Key, Body: fileBuffer, ContentType: originalFile.type }));
+    } catch (r2Error) {
+      throw new Error(`Lỗi tải file lên bộ nhớ đệm (R2): ${r2Error.message}`);
+    }
+    
     const publicFileUrl = `${R2_PUBLIC_URL}/${r2Key}`;
     logPayload.request_payload.file_url_on_r2 = publicFileUrl;
 
@@ -77,7 +84,7 @@ serve(async (req) => {
     const apiBody = {
       voice_name: voiceName,
       preview_text: previewText,
-      file_url: publicFileUrl, // Gửi URL thay vì file
+      file_url: publicFileUrl,
       language_tag: "Vietnamese",
     };
 
@@ -92,7 +99,7 @@ serve(async (req) => {
     logPayload.status_text = response.statusText;
     logPayload.response_body = responseData;
 
-    if (!response.ok) throw new Error(responseData.message || `API báo lỗi với mã ${response.status}`);
+    if (!response.ok) throw new Error(responseData.message || `API clone voice báo lỗi với mã ${response.status}`);
 
     // 6. Lưu kết quả vào DB
     if (responseData.success === true) {
@@ -105,10 +112,10 @@ serve(async (req) => {
                 voice_id: newVoiceId,
                 user_id: user.id,
                 voice_name: voiceName,
-                sample_audio: responseData.sample_audio || null, // API có thể trả về sample ngay
+                sample_audio: responseData.sample_audio || null,
                 cover_url: responseData.cover_url || null,
             });
-        if (insertError) throw new Error(`Lỗi lưu vào CSDL: ${insertError.message}`);
+        if (insertError) throw new Error(`Lỗi lưu giọng nói vào CSDL: ${insertError.message}`);
     } else {
         throw new Error(responseData.message || "API báo lỗi không thành công.");
     }

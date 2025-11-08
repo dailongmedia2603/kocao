@@ -44,6 +44,7 @@ export const VoiceCloneForm = () => {
       formData.append("voice_name", values.voice_name);
       formData.append("preview_text", values.preview_text);
       formData.append("file", values.file[0]);
+      formData.append("fileName", values.file[0].name); // Gửi tên tệp một cách tường minh
 
       const { data, error } = await supabase.functions.invoke("voice-clone-proxy", { body: formData });
       if (error) throw new Error(error.message);
