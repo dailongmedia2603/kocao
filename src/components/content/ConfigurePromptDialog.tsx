@@ -193,7 +193,7 @@ const PromptEditor = ({ templateType }: PromptEditorProps) => {
 export const ConfigurePromptDialog = ({ isOpen, onOpenChange }: ConfigurePromptDialogProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Cấu hình Prompt Tạo Kế Hoạch</DialogTitle>
           <DialogDescription>Tùy chỉnh prompt sẽ được gửi đến AI để tạo kế hoạch nội dung.</DialogDescription>
