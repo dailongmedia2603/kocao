@@ -81,7 +81,8 @@ serve(async (req) => {
       logPayload.status_code = 500;
       logPayload.status_text = "Internal Server Error";
     }
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // SỬA LỖI: Luôn trả về status 200 để client có thể xử lý thông báo lỗi
+    return new Response(JSON.stringify({ error: err.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } finally {
     if (logPayload.user_id) {
       const { error: logError } = await supabaseAdmin.from("voice_clone_logs").insert(logPayload);
