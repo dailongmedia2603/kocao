@@ -1,55 +1,81 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { showError, showSuccess } from "@/utils/toast";
+import { showError, showSuccess, showLoading, dismissToast } from "@/utils/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Loader2, UploadCloud, File as FileIcon } from "lucide-react";
+import { Loader2, UploadCloud, File as FileIcon, CheckCircle } from "lucide-react";
 import { useSession } from "@/contexts/SessionContext";
-
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 const formSchema = z.object({
   voice_name: z.string().min(1, "Tên giọng nói không được để trống."),
   preview_text: z.string().min(10, "Văn bản xem trước phải có ít nhất 10 ký tự.").max(300, "Văn bản không được quá 300 ký tự."),
-  file: z.custom<File>((v) => v instanceof File, { message: "Vui lòng chọn một file." })
-    .refine((f) => !!f && f.size <= MAX_FILE_SIZE, "Kích thước file tối đa là 20MB.")
-    .refine((f) => !!f && f.type?.startsWith("audio/"), "Vui lòng chọn một file âm thanh."),
 });
 
 export const VoiceCloneForm = () => {
   const queryClient = useQueryClient();
   const { user } = useSession();
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       voice_name: "",
       preview_text: "Xin chào, tôi rất vui được hỗ trợ bạn với các dịch vụ giọng nói của chúng tôi. Hãy chọn một giọng nói phù hợp với bạn và cùng bắt đầu hành trình âm thanh sáng tạo của chúng ta",
-      file: undefined,
     },
   });
 
+  const uploadFileMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("fileName", file.name);
+      formData.append("fileType", file.type);
+
+      const { data, error } = await supabase.functions.invoke("upload-voice-sample", { body: formData });
+      if (error) throw new Error(error.message);
+      if (data.error) throw new Error(data.error);
+      return data.url;
+    },
+    onSuccess: (url, file) => {
+      setAudioUrl(url);
+      setFileName(file.name);
+      showSuccess("Tải file lên thành công!");
+    },
+    onError: (error: Error) => {
+      showError(`Lỗi tải file: ${error.message}`);
+      setAudioUrl(null);
+      setFileName(null);
+    },
+  });
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setAudioUrl(null);
+      setFileName(null);
+      uploadFileMutation.mutate(file);
+    }
+  };
+
   const cloneVoiceMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      const file = values.file;
-      if (!file) throw new Error("Chưa chọn file.");
+      if (!audioUrl) throw new Error("Vui lòng tải file âm thanh lên trước.");
 
-      const safeName = file.name?.trim() || `sample-${Date.now()}.webm`;
-      const safeType = file.type?.trim() || "application/octet-stream";
-
-      const formData = new FormData();
-      formData.append("voice_name", values.voice_name);
-      formData.append("preview_text", values.preview_text);
-      formData.append("file", file);
-      formData.append("fileName", safeName);
-      formData.append("fileType", safeType);
-
-      const { data, error } = await supabase.functions.invoke("voice-clone-proxy", { body: formData });
+      const { data, error } = await supabase.functions.invoke("voice-clone-proxy", {
+        body: {
+          voice_name: values.voice_name,
+          preview_text: values.preview_text,
+          file_url: audioUrl,
+        },
+      });
       if (error) throw new Error(error.message);
       if (data.error) throw new Error(data.error);
       if (!data.success) throw new Error(data.message || "Clone voice thất bại.");
@@ -59,6 +85,8 @@ export const VoiceCloneForm = () => {
       showSuccess("Gửi yêu cầu clone thành công! Giọng nói sẽ sớm xuất hiện trong danh sách.");
       queryClient.invalidateQueries({ queryKey: ["cloned_voices_db", user?.id] });
       form.reset();
+      setAudioUrl(null);
+      setFileName(null);
     },
     onError: (error: Error) => {
       showError(`Lỗi: ${error.message}`);
@@ -68,8 +96,6 @@ export const VoiceCloneForm = () => {
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     cloneVoiceMutation.mutate(values);
   };
-
-  const selectedFile = form.watch("file") as File | undefined;
 
   return (
     <Card>
@@ -94,29 +120,26 @@ export const VoiceCloneForm = () => {
                 <FormMessage />
               </FormItem>
             )} />
-            <FormField control={form.control} name="file" render={() => (
-              <FormItem>
-                <FormLabel>File âm thanh</FormLabel>
-                <FormControl>
-                  <Input
-                    type="file"
-                    accept="audio/*"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0] || null;
-                      form.setValue("file", f as any, { shouldValidate: true, shouldDirty: true });
-                    }}
-                  />
-                </FormControl>
-                {selectedFile && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2 p-2 bg-muted rounded-md">
-                    <FileIcon className="h-4 w-4" />
-                    <span>Đã chọn: {selectedFile.name}</span>
-                  </div>
-                )}
-                <FormMessage />
-              </FormItem>
-            )} />
-            <Button type="submit" className="w-full" disabled={cloneVoiceMutation.isPending}>
+            <FormItem>
+              <FormLabel>File âm thanh</FormLabel>
+              <FormControl>
+                <Input type="file" accept="audio/*" onChange={handleFileChange} disabled={uploadFileMutation.isPending} />
+              </FormControl>
+              {uploadFileMutation.isPending && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Đang tải file lên...</span>
+                </div>
+              )}
+              {audioUrl && fileName && (
+                <div className="flex items-center gap-2 text-sm text-green-600 mt-2 p-2 bg-green-50 rounded-md">
+                  <CheckCircle className="h-4 w-4" />
+                  <span>Đã tải lên: {fileName}</span>
+                </div>
+              )}
+              <FormMessage />
+            </FormItem>
+            <Button type="submit" className="w-full" disabled={cloneVoiceMutation.isPending || uploadFileMutation.isPending || !audioUrl}>
               {cloneVoiceMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
               Bắt đầu Clone
             </Button>
