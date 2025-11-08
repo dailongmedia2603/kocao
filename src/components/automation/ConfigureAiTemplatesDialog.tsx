@@ -19,6 +19,7 @@ type Template = {
   word_count: number | null;
   is_default: boolean;
   user_id: string;
+  is_public: boolean;
   [key: string]: any; 
 };
 
@@ -190,7 +191,7 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange, kocId, defaul
                   )}
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center"><Shield className="h-4 w-4 mr-2" />Template từ Admin</h3>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-2 flex items-center"><Shield className="h-4 w-4 mr-2" />Thư viện mẫu (Admin)</h3>
                   {adminTemplates.length > 0 ? (
                     <div className="space-y-3">
                       {adminTemplates.map((template) => <TemplateCard key={template.id} template={template} isUserTemplate={false} />)}

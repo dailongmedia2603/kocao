@@ -7,13 +7,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên không được để trống"),
@@ -25,6 +26,7 @@ const formSchema = z.object({
   ai_role: z.string().optional(),
   mandatory_requirements: z.string().optional(),
   example_dialogue: z.string().optional(),
+  is_public: z.boolean().default(false),
 });
 
 type AddEditAiTemplateDialogProps = {
@@ -34,7 +36,7 @@ type AddEditAiTemplateDialogProps = {
 };
 
 export const AddEditAiTemplateDialog = ({ isOpen, onOpenChange, template }: AddEditAiTemplateDialogProps) => {
-  const { user } = useSession();
+  const { user, profile } = useSession();
   const queryClient = useQueryClient();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -48,31 +50,39 @@ export const AddEditAiTemplateDialog = ({ isOpen, onOpenChange, template }: AddE
       ai_role: "",
       mandatory_requirements: "",
       example_dialogue: "",
+      is_public: false,
     },
   });
 
   useEffect(() => {
-    if (template) {
-      form.reset(template);
-    } else {
-      form.reset({
-        name: "",
-        model: "gemini-2.5-pro",
-        word_count: 300,
-        tone_of_voice: "",
-        writing_style: "",
-        writing_method: "",
-        ai_role: "",
-        mandatory_requirements: "",
-        example_dialogue: "",
-      });
+    if (isOpen) {
+      if (template) {
+        form.reset({ ...template, is_public: template.is_public || false });
+      } else {
+        form.reset({
+          name: "",
+          model: "gemini-2.5-pro",
+          word_count: 300,
+          tone_of_voice: "",
+          writing_style: "",
+          writing_method: "",
+          ai_role: "",
+          mandatory_requirements: "",
+          example_dialogue: "",
+          is_public: false,
+        });
+      }
     }
   }, [template, form, isOpen]);
 
   const mutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
-      const dataToUpsert = { ...values, user_id: user.id };
+      const dataToUpsert = { 
+        ...values, 
+        user_id: user.id,
+        is_public: profile?.role === 'admin' ? values.is_public : false,
+      };
       if (template) {
         const { error } = await supabase.from("ai_prompt_templates").update(dataToUpsert).eq("id", template.id);
         if (error) throw error;
@@ -83,7 +93,7 @@ export const AddEditAiTemplateDialog = ({ isOpen, onOpenChange, template }: AddE
     },
     onSuccess: () => {
       showSuccess(`Template đã được ${template ? 'cập nhật' : 'tạo'} thành công!`);
-      queryClient.invalidateQueries({ queryKey: ["ai_prompt_templates", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["available_ai_prompt_templates", user?.id] });
       onOpenChange(false);
     },
     onError: (error: Error) => showError(error.message),
@@ -115,6 +125,30 @@ export const AddEditAiTemplateDialog = ({ isOpen, onOpenChange, template }: AddE
                 <FormField control={form.control} name="ai_role" render={({ field }) => (<FormItem><FormLabel>Vai trò AI</FormLabel><FormControl><Textarea placeholder="Ví dụ: Đóng vai là 1 người tự quay video tiktok để nói chuyện..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="mandatory_requirements" render={({ field }) => (<FormItem><FormLabel>Yêu cầu bắt buộc</FormLabel><FormControl><Textarea placeholder="Ví dụ: Không nhắc đến đối thủ cạnh tranh..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={form.control} name="example_dialogue" render={({ field }) => (<FormItem><FormLabel>Lời thoại ví dụ</FormLabel><FormControl><Textarea placeholder="Ví dụ: 'Hello mọi người, lại là mình đây! Hôm nay có tin gì hot hòn họt nè...'" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                {profile?.role === 'admin' && (
+                  <FormField
+                    control={form.control}
+                    name="is_public"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>
+                            Công khai (Public)
+                          </FormLabel>
+                          <FormDescription>
+                            Nếu được chọn, template này sẽ hiển thị cho tất cả người dùng.
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                )}
               </div>
             </ScrollArea>
             <DialogFooter className="pt-6">
