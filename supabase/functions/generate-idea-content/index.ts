@@ -86,6 +86,7 @@ serve(async (req) => {
         let template;
         let templateError;
 
+        // 1. Ưu tiên template mặc định của KOC
         if (koc.default_prompt_template_id) {
           console.log(`Fetching KOC-specific default template ID: ${koc.default_prompt_template_id}`);
           ({ data: template, error: templateError } = await supabaseAdmin
@@ -95,6 +96,7 @@ serve(async (req) => {
             .single());
         }
 
+        // 2. Nếu không có, tìm template mặc định của người dùng
         if (!template) {
           console.log("No KOC-specific template found, falling back to user default.");
           ({ data: template, error: templateError } = await supabaseAdmin
@@ -104,9 +106,29 @@ serve(async (req) => {
             .eq('is_default', true)
             .single());
         }
+        
+        // 3. Nếu vẫn không có, tìm template mặc định của admin
+        if (!template) {
+            console.log("No user-specific default found, falling back to admin default.");
+            const { data: adminUser, error: adminError } = await supabaseAdmin
+                .from('profiles')
+                .select('id')
+                .eq('role', 'admin')
+                .limit(1)
+                .single();
+
+            if (adminUser && !adminError) {
+                ({ data: template, error: templateError } = await supabaseAdmin
+                    .from('ai_prompt_templates')
+                    .select('*')
+                    .eq('user_id', adminUser.id)
+                    .eq('is_default', true)
+                    .single());
+            }
+        }
 
         if (templateError || !template) {
-          throw new Error("No default AI prompt template found for this KOC or user.");
+          throw new Error("No default AI prompt template found for this KOC, user, or system-wide.");
         }
         console.log(`Using template: "${template.name}"`);
 
