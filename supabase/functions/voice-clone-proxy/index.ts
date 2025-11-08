@@ -49,7 +49,6 @@ serve(async (req) => {
     }
 
     if (responseData.success === true) {
-        // THE FIX IS HERE: The API returns 'clone_voice_id', not 'voice_id' or 'data.voice_id'.
         const newVoiceId = responseData.clone_voice_id;
 
         if (newVoiceId) {
@@ -59,7 +58,6 @@ serve(async (req) => {
                     voice_id: newVoiceId,
                     user_id: user.id,
                     voice_name: voiceName,
-                    // These fields might not be in the initial response, so handle them gracefully.
                     sample_audio: responseData.sample_audio || null,
                     cover_url: responseData.cover_url || null,
                 });

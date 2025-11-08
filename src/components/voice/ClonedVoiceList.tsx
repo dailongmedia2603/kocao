@@ -13,25 +13,36 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { VoiceCloneLogDialog } from "./VoiceCloneLogDialog";
 
-const fetchClonedVoices = async () => {
-  const data = await callVoiceApi({ path: "v1m/voice/clone", method: "GET" });
-  // Sắp xếp theo thời gian tạo, mới nhất lên đầu
-  return data.data.sort((a: any, b: any) => b.create_time - a.create_time);
+const fetchClonedVoices = async (userId: string) => {
+  if (!userId) return [];
+  const { data, error } = await supabase
+    .from('cloned_voices')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data;
 };
 
 const VoiceItem = ({ voice }: { voice: any }) => {
   const queryClient = useQueryClient();
+  const { user } = useSession();
+
   const deleteMutation = useMutation({
-    mutationFn: (voiceId: string) => callVoiceApi({ path: `v1m/voice/clone/${voiceId}`, method: "DELETE" }),
+    mutationFn: async (voiceId: string) => {
+      // First, delete from the external API
+      await callVoiceApi({ path: `v1m/voice/clone/${voiceId}`, method: "DELETE" });
+      // Then, delete from our database
+      const { error } = await supabase.from('cloned_voices').delete().eq('voice_id', voiceId);
+      if (error) throw error;
+    },
     onSuccess: () => {
       showSuccess("Xóa giọng nói thành công!");
-      queryClient.invalidateQueries({ queryKey: ["cloned_voices"] });
+      queryClient.invalidateQueries({ queryKey: ["cloned_voices_db", user?.id] });
     },
     onError: (error: Error) => showError(`Lỗi: ${error.message}`),
   });
 
-  // API trả về voice_status = 2 khi hoàn tất
-  const isProcessing = voice.voice_status !== 2;
   const hasValidSample = voice.sample_audio && voice.sample_audio.startsWith('http');
 
   return (
@@ -40,14 +51,7 @@ const VoiceItem = ({ voice }: { voice: any }) => {
         <Avatar className="h-12 w-12"><AvatarImage src={voice.cover_url} /><AvatarFallback>{voice.voice_name.charAt(0)}</AvatarFallback></Avatar>
         <div className="flex-1 min-w-0">
           <p className="font-semibold truncate">{voice.voice_name}</p>
-          {isProcessing ? (
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant="outline" className="text-blue-800 border-blue-200">
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                Đang xử lý...
-              </Badge>
-            </div>
-          ) : hasValidSample ? (
+          {hasValidSample ? (
             <audio controls src={voice.sample_audio} className="h-8 w-full mt-1" />
           ) : (
             <div className="flex items-center gap-2 mt-1">
@@ -83,12 +87,12 @@ export const ClonedVoiceList = () => {
   const [isLogOpen, setIsLogOpen] = useState(false);
 
   const { data: voices, isLoading, isError, error, isFetching } = useQuery({
-    queryKey: ["cloned_voices"],
-    queryFn: fetchClonedVoices,
+    queryKey: ["cloned_voices_db", user?.id],
+    queryFn: () => fetchClonedVoices(user!.id),
+    enabled: !!user,
     refetchInterval: (query) => {
       const data = query.state.data as any[];
-      // Nếu có bất kỳ giọng nói nào đang xử lý HOẶC đã xong nhưng chưa có file mẫu, tiếp tục làm mới
-      return data?.some(voice => voice.voice_status !== 2 || !voice.sample_audio) ? 10000 : false;
+      return data?.some(voice => !voice.sample_audio) ? 15000 : false;
     },
   });
 
@@ -120,7 +124,7 @@ export const ClonedVoiceList = () => {
             <Button variant="outline" size="icon" onClick={() => setIsLogOpen(true)}>
               <History className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="icon" onClick={() => queryClient.invalidateQueries({ queryKey: ["cloned_voices"] })} disabled={isFetching}>
+            <Button variant="outline" size="icon" onClick={() => queryClient.invalidateQueries({ queryKey: ["cloned_voices_db", user?.id] })} disabled={isFetching}>
               <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
             </Button>
           </div>
