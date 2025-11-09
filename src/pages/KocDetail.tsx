@@ -52,6 +52,7 @@ type Koc = {
   channel_unique_id: string | null;
   channel_created_at: string | null;
   default_prompt_template_id: string | null;
+  default_cloned_voice_id: string | null;
 };
 
 type KocFile = {
@@ -104,7 +105,7 @@ type Idea = {
 const fetchKocDetails = async (kocId: string) => {
   const { data, error } = await supabase
     .from("kocs")
-    .select("*, follower_count, like_count, video_count, channel_nickname, channel_unique_id, channel_created_at, default_prompt_template_id")
+    .select("*, follower_count, like_count, video_count, channel_nickname, channel_unique_id, channel_created_at, default_prompt_template_id, default_cloned_voice_id")
     .eq("id", kocId)
     .single();
   if (error) throw error;

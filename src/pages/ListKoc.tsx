@@ -28,6 +28,7 @@ type Koc = {
   channel_url: string | null;
   folder_path: string | null;
   video_count: number;
+  default_cloned_voice_id?: string | null;
 };
 
 const fetchKocs = async (userId: string) => {
