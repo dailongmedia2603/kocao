@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export type Profile = {
   id: string;
@@ -29,131 +29,200 @@ type SessionContextType = {
 
 const SessionContext = createContext<SessionContextType | null>(null);
 
-export const SessionContextProvider = ({
-  children,
-}: {
-  children: React.ReactNode;
-}) => {
+// util: sleep for retry
+const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+
+export const SessionContextProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [subscription, setSubscription] = useState<UserSubscriptionInfo>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
-  const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
-    // onAuthStateChange sẽ xử lý việc cập nhật state và điều hướng
-  }, []);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const publicPaths = useMemo(
+    () => new Set<string>(["/login", "/register", "/forgot-password"]),
+    []
+  );
 
   const fetchSubscription = useCallback(async (userId: string) => {
-    const { data: subData, error: subError } = await supabase
-      .from('user_subscriptions')
-      .select('current_period_videos_used, subscription_plans(name, monthly_video_limit)')
-      .eq('user_id', userId)
-      .single();
-    
-    if (subError && subError.code !== 'PGRST116') {
-      console.error("Error fetching subscription:", subError);
+    const { data, error } = await supabase
+      .from("user_subscriptions")
+      .select("current_period_videos_used, subscription_plans(name, monthly_video_limit)")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("Error fetching subscription:", error);
       setSubscription(null);
-    } else if (subData && subData.subscription_plans) {
-      const plan = subData.subscription_plans as unknown as { name: string; monthly_video_limit: number };
+      return;
+    }
+
+    if (data && (data as any).subscription_plans) {
+      const plan = (data as any).subscription_plans as { name: string; monthly_video_limit: number };
       setSubscription({
         plan_name: plan.name,
-        videos_used: subData.current_period_videos_used,
-        video_limit: plan.monthly_video_limit,
+        videos_used: (data as any).current_period_videos_used ?? 0,
+        video_limit: plan.monthly_video_limit ?? 0,
       });
     } else {
       setSubscription(null);
     }
   }, []);
 
-  useEffect(() => {
-    setLoading(true);
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (session?.user) {
-          // Session exists, now we MUST validate it by fetching the profile.
-          const { data: profileData, error: profileError } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
+  // Hardening: fetch profile with small retry (e.g., after sign-up trigger that creates profile)
+  const fetchProfileWithRetry = useCallback(
+    async (uid: string, tries = 3): Promise<Profile | null> => {
+      for (let i = 0; i < tries; i++) {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", uid)
+          .maybeSingle();
 
-          if (profileError || !profileData) {
-            // This is an invalid session (e.g., user deleted but cookie remains).
-            // Force sign out to clean up.
-            console.error("Session exists but profile fetch failed. Forcing sign out.", profileError);
-            await supabase.auth.signOut();
-            setSession(null);
-            setUser(null);
-            setProfile(null);
-            setSubscription(null);
-          } else {
-            // Session is valid, profile exists.
-            setSession(session);
-            setUser(session.user);
-            setProfile(profileData);
-            await fetchSubscription(session.user.id);
-          }
-        } else {
-          // No session, clear everything.
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          setSubscription(null);
-          if (location.pathname !== '/login' && location.pathname !== '/register' && location.pathname !== '/forgot-password') {
-            navigate('/login');
-          }
+        if (!error && data) return data as Profile;
+
+        // PGRST116: no row → có thể do profile chưa được tạo → retry nhẹ
+        if (error && error.code !== "PGRST116") {
+          console.warn("Profile fetch error (non-116):", error);
         }
-        setLoading(false);
+        await delay(400 * (i + 1));
       }
-    );
+      return null;
+    },
+    []
+  );
 
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [fetchSubscription, navigate]);
+  // Single source of truth to load everything from a Session
+  const loadFromSession = useCallback(
+    async (sess: Session | null) => {
+      if (!sess?.user) {
+        // no session → clear & maybe redirect
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setSubscription(null);
+        if (!publicPaths.has(location.pathname)) navigate("/login", { replace: true });
+        return;
+      }
 
+      // Có session → xác thực profile
+      const prof = await fetchProfileWithRetry(sess.user.id, 3);
+      if (!prof) {
+        console.error("Session exists but profile missing/invalid. Force sign out.");
+        // Dọn dẹp triệt để để tránh “session treo” từ cookie
+        await supabase.auth.signOut({ scope: "global" });
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        setSubscription(null);
+        if (!publicPaths.has(location.pathname)) navigate("/login", { replace: true });
+        return;
+      }
+
+      // Valid
+      setSession(sess);
+      setUser(sess.user);
+      setProfile(prof);
+      await fetchSubscription(sess.user.id);
+    },
+    [fetchProfileWithRetry, fetchSubscription, navigate, location.pathname, publicPaths]
+  );
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut({ scope: "global" });
+    // state sẽ được dọn bởi loadFromSession khi onAuthStateChange bắn,
+    // nhưng ta chủ động dọn ngay để UI mượt.
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setSubscription(null);
+    if (!publicPaths.has(location.pathname)) navigate("/login", { replace: true });
+  }, [navigate, location.pathname, publicPaths]);
+
+  // Boot: lấy session hiện tại + subscribe auth changes
   useEffect(() => {
-    if (user) {
-      const channels = supabase.channel(`user-updates-${user.id}`)
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
-          (payload) => setProfile(payload.new as Profile)
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'user_subscriptions', filter: `user_id=eq.${user.id}` },
-          () => fetchSubscription(user.id)
-        )
-        .subscribe();
+    let unsubscribed = false;
+    (async () => {
+      setLoading(true);
+
+      // 1) Khởi tạo từ getSession (đảm bảo không trắng màn hình khi reload)
+      const { data, error } = await supabase.auth.getSession();
+      if (error) console.warn("getSession error:", error);
+      if (!unsubscribed) {
+        await loadFromSession(data?.session ?? null);
+      }
+
+      // 2) Lắng nghe thay đổi auth và đồng bộ theo “nguồn sự thật”
+      const { data: listener } = supabase.auth.onAuthStateChange(async (event, sess) => {
+        const signOutEvents: string[] = ['SIGNED_OUT', 'USER_DELETED'];
+        if (signOutEvents.includes(event)) {
+          await loadFromSession(null);
+        } else {
+          await loadFromSession(sess);
+        }
+      });
+
+      setLoading(false);
 
       return () => {
-        supabase.removeChannel(channels);
+        listener.subscription.unsubscribe();
       };
-    }
+    })();
+
+    return () => {
+      unsubscribed = true;
+    };
+  }, [loadFromSession]);
+
+  // Realtime updates scoped theo user
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`user-updates-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
+        (payload) => setProfile(payload.new as Profile)
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "user_subscriptions", filter: `user_id=eq.${user.id}` },
+        () => fetchSubscription(user.id)
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user, fetchSubscription]);
 
-  const value = {
-    session,
-    user,
-    profile,
-    subscription,
-    loading,
-    signOut,
-  };
-
-  return (
-    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+  const value = useMemo<SessionContextType>(
+    () => ({ session, user, profile, subscription, loading, signOut }),
+    [session, user, profile, subscription, loading, signOut]
   );
+
+  // GATE: tránh render children khi chưa xác thực xong để không “trang trắng do crash”
+  // Có thể thay bằng một Splash/Spinner nhỏ của bạn.
+  if (loading) {
+    return <div style={{ padding: 24 }}>Đang tải phiên đăng nhập…</div>;
+  }
+
+  // Nếu không đăng nhập và đang ở route private → đã navigate trong loadFromSession; giữ render nhỏ
+  if (!user && !publicPaths.has(location.pathname)) {
+    return <div style={{ padding: 24 }}>Đang chuyển hướng đến trang đăng nhập…</div>;
+  }
+
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 };
 
 export const useSession = () => {
-  const context = useContext(SessionContext);
-  if (context === undefined) {
+  const ctx = useContext(SessionContext);
+  if (!ctx) {
     throw new Error("useSession must be used within a SessionContextProvider");
   }
-  return context;
+  return ctx;
 };
