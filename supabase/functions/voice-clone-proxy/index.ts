@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { S3Client, DeleteObjectCommand } from "npm:@aws-sdk/client-s3@^3.609.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,6 +16,7 @@ serve(async (req) => {
 
   const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   let logPayload = { user_id: null, request_url: "https://gateway.vivoo.work/v1m/voice/clone", request_payload: {}, response_body: null, status_code: null, status_text: null };
+  const { voice_name, preview_text, file_url } = await req.json();
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -27,24 +29,10 @@ serve(async (req) => {
     if (apiKeyError || !apiKeyData) throw new Error("Chưa có API Key Voice nào được cấu hình trong hệ thống.");
     const apiKey = apiKeyData.api_key;
     
-    const { voice_name, preview_text, sample_id } = await req.json();
-    if (!voice_name || !preview_text || !sample_id) {
-      throw new Error("Thiếu tên giọng nói, văn bản xem trước, hoặc ID của file mẫu.");
+    if (!voice_name || !preview_text || !file_url) {
+      throw new Error("Thiếu tên giọng nói, văn bản xem trước, hoặc URL của file mẫu.");
     }
-    logPayload.request_payload = { voice_name, preview_text, sample_id };
-
-    // Get the public URL from the database using the sample_id
-    const { data: sampleData, error: sampleError } = await supabaseAdmin
-      .from('voice_clone_samples')
-      .select('public_url')
-      .eq('id', sample_id)
-      .eq('user_id', user.id) // Security check
-      .single();
-
-    if (sampleError || !sampleData) {
-      throw new Error(`Không tìm thấy file mẫu với ID: ${sample_id}. Lỗi: ${sampleError?.message}`);
-    }
-    const file_url = sampleData.public_url;
+    logPayload.request_payload = { voice_name, preview_text, file_url };
 
     const apiUrl = "https://gateway.vivoo.work/v1m/voice/clone";
     const apiBody = {
@@ -91,6 +79,17 @@ serve(async (req) => {
     if (!logPayload.status_code) logPayload.status_code = 500;
     return new Response(JSON.stringify({ success: false, error: err.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } finally {
+    // Cleanup: Delete the temporary file from R2 after processing
+    if (file_url && file_url.includes(Deno.env.get("R2_PUBLIC_URL"))) {
+      try {
+        const r2Key = file_url.split(Deno.env.get("R2_PUBLIC_URL") + '/')[1];
+        const s3 = new S3Client({ region: "auto", endpoint: `https://${Deno.env.get("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`, credentials: { accessKeyId: Deno.env.get("R2_ACCESS_KEY_ID"), secretAccessKey: Deno.env.get("R2_SECRET_ACCESS_KEY") } });
+        await s3.send(new DeleteObjectCommand({ Bucket: Deno.env.get("R2_BUCKET_NAME"), Key: r2Key }));
+        console.log(`Successfully deleted temporary file: ${r2Key}`);
+      } catch (cleanupError) {
+        console.error(`Failed to delete temporary file for URL ${file_url}:`, cleanupError.message);
+      }
+    }
     if (logPayload.user_id) {
       const { error: logError } = await supabaseAdmin.from("voice_clone_logs").insert(logPayload);
       if (logError) console.error("Lỗi ghi log clone voice:", logError);

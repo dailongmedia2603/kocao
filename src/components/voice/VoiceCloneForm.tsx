@@ -19,8 +19,8 @@ export const VoiceCloneForm = () => {
   const [previewText, setPreviewText] = useState(
     "Xin chào, tôi rất vui được hỗ trợ bạn với các dịch vụ giọng nói của chúng tôi. Hãy chọn một giọng nói phù hợp với bạn và cùng bắt đầu hành trình âm thanh sáng tạo của chúng ta"
   );
-  const [sampleId, setSampleId] = useState<string | null>(null);
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
   const uploadFileMutation = useMutation({
     mutationFn: async (fileToUpload: File) => {
@@ -38,25 +38,24 @@ export const VoiceCloneForm = () => {
       const { data, error } = await supabase.functions.invoke("upload-voice-sample", { body: formData });
       if (error) throw new Error(error.message);
       if (data.error) throw new Error(data.error);
-      return { id: data.id, fileName: data.fileName };
+      return data.url;
     },
-    onSuccess: ({ id, fileName }) => {
-      setSampleId(id);
-      setUploadedFileName(fileName);
+    onSuccess: (url) => {
+      setAudioUrl(url);
       showSuccess("Tải file lên thành công!");
     },
     onError: (error: Error) => {
       showError(`Lỗi tải file: ${error.message}`);
-      setSampleId(null);
-      setUploadedFileName(null);
+      setFile(null);
+      setAudioUrl(null);
     },
   });
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      setSampleId(null);
-      setUploadedFileName(null);
+      setFile(selectedFile);
+      setAudioUrl(null); // Reset previous URL
       uploadFileMutation.mutate(selectedFile);
     }
   };
@@ -65,13 +64,13 @@ export const VoiceCloneForm = () => {
     mutationFn: async () => {
       if (!voiceName.trim()) throw new Error("Tên giọng nói không được để trống.");
       if (previewText.trim().length < 10) throw new Error("Văn bản xem trước phải có ít nhất 10 ký tự.");
-      if (!sampleId) throw new Error("Vui lòng tải file âm thanh và chờ tải lên hoàn tất.");
+      if (!audioUrl) throw new Error("Vui lòng tải file âm thanh và chờ tải lên hoàn tất.");
 
       const { data, error } = await supabase.functions.invoke("voice-clone-proxy", {
         body: {
           voice_name: voiceName,
           preview_text: previewText,
-          sample_id: sampleId,
+          file_url: audioUrl,
         },
       });
       if (error) throw new Error(error.message);
@@ -84,8 +83,8 @@ export const VoiceCloneForm = () => {
       queryClient.invalidateQueries({ queryKey: ["cloned_voices_db", user?.id] });
       setVoiceName("");
       setPreviewText("Xin chào, tôi rất vui được hỗ trợ bạn với các dịch vụ giọng nói của chúng tôi. Hãy chọn một giọng nói phù hợp với bạn và cùng bắt đầu hành trình âm thanh sáng tạo của chúng ta");
-      setSampleId(null);
-      setUploadedFileName(null);
+      setFile(null);
+      setAudioUrl(null);
     },
     onError: (error: Error) => {
       showError(`Lỗi: ${error.message}`);
@@ -131,7 +130,7 @@ export const VoiceCloneForm = () => {
               accept="audio/*"
               onChange={handleFileChange}
               disabled={uploadFileMutation.isPending}
-              key={uploadedFileName || 'file-input'}
+              key={audioUrl || 'file-input'}
             />
             {uploadFileMutation.isPending && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
@@ -139,15 +138,15 @@ export const VoiceCloneForm = () => {
                 <span>Đang tải file lên...</span>
               </div>
             )}
-            {sampleId && uploadedFileName && (
+            {audioUrl && file && (
               <div className="flex items-center gap-2 text-sm text-green-600 mt-2 p-2 bg-green-50 rounded-md">
                 <CheckCircle className="h-4 w-4" />
-                <span>Đã tải lên: {uploadedFileName}</span>
+                <span>Đã tải lên: {file.name}</span>
               </div>
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={cloneVoiceMutation.isPending || uploadFileMutation.isPending || !sampleId}>
+          <Button type="submit" className="w-full" disabled={cloneVoiceMutation.isPending || uploadFileMutation.isPending || !audioUrl}>
             {cloneVoiceMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
             Bắt đầu Clone
           </Button>
