@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Video, Bot, Film, Users, Settings, ClipboardList } from "lucide-react";
+import { Video, Bot, Film, Users, Settings, ClipboardList, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/contexts/SessionContext";
 
@@ -16,10 +16,11 @@ const BottomNavBar = () => {
 
   const adminMenuItems = [
     { label: "Users", icon: Users, to: "/admin/users", paths: ["/admin/users"] },
+    { label: "Gói cước", icon: Layers, to: "/admin/plans", paths: ["/admin/plans"] },
     { label: "Cài đặt", icon: Settings, to: "/settings", paths: ["/settings"] },
   ];
 
-  const itemsToShow = profile?.role === 'admin' ? [...allMenuItems, ...adminMenuItems] : allMenuItems;
+  const itemsToShow = profile?.role === 'admin' ? [...allMenuItems.slice(0, 2), ...adminMenuItems, ...allMenuItems.slice(2)] : allMenuItems;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t z-50 flex items-center justify-around shadow-[0_-1px_3px_rgba(0,0,0,0.1)]">

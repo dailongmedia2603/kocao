@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, LayoutDashboard, Settings, Video, Bot, Film, Users, ClipboardList } from "lucide-react";
+import { ChevronLeft, LayoutDashboard, Settings, Video, Bot, Film, Users, ClipboardList, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
 import {
@@ -26,6 +26,7 @@ const menuItems = [
 
 const adminMenuItems = [
   { label: "Quản lý Users", icon: Users, to: "/admin/users" },
+  { label: "Gói cước", icon: Layers, to: "/admin/plans" },
   { label: "Settings", icon: Settings, to: "/settings" },
 ];
 

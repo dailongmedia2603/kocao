@@ -22,6 +22,7 @@ import AdminRoute from "./components/AdminRoute";
 import UserManagement from "./pages/admin/UserManagement";
 import TaoKeHoach from "./pages/TaoKeHoach";
 import TaoKeHoachDetail from "./pages/TaoKeHoachDetail";
+import SubscriptionPlans from "./pages/admin/SubscriptionPlans";
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
             <Route element={<AdminRoute />}>
               <Route element={<AppLayout />}>
                 <Route path="/admin/users" element={<UserManagement />} />
+                <Route path="/admin/plans" element={<SubscriptionPlans />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
             </Route>
