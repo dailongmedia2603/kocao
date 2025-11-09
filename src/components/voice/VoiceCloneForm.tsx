@@ -19,7 +19,6 @@ export const VoiceCloneForm = () => {
   const [previewText, setPreviewText] = useState(
     "Xin chào, tôi rất vui được hỗ trợ bạn với các dịch vụ giọng nói của chúng tôi. Hãy chọn một giọng nói phù hợp với bạn và cùng bắt đầu hành trình âm thanh sáng tạo của chúng ta"
   );
-  const [file, setFile] = useState<File | null>(null);
   const [sampleId, setSampleId] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
@@ -48,7 +47,6 @@ export const VoiceCloneForm = () => {
     },
     onError: (error: Error) => {
       showError(`Lỗi tải file: ${error.message}`);
-      setFile(null);
       setSampleId(null);
       setUploadedFileName(null);
     },
@@ -57,7 +55,6 @@ export const VoiceCloneForm = () => {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      setFile(selectedFile);
       setSampleId(null);
       setUploadedFileName(null);
       uploadFileMutation.mutate(selectedFile);
@@ -87,7 +84,6 @@ export const VoiceCloneForm = () => {
       queryClient.invalidateQueries({ queryKey: ["cloned_voices_db", user?.id] });
       setVoiceName("");
       setPreviewText("Xin chào, tôi rất vui được hỗ trợ bạn với các dịch vụ giọng nói của chúng tôi. Hãy chọn một giọng nói phù hợp với bạn và cùng bắt đầu hành trình âm thanh sáng tạo của chúng ta");
-      setFile(null);
       setSampleId(null);
       setUploadedFileName(null);
     },
