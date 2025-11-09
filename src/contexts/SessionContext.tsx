@@ -63,10 +63,12 @@ export const SessionContextProvider = ({
     if (subError && subError.code !== 'PGRST116') {
       console.error("Error fetching subscription:", subError);
     } else if (subData && subData.subscription_plans) {
+      // The type system incorrectly infers this as an array. We force it to be an object.
+      const plan = subData.subscription_plans as unknown as { name: string; monthly_video_limit: number };
       setSubscription({
-        plan_name: subData.subscription_plans.name,
+        plan_name: plan.name,
         videos_used: subData.current_period_videos_used,
-        video_limit: subData.subscription_plans.monthly_video_limit,
+        video_limit: plan.monthly_video_limit,
       });
     } else {
       setSubscription(null);
