@@ -12,10 +12,17 @@ export type Profile = {
   status: string | null;
 };
 
+export type UserSubscriptionInfo = {
+  plan_name: string;
+  videos_used: number;
+  video_limit: number;
+} | null;
+
 type SessionContextType = {
   session: Session | null;
   user: User | null;
   profile: Profile | null;
+  subscription: UserSubscriptionInfo;
   loading: boolean;
   signOut: () => Promise<void>;
 };
@@ -30,8 +37,41 @@ export const SessionContextProvider = ({
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [subscription, setSubscription] = useState<UserSubscriptionInfo>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  const fetchProfileAndSubscription = async (currentUser: User) => {
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", currentUser.id)
+      .single();
+
+    if (profileError) {
+      console.error("Error fetching profile:", profileError);
+    } else {
+      setProfile(profileData);
+    }
+
+    const { data: subData, error: subError } = await supabase
+      .from('user_subscriptions')
+      .select('current_period_videos_used, subscription_plans(name, monthly_video_limit)')
+      .eq('user_id', currentUser.id)
+      .single();
+    
+    if (subError && subError.code !== 'PGRST116') {
+      console.error("Error fetching subscription:", subError);
+    } else if (subData && subData.subscription_plans) {
+      setSubscription({
+        plan_name: subData.subscription_plans.name,
+        videos_used: subData.current_period_videos_used,
+        video_limit: subData.subscription_plans.monthly_video_limit,
+      });
+    } else {
+      setSubscription(null);
+    }
+  };
 
   useEffect(() => {
     const getSession = async () => {
@@ -40,6 +80,9 @@ export const SessionContextProvider = ({
       } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) {
+        await fetchProfileAndSubscription(session.user);
+      }
       setLoading(false);
     };
 
@@ -49,6 +92,12 @@ export const SessionContextProvider = ({
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        if (session?.user) {
+          await fetchProfileAndSubscription(session.user);
+        } else {
+          setProfile(null);
+          setSubscription(null);
+        }
         setLoading(false);
       }
     );
@@ -60,23 +109,7 @@ export const SessionContextProvider = ({
 
   useEffect(() => {
     if (user) {
-      const fetchProfile = async () => {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single();
-
-        if (error) {
-          console.error("Error fetching profile:", error);
-        } else {
-          setProfile(data);
-        }
-      };
-      fetchProfile();
-
-      // Lắng nghe thay đổi real-time trên profile của user hiện tại
-      const channel = supabase
+      const profileChannel = supabase
         .channel(`public:profiles:id=eq.${user.id}`)
         .on(
           'postgres_changes',
@@ -87,11 +120,19 @@ export const SessionContextProvider = ({
         )
         .subscribe();
 
+      const subChannel = supabase
+        .channel(`public:user_subscriptions:user_id=eq.${user.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_subscriptions', filter: `user_id=eq.${user.id}` },
+          () => {
+            fetchProfileAndSubscription(user);
+          }
+        )
+        .subscribe();
+
       return () => {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(profileChannel);
+        supabase.removeChannel(subChannel);
       };
-    } else {
-      setProfile(null);
     }
   }, [user]);
 
@@ -104,6 +145,7 @@ export const SessionContextProvider = ({
     session,
     user,
     profile,
+    subscription,
     loading,
     signOut,
   };

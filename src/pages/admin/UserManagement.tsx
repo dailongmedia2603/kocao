@@ -13,9 +13,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AddUserDialog } from "./AddUserDialog";
+import { AssignPlanDialog } from "./AssignPlanDialog";
 
 // Icons
-import { Plus, MoreHorizontal, Trash2, Loader2, User, Shield, CheckCircle, Clock, Ban } from "lucide-react";
+import { Plus, MoreHorizontal, Trash2, Loader2, User, Shield, CheckCircle, Clock, Ban, Layers } from "lucide-react";
 
 // Utils
 import { showSuccess, showError } from "@/utils/toast";
@@ -29,11 +30,14 @@ type UserProfile = {
   last_name: string | null;
   role: 'admin' | 'user';
   status: 'active' | 'pending' | 'banned';
+  subscription_plan_name: string | null;
+  subscription_plan_id: string | null;
 };
 
 const UserManagement = () => {
   const [isAddUserOpen, setAddUserOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  const [userToAssignPlan, setUserToAssignPlan] = useState<UserProfile | null>(null);
   const queryClient = useQueryClient();
   const { user: currentUser } = useSession();
 
@@ -134,6 +138,7 @@ const UserManagement = () => {
                 <TableHead>Email</TableHead>
                 <TableHead>Vai trò</TableHead>
                 <TableHead>Trạng thái</TableHead>
+                <TableHead>Gói cước</TableHead>
                 <TableHead>Ngày tham gia</TableHead>
                 <TableHead className="text-right">Hành động</TableHead>
               </TableRow>
@@ -142,7 +147,7 @@ const UserManagement = () => {
               {isLoading ? (
                 [...Array(5)].map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
+                    <TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell>
                   </TableRow>
                 ))
               ) : users.length > 0 ? (
@@ -152,6 +157,13 @@ const UserManagement = () => {
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
                     <TableCell>{getStatusBadge(user.status)}</TableCell>
+                    <TableCell>
+                      {user.subscription_plan_name ? (
+                        <Badge variant="outline">{user.subscription_plan_name}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">Chưa có</span>
+                      )}
+                    </TableCell>
                     <TableCell>{format(new Date(user.created_at), 'dd/MM/yyyy', { locale: vi })}</TableCell>
                     <TableCell className="text-right">
                       {user.id !== currentUser?.id && (
@@ -163,6 +175,9 @@ const UserManagement = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setUserToAssignPlan(user)}>
+                              <Layers className="mr-2 h-4 w-4" /> Gán gói cước
+                            </DropdownMenuItem>
                             <DropdownMenuSub>
                               <DropdownMenuSubTrigger>Đổi vai trò</DropdownMenuSubTrigger>
                               <DropdownMenuPortal>
@@ -193,7 +208,7 @@ const UserManagement = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     Không có người dùng nào.
                   </TableCell>
                 </TableRow>
@@ -204,6 +219,12 @@ const UserManagement = () => {
       </div>
 
       <AddUserDialog isOpen={isAddUserOpen} onOpenChange={setAddUserOpen} />
+
+      <AssignPlanDialog
+        isOpen={!!userToAssignPlan}
+        onOpenChange={() => setUserToAssignPlan(null)}
+        user={userToAssignPlan}
+      />
 
       <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
         <AlertDialogContent>

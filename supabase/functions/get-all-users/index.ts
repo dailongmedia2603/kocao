@@ -64,9 +64,16 @@ serve(async (req) => {
       .select('*')
     if (profilesError) throw profilesError
 
-    // Kết hợp dữ liệu người dùng và hồ sơ
+    // Lấy tất cả thông tin đăng ký gói cước và tên gói
+    const { data: subscriptions, error: subscriptionsError } = await serviceSupabaseClient
+      .from('user_subscriptions')
+      .select('user_id, subscription_plans(id, name)')
+    if (subscriptionsError) throw subscriptionsError
+
+    // Kết hợp dữ liệu người dùng, hồ sơ, và gói cước
     const combinedData = users.map(u => {
       const p = profiles.find(profile => profile.id === u.id)
+      const s = subscriptions.find(sub => sub.user_id === u.id)
       return {
         id: u.id,
         email: u.email,
@@ -75,6 +82,8 @@ serve(async (req) => {
         last_name: p?.last_name || null,
         role: p?.role || 'user',
         status: p?.status || 'pending',
+        subscription_plan_name: s?.subscription_plans?.name || null,
+        subscription_plan_id: s?.subscription_plans?.id || null,
       }
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
