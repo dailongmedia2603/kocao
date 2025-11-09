@@ -57,7 +57,7 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", field: "", channel_url: "", default_cloned_voice_id: "" },
+    defaultValues: { name: "", field: "", channel_url: "", default_cloned_voice_id: undefined },
   });
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
         name: koc.name,
         field: koc.field || "",
         channel_url: koc.channel_url || "",
-        default_cloned_voice_id: koc.default_cloned_voice_id || "",
+        default_cloned_voice_id: koc.default_cloned_voice_id || undefined,
       });
     }
   }, [koc, form]);
@@ -130,7 +130,7 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
                 {isLoadingVoices ? <Skeleton className="h-10 w-full" /> : (
                   <Select
                     onValueChange={(value) => field.onChange(value === "__NULL__" ? undefined : value)}
-                    value={field.value}
+                    value={field.value || ""}
                   >
                     <FormControl><SelectTrigger><SelectValue placeholder="Chọn giọng nói mặc định" /></SelectTrigger></FormControl>
                     <SelectContent>
@@ -144,7 +144,7 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
             )} />
             <DialogFooter className="gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-              <Button type="submit" disabled={editKocMutation.isPending}>
+              <Button type="submit" disabled={editKocMutation.isPending || isLoadingVoices}>
                 {editKocMutation.isPending ? "Đang lưu..." : "Lưu thay đổi"}
               </Button>
             </DialogFooter>

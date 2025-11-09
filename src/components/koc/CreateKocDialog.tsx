@@ -55,7 +55,7 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", field: "", channel_url: "", default_cloned_voice_id: "" },
+    defaultValues: { name: "", field: "", channel_url: "", default_cloned_voice_id: undefined },
   });
 
   const createKocMutation = useMutation({
@@ -146,7 +146,7 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
                 {isLoadingVoices ? <Skeleton className="h-10 w-full" /> : (
                   <Select
                     onValueChange={(value) => field.onChange(value === "__NULL__" ? undefined : value)}
-                    value={field.value}
+                    value={field.value || ""}
                   >
                     <FormControl><SelectTrigger><SelectValue placeholder="Chọn giọng nói mặc định" /></SelectTrigger></FormControl>
                     <SelectContent>
@@ -160,7 +160,7 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
             )} />
             <DialogFooter className="gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
-              <Button type="submit" disabled={createKocMutation.isPending}>
+              <Button type="submit" disabled={createKocMutation.isPending || isLoadingVoices}>
                 {createKocMutation.isPending ? "Đang tạo..." : "Tạo KOC"}
               </Button>
             </DialogFooter>
