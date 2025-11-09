@@ -193,17 +193,12 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
 
   const createVideoMutation = useMutation({
     mutationFn: async (idea: Idea) => {
-      if (!user) throw new Error("User not authenticated.");
-      const { data, error } = await supabase.rpc('check_and_deduct_credit', {
-        p_user_id: user.id,
-        p_koc_id: kocId,
-        p_idea_id: idea.id,
-        p_video_url: null, // Explicitly pass null
-        p_audio_url: null, // Explicitly pass null, function will get it from idea_id
+      const { data, error } = await supabase.functions.invoke("manual-create-video-from-idea", {
+        body: { ideaId: idea.id },
       });
       if (error) throw error;
-      if (!data[0].success) throw new Error(data[0].message);
-      return data[0];
+      if (data.error) throw new Error(data.error);
+      return data;
     },
     onSuccess: (data) => {
       showSuccess(data.message);

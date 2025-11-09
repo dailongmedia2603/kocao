@@ -50,36 +50,45 @@ serve(async (req) => {
           continue;
         }
 
-        // 3. Call the centralized function to check credits and create the task
         console.log(`Voice cho idea ${idea.id} đã hoàn thành. Bắt đầu kiểm tra credit và tạo video.`);
         
+        // 3. Get the next source video for the KOC
+        const { data: sourceVideo, error: videoError } = await supabaseAdmin
+          .rpc('get_and_update_next_source_video', { p_koc_id: idea.koc_id })
+          .single();
+
+        if (videoError || !sourceVideo) {
+          throw new Error(`Không tìm thấy video nguồn nào cho KOC. Vui lòng tải lên ít nhất một video trong tab "Nguồn Video" của KOC.`);
+        }
+
+        const R2_PUBLIC_URL = Deno.env.get("R2_PUBLIC_URL");
+        if (!R2_PUBLIC_URL) throw new Error("Missing R2_PUBLIC_URL config.");
+        const sourceVideoUrl = `https://${R2_PUBLIC_URL}/${sourceVideo.r2_key}`;
+
+        // 4. Call the centralized function to check credits and create the task
         const { data: rpcData, error: rpcError } = await supabaseAdmin
           .rpc('check_and_deduct_credit', {
             p_user_id: idea.user_id,
             p_koc_id: idea.koc_id,
             p_idea_id: idea.id,
             p_audio_url: idea.voice_audio_url,
-            p_video_url: null, // Explicitly pass null for the video URL
+            p_video_url: sourceVideoUrl,
           });
 
         if (rpcError) {
           throw new Error(`Lỗi RPC check_and_deduct_credit: ${rpcError.message}`);
         }
 
-        // The RPC function returns an array with one object
         const result = rpcData[0];
         if (!result.success) {
-          // This error message comes from the RPC function (e.g., "out of credits")
           throw new Error(result.message);
         }
         
-        // The RPC function handles creating the task and updating the idea status.
         console.log(`Đã tạo dreamface task ${result.new_task_id} cho idea ${idea.id}.`);
         successCount++;
         
       } catch (processingError) {
         console.error(`Lỗi xử lý idea ${idea.id}:`, processingError.message);
-        // If there's an error (e.g., out of credits), update the status for visibility
         await supabaseAdmin.from('koc_content_ideas').update({ status: 'Lỗi tạo video', error_message: processingError.message }).eq('id', idea.id);
       }
     }
