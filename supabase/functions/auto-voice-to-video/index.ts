@@ -59,6 +59,7 @@ serve(async (req) => {
             p_koc_id: idea.koc_id,
             p_idea_id: idea.id,
             p_audio_url: idea.voice_audio_url,
+            p_video_url: null, // Explicitly pass null for the video URL
           });
 
         if (rpcError) {

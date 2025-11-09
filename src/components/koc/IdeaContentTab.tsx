@@ -198,6 +198,8 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
         p_user_id: user.id,
         p_koc_id: kocId,
         p_idea_id: idea.id,
+        p_video_url: null, // Explicitly pass null
+        p_audio_url: null, // Explicitly pass null, function will get it from idea_id
       });
       if (error) throw error;
       if (!data[0].success) throw new Error(data[0].message);

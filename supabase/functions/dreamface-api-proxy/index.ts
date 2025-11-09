@@ -65,6 +65,7 @@ serve(async (req) => {
     const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('check_and_deduct_credit', {
       p_user_id: user.id,
       p_koc_id: kocId,
+      p_idea_id: null, // Explicitly pass null for idea_id
       p_video_url: videoUrl,
       p_audio_url: audioUrl,
     });
