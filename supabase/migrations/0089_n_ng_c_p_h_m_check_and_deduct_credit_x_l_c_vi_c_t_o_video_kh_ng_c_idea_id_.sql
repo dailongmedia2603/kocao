@@ -1,0 +1,84 @@
+DROP FUNCTION IF EXISTS public.check_and_deduct_credit(uuid, uuid, uuid);
+
+CREATE OR REPLACE FUNCTION public.check_and_deduct_credit(
+    p_user_id uuid,
+    p_koc_id uuid,
+    p_idea_id uuid DEFAULT NULL,
+    p_video_url text DEFAULT NULL,
+    p_audio_url text DEFAULT NULL
+)
+ RETURNS TABLE(success boolean, message text, new_task_id uuid)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO ''
+AS $function$
+DECLARE
+  v_subscription RECORD;
+  v_source_video RECORD;
+  v_source_video_url TEXT;
+  v_audio_url TEXT;
+  v_new_task_id UUID;
+  v_title TEXT;
+BEGIN
+  -- 1. Get user's active subscription and plan limit
+  SELECT us.current_period_videos_used, sp.monthly_video_limit
+  INTO v_subscription
+  FROM public.user_subscriptions us
+  JOIN public.subscription_plans sp ON us.plan_id = sp.id
+  WHERE us.user_id = p_user_id AND us.status = 'active'
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT false, 'Bạn không có gói cước nào đang hoạt động.', NULL::UUID;
+    RETURN;
+  END IF;
+
+  -- 2. Check if limit is reached
+  IF v_subscription.current_period_videos_used >= v_subscription.monthly_video_limit THEN
+    RETURN QUERY SELECT false, 'Bạn đã sử dụng hết số lượt tạo video trong tháng cho gói cước này.', NULL::UUID;
+    RETURN;
+  END IF;
+
+  -- 3. Determine source video and audio URLs
+  IF p_video_url IS NOT NULL THEN
+    v_source_video_url := p_video_url;
+  ELSE
+    SELECT * INTO v_source_video FROM public.get_and_update_next_source_video(p_koc_id);
+    IF NOT FOUND THEN
+        RETURN QUERY SELECT false, 'Không tìm thấy video nguồn nào cho KOC này. Vui lòng tải video nguồn lên.', NULL::UUID;
+        RETURN;
+    END IF;
+    v_source_video_url := 'https://' || (SELECT current_setting('app.r2_public_url')) || '/' || v_source_video.r2_key;
+  END IF;
+
+  IF p_audio_url IS NOT NULL THEN
+    v_audio_url := p_audio_url;
+    v_title := 'ManualVideo for KOC ' || left(p_koc_id::text, 8);
+  ELSIF p_idea_id IS NOT NULL THEN
+    SELECT i.voice_audio_url INTO v_audio_url FROM public.koc_content_ideas i WHERE i.id = p_idea_id;
+    v_title := 'AutoVideo for Idea ' || left(p_idea_id::text, 8);
+  ELSE
+    RETURN QUERY SELECT false, 'Thiếu thông tin audio_url hoặc idea_id.', NULL::UUID;
+    RETURN;
+  END IF;
+
+  -- 4. All checks passed, deduct credit
+  UPDATE public.user_subscriptions
+  SET current_period_videos_used = current_period_videos_used + 1
+  WHERE user_id = p_user_id AND status = 'active';
+
+  -- 5. Create dreamface_task
+  INSERT INTO public.dreamface_tasks (user_id, koc_id, koc_content_idea_id, status, title, original_video_url, original_audio_url)
+  VALUES (p_user_id, p_koc_id, p_idea_id, 'pending', v_title, v_source_video_url, v_audio_url)
+  RETURNING id INTO v_new_task_id;
+
+  -- 6. Link task back to idea if it exists
+  IF p_idea_id IS NOT NULL THEN
+    UPDATE public.koc_content_ideas
+    SET dreamface_task_id = v_new_task_id, status = 'Đang tạo video'
+    WHERE id = p_idea_id;
+  END IF;
+
+  RETURN QUERY SELECT true, 'Credit đã được trừ. Bắt đầu tạo video.', v_new_task_id;
+END;
+$function$
