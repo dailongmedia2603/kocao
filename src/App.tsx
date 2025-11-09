@@ -23,6 +23,7 @@ import UserManagement from "./pages/admin/UserManagement";
 import TaoKeHoach from "./pages/TaoKeHoach";
 import TaoKeHoachDetail from "./pages/TaoKeHoachDetail";
 import SubscriptionPlans from "./pages/admin/SubscriptionPlans";
+import SubscriptionPage from "./pages/Subscription";
 
 function App() {
   return (
@@ -55,6 +56,7 @@ function App() {
               <Route path="/tao-video" element={<TaoVideo />} />
               <Route path="/tao-ke-hoach" element={<TaoKeHoach />} />
               <Route path="/tao-ke-hoach/:planId" element={<TaoKeHoachDetail />} />
+              <Route path="/subscription" element={<SubscriptionPage />} />
             </Route>
             <Route element={<KocLayout />}>
               <Route path="/list-koc" element={<ListKoc />} />

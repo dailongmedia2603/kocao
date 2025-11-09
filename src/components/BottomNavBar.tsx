@@ -12,6 +12,7 @@ const BottomNavBar = () => {
     { label: "Kế hoạch", icon: ClipboardList, to: "/tao-ke-hoach", paths: ["/tao-ke-hoach"] },
     { label: "Automation", icon: Bot, to: "/automation", paths: ["/automation"] },
     { label: "Tạo Video", icon: Film, to: "/tao-video", paths: ["/tao-video"] },
+    { label: "Gói cước", icon: Layers, to: "/subscription", paths: ["/subscription"] },
   ];
 
   const adminMenuItems = [

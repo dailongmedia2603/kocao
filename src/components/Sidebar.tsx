@@ -22,6 +22,7 @@ const menuItems = [
   { label: "Tạo kế hoạch", icon: ClipboardList, to: "/tao-ke-hoach" },
   { label: "Automation", icon: Bot, to: "/automation" },
   { label: "Tạo Video", icon: Film, to: "/tao-video" },
+  { label: "Gói cước", icon: Layers, to: "/subscription" },
 ];
 
 const adminMenuItems = [
