@@ -2,7 +2,7 @@ import { useState, useMemo, MouseEvent, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, formatDistanceToNow, intervalToDuration } from "fns";
+import { format, formatDistanceToNow, intervalToDuration } from "date-fns";
 import { vi } from "date-fns/locale";
 
 // UI Components
