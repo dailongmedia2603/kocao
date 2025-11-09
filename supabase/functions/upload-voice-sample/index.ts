@@ -23,12 +23,14 @@ serve(async (req) => {
 
     const formData = await req.formData();
     const file = formData.get("file") as File;
-    const fileName = formData.get("fileName") as string;
     const fileType = formData.get("fileType") as string;
 
-    if (!file || !fileName || !fileType) {
-      throw new Error("Thiếu thông tin tệp, tên tệp, hoặc loại tệp.");
+    if (!file || !fileType) {
+      throw new Error("Thiếu thông tin tệp hoặc loại tệp.");
     }
+
+    // Get filename directly from the file object on the server side
+    const fileName = file.name || `sample-${Date.now()}`;
 
     const R2_ACCOUNT_ID = Deno.env.get("R2_ACCOUNT_ID");
     const R2_ACCESS_KEY_ID = Deno.env.get("R2_ACCESS_KEY_ID");

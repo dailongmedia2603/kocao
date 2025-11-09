@@ -33,7 +33,7 @@ export const VoiceCloneForm = () => {
 
       const formData = new FormData();
       formData.append("file", fileToUpload);
-      formData.append("fileName", fileToUpload.name);
+      // No longer sending fileName separately
       formData.append("fileType", fileToUpload.type);
 
       const { data, error } = await supabase.functions.invoke("upload-voice-sample", { body: formData });
