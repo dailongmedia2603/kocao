@@ -16,6 +16,7 @@ export type UserSubscriptionInfo = {
   plan_name: string;
   videos_used: number;
   video_limit: number;
+  price: number;
 } | null;
 
 type SessionContextType = {
@@ -50,7 +51,7 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
   const fetchSubscription = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from("user_subscriptions")
-      .select("current_period_videos_used, subscription_plans(name, monthly_video_limit)")
+      .select("current_period_videos_used, subscription_plans(name, monthly_video_limit, price)")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -61,11 +62,12 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
     }
 
     if (data && (data as any).subscription_plans) {
-      const plan = (data as any).subscription_plans as { name: string; monthly_video_limit: number };
+      const plan = (data as any).subscription_plans as { name: string; monthly_video_limit: number; price: number };
       setSubscription({
         plan_name: plan.name,
         videos_used: (data as any).current_period_videos_used ?? 0,
         video_limit: plan.monthly_video_limit ?? 0,
+        price: plan.price ?? 0,
       });
     } else {
       setSubscription(null);
@@ -108,7 +110,7 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
       if (!prof) {
         console.error("Session exists but profile missing/invalid. Force sign out.");
         await supabase.auth.signOut({ scope: "global" });
-        return; // onAuthStateChange will trigger a cleanup
+        return;
       }
 
       setSession(sess);

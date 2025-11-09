@@ -2,7 +2,7 @@ import { useSession } from "@/contexts/SessionContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Layers, Video, User } from "lucide-react";
+import { Layers, Video, User, Tag } from "lucide-react";
 
 const SubscriptionPage = () => {
   const { subscription, profile, loading } = useSession();
@@ -62,6 +62,17 @@ const SubscriptionPage = () => {
                   </span>
                 </div>
                 <Progress value={(subscription.videos_used / subscription.video_limit) * 100} className="h-3" />
+              </div>
+              <div className="border-t pt-4">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <Tag className="h-4 w-4" />
+                    Chi phí gói
+                  </span>
+                  <span className="font-semibold text-lg">
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(subscription.price)}
+                  </span>
+                </div>
               </div>
               <p className="text-xs text-muted-foreground text-center pt-2">
                 Số lượt tạo video sẽ được làm mới vào đầu mỗi chu kỳ.

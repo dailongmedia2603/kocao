@@ -28,6 +28,17 @@ type AddEditPlanDialogProps = {
   plan: SubscriptionPlan | null;
 };
 
+const formatNumber = (value: number | string) => {
+  if (value === '' || value === null || value === undefined) return '';
+  const num = parseInt(String(value).replace(/\D/g, ''), 10);
+  if (isNaN(num)) return '';
+  return new Intl.NumberFormat('vi-VN').format(num);
+};
+
+const parseNumber = (value: string) => {
+  return parseInt(value.replace(/\D/g, ''), 10) || 0;
+};
+
 export const AddEditPlanDialog = ({ isOpen, onOpenChange, plan }: AddEditPlanDialogProps) => {
   const queryClient = useQueryClient();
   const isEditMode = !!plan;
@@ -84,7 +95,26 @@ export const AddEditPlanDialog = ({ isOpen, onOpenChange, plan }: AddEditPlanDia
             <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Mô tả</FormLabel><FormControl><Textarea placeholder="Mô tả ngắn về gói cước..." {...field} /></FormControl><FormMessage /></FormItem>)} />
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="monthly_video_limit" render={({ field }) => (<FormItem><FormLabel>Giới hạn Video/Tháng</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="price" render={({ field }) => (<FormItem><FormLabel>Giá (VND)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField
+                control={form.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Giá (VND)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="1.000.000"
+                        value={formatNumber(field.value)}
+                        onChange={(e) => {
+                          const rawValue = parseNumber(e.target.value);
+                          field.onChange(rawValue);
+                        }}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             <FormField control={form.control} name="is_active" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><FormLabel>Kích hoạt</FormLabel><FormDescription>Gói cước này có thể được gán cho người dùng.</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
             <DialogFooter>
