@@ -24,50 +24,52 @@ import TaoKeHoach from "./pages/TaoKeHoach";
 import TaoKeHoachDetail from "./pages/TaoKeHoachDetail";
 import SubscriptionPlans from "./pages/admin/SubscriptionPlans";
 import SubscriptionPage from "./pages/Subscription";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+const queryClient = new QueryClient();
 
 function App() {
   return (
     <BrowserRouter>
-      <SessionContextProvider>
-        <Toaster richColors position="top-right" />
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          
-          <Route element={<ProtectedRoute />}>
-            {/* Trang dành cho người dùng đang chờ duyệt */}
-            <Route path="/pending-approval" element={<PendingApproval />} />
+      <QueryClientProvider client={queryClient}>
+        <SessionContextProvider queryClient={queryClient}>
+          <Toaster richColors position="top-right" />
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            
+            <Route element={<ProtectedRoute />}>
+              <Route path="/pending-approval" element={<PendingApproval />} />
 
-            {/* Các Route chỉ dành cho Admin */}
-            <Route element={<AdminRoute />}>
+              <Route element={<AdminRoute />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/admin/users" element={<UserManagement />} />
+                  <Route path="/admin/plans" element={<SubscriptionPlans />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Route>
+              </Route>
+
               <Route element={<AppLayout />}>
-                <Route path="/admin/users" element={<UserManagement />} />
-                <Route path="/admin/plans" element={<SubscriptionPlans />} />
-                <Route path="/settings" element={<Settings />} />
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/automation" element={<Automation />} />
+                <Route path="/automation/:campaignId" element={<AutomationDetail />} />
+                <Route path="/tao-video" element={<TaoVideo />} />
+                <Route path="/tao-ke-hoach" element={<TaoKeHoach />} />
+                <Route path="/tao-ke-hoach/:planId" element={<TaoKeHoachDetail />} />
+                <Route path="/subscription" element={<SubscriptionPage />} />
+              </Route>
+              <Route element={<KocLayout />}>
+                <Route path="/list-koc" element={<ListKoc />} />
+                <Route path="/list-koc/:kocId" element={<KocDetail />} />
+                <Route path="/create-voice" element={<CreateVoicePage />} />
+                <Route path="/tao-content" element={<TaoContent />} />
+                <Route path="/video-to-script" element={<VideoToScript />} />
               </Route>
             </Route>
-
-            {/* Các Route cho người dùng đã được duyệt */}
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/automation" element={<Automation />} />
-              <Route path="/automation/:campaignId" element={<AutomationDetail />} />
-              <Route path="/tao-video" element={<TaoVideo />} />
-              <Route path="/tao-ke-hoach" element={<TaoKeHoach />} />
-              <Route path="/tao-ke-hoach/:planId" element={<TaoKeHoachDetail />} />
-              <Route path="/subscription" element={<SubscriptionPage />} />
-            </Route>
-            <Route element={<KocLayout />}>
-              <Route path="/list-koc" element={<ListKoc />} />
-              <Route path="/list-koc/:kocId" element={<KocDetail />} />
-              <Route path="/create-voice" element={<CreateVoicePage />} />
-              <Route path="/tao-content" element={<TaoContent />} />
-              <Route path="/video-to-script" element={<VideoToScript />} />
-            </Route>
-          </Route>
-        </Routes>
-      </SessionContextProvider>
+          </Routes>
+        </SessionContextProvider>
+      </QueryClientProvider>
     </BrowserRouter>
   );
 }

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, useCallback } 
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation, useNavigate } from "react-router-dom";
+import { QueryClient } from "@tanstack/react-query";
 
 export type Profile = {
   id: string;
@@ -30,10 +31,9 @@ type SessionContextType = {
 
 const SessionContext = createContext<SessionContextType | null>(null);
 
-// util: sleep for retry
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-export const SessionContextProvider = ({ children }: { children: React.ReactNode }) => {
+export const SessionContextProvider = ({ children, queryClient }: { children: React.ReactNode, queryClient: QueryClient }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -82,12 +82,8 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
           .select("*")
           .eq("id", uid)
           .maybeSingle();
-
         if (!error && data) return data as Profile;
-
-        if (error && error.code !== "PGRST116") {
-          console.warn("Profile fetch error (non-116):", error);
-        }
+        if (error && error.code !== "PGRST116") console.warn("Profile fetch error (non-116):", error);
         await delay(400 * (i + 1));
       }
       return null;
@@ -136,7 +132,11 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
         setLoading(false);
       }
 
-      const { data: listener } = supabase.auth.onAuthStateChange(async (_event, sess) => {
+      const { data: listener } = supabase.auth.onAuthStateChange(async (event, sess) => {
+        if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN") {
+          // Invalidate all queries to force a refetch with the new token
+          await queryClient.invalidateQueries();
+        }
         await loadFromSession(sess);
         setLoading(false);
       });
@@ -149,28 +149,16 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
     return () => {
       unsubscribed = true;
     };
-  }, [loadFromSession]);
+  }, [loadFromSession, queryClient]);
 
   useEffect(() => {
     if (!user) return;
-
     const channel = supabase
       .channel(`user-updates-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
-        (payload) => setProfile(payload.new as Profile)
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "user_subscriptions", filter: `user_id=eq.${user.id}` },
-        () => fetchSubscription(user.id)
-      )
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, (payload) => setProfile(payload.new as Profile))
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_subscriptions", filter: `user_id=eq.${user.id}` }, () => fetchSubscription(user.id))
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [user, fetchSubscription]);
 
   const value = useMemo<SessionContextType>(
