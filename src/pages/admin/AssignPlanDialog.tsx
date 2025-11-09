@@ -100,14 +100,14 @@ export const AssignPlanDialog = ({ isOpen, onOpenChange, user }: AssignPlanDialo
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Gói cước</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingPlans}>
+                  <Select onValueChange={(value) => field.onChange(value === "__NULL__" ? null : value)} value={field.value ?? undefined} disabled={isLoadingPlans}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Chọn một gói cước..." />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">Không có gói nào</SelectItem>
+                      <SelectItem value="__NULL__">Không có gói nào</SelectItem>
                       {plans.map(plan => (
                         <SelectItem key={plan.id} value={plan.id}>
                           {plan.name} ({plan.monthly_video_limit} video/tháng)

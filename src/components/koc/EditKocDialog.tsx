@@ -129,7 +129,7 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
                 <FormLabel>Giọng nói mặc định</FormLabel>
                 {isLoadingVoices ? <Skeleton className="h-10 w-full" /> : (
                   <Select
-                    onValueChange={(value) => field.onChange(value === "__NULL__" ? "" : value)}
+                    onValueChange={(value) => field.onChange(value === "__NULL__" ? undefined : value)}
                     value={field.value}
                   >
                     <FormControl><SelectTrigger><SelectValue placeholder="Chọn giọng nói mặc định" /></SelectTrigger></FormControl>
