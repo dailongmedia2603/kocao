@@ -3,8 +3,12 @@ import Sidebar from "../Sidebar";
 import KocHeader from "./KocHeader";
 import MobileHeader from "../MobileHeader";
 import BottomNavBar from "../BottomNavBar";
+import { useSession } from "@/contexts/SessionContext";
+import { LoadingSpinner } from "../LoadingSpinner";
 
 const KocLayout = () => {
+  const { loading } = useSession();
+
   return (
     <>
       {/* Giao diện Desktop: Ẩn trên mobile (md:flex) */}
@@ -13,7 +17,7 @@ const KocLayout = () => {
         <div className="flex-1 flex flex-col overflow-hidden">
           <KocHeader />
           <main className="flex-1 overflow-y-auto bg-gray-50/50">
-            <Outlet />
+            {loading ? <LoadingSpinner /> : <Outlet />}
           </main>
         </div>
       </div>
@@ -22,7 +26,7 @@ const KocLayout = () => {
       <div className="md:hidden flex flex-col h-screen bg-gray-50/50">
         <MobileHeader />
         <main className="flex-1 overflow-y-auto pb-20">
-          <Outlet />
+          {loading ? <LoadingSpinner /> : <Outlet />}
         </main>
         <BottomNavBar />
       </div>

@@ -72,7 +72,6 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
     }
   }, []);
 
-  // Hardening: fetch profile with small retry (e.g., after sign-up trigger that creates profile)
   const fetchProfileWithRetry = useCallback(
     async (uid: string, tries = 3): Promise<Profile | null> => {
       for (let i = 0; i < tries; i++) {
@@ -84,7 +83,6 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
 
         if (!error && data) return data as Profile;
 
-        // PGRST116: no row → có thể do profile chưa được tạo → retry nhẹ
         if (error && error.code !== "PGRST116") {
           console.warn("Profile fetch error (non-116):", error);
         }
@@ -95,11 +93,9 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
     []
   );
 
-  // Single source of truth to load everything from a Session
   const loadFromSession = useCallback(
     async (sess: Session | null) => {
       if (!sess?.user) {
-        // no session → clear & maybe redirect
         setSession(null);
         setUser(null);
         setProfile(null);
@@ -108,21 +104,13 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
         return;
       }
 
-      // Có session → xác thực profile
       const prof = await fetchProfileWithRetry(sess.user.id, 3);
       if (!prof) {
         console.error("Session exists but profile missing/invalid. Force sign out.");
-        // Dọn dẹp triệt để để tránh “session treo” từ cookie
         await supabase.auth.signOut({ scope: "global" });
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        setSubscription(null);
-        if (!publicPaths.has(location.pathname)) navigate("/login", { replace: true });
-        return;
+        return; // onAuthStateChange will trigger a cleanup
       }
 
-      // Valid
       setSession(sess);
       setUser(sess.user);
       setProfile(prof);
@@ -133,39 +121,23 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut({ scope: "global" });
-    // state sẽ được dọn bởi loadFromSession khi onAuthStateChange bắn,
-    // nhưng ta chủ động dọn ngay để UI mượt.
-    setSession(null);
-    setUser(null);
-    setProfile(null);
-    setSubscription(null);
-    if (!publicPaths.has(location.pathname)) navigate("/login", { replace: true });
-  }, [navigate, location.pathname, publicPaths]);
+  }, []);
 
-  // Boot: lấy session hiện tại + subscribe auth changes
   useEffect(() => {
     let unsubscribed = false;
     (async () => {
       setLoading(true);
-
-      // 1) Khởi tạo từ getSession (đảm bảo không trắng màn hình khi reload)
       const { data, error } = await supabase.auth.getSession();
       if (error) console.warn("getSession error:", error);
       if (!unsubscribed) {
         await loadFromSession(data?.session ?? null);
+        setLoading(false);
       }
 
-      // 2) Lắng nghe thay đổi auth và đồng bộ theo “nguồn sự thật”
-      const { data: listener } = supabase.auth.onAuthStateChange(async (event, sess) => {
-        const signOutEvents: string[] = ['SIGNED_OUT', 'USER_DELETED'];
-        if (signOutEvents.includes(event)) {
-          await loadFromSession(null);
-        } else {
-          await loadFromSession(sess);
-        }
+      const { data: listener } = supabase.auth.onAuthStateChange(async (_event, sess) => {
+        await loadFromSession(sess);
+        setLoading(false);
       });
-
-      setLoading(false);
 
       return () => {
         listener.subscription.unsubscribe();
@@ -177,7 +149,6 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
     };
   }, [loadFromSession]);
 
-  // Realtime updates scoped theo user
   useEffect(() => {
     if (!user) return;
 
@@ -204,17 +175,6 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
     () => ({ session, user, profile, subscription, loading, signOut }),
     [session, user, profile, subscription, loading, signOut]
   );
-
-  // GATE: tránh render children khi chưa xác thực xong để không “trang trắng do crash”
-  // Có thể thay bằng một Splash/Spinner nhỏ của bạn.
-  if (loading) {
-    return <div style={{ padding: 24 }}>Đang tải phiên đăng nhập…</div>;
-  }
-
-  // Nếu không đăng nhập và đang ở route private → đã navigate trong loadFromSession; giữ render nhỏ
-  if (!user && !publicPaths.has(location.pathname)) {
-    return <div style={{ padding: 24 }}>Đang chuyển hướng đến trang đăng nhập…</div>;
-  }
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 };

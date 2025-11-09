@@ -1,24 +1,21 @@
 import { useSession } from "@/contexts/SessionContext";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingSpinner } from "./LoadingSpinner";
 
 const ProtectedRoute = () => {
   const { session, profile, loading } = useSession();
   const location = useLocation();
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Skeleton className="h-12 w-12 rounded-full" />
-      </div>
-    );
+    // Render the layout which will show its own loading state
+    // This prevents a full-page takeover while loading
+    return <Outlet />;
   }
 
   if (!session) {
     return <Navigate to="/login" replace />;
   }
 
-  // Xử lý phiên khôi phục mật khẩu tạm thời
   const isRecoverySession = (session.user as any).amr?.some(
     (method: { method: string }) => method.method === 'recovery'
   );
@@ -27,14 +24,11 @@ const ProtectedRoute = () => {
     return <Navigate to="/forgot-password" replace />;
   }
   
-  // Nếu không phải phiên khôi phục, kiểm tra trạng thái profile
   if (!isRecoverySession) {
-    // Nếu profile đã tải và trạng thái là 'pending', chuyển hướng đến trang chờ duyệt
     if (profile && profile.status === 'pending' && location.pathname !== '/pending-approval') {
       return <Navigate to="/pending-approval" replace />;
     }
 
-    // Nếu profile đã được duyệt nhưng người dùng vẫn ở trang chờ, chuyển hướng vào trang chính
     if (profile && profile.status !== 'pending' && location.pathname === '/pending-approval') {
       return <Navigate to="/" replace />;
     }
