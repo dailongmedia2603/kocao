@@ -32,7 +32,6 @@ serve(async (req) => {
       userId = authUser.id;
     }
 
-    // Lấy một API key dùng chung trong hệ thống
     const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
       .select("api_key")
@@ -47,6 +46,20 @@ serve(async (req) => {
     const voice_name = body?.voice_name;
     const cloned_voice_id = body?.voice_setting?.voice_id;
     const cloned_voice_name = body?.cloned_voice_name;
+
+    // **IMPROVEMENT:** Pre-flight check for voice_id existence
+    if (cloned_voice_id) {
+      const { data: voiceCheck, error: voiceCheckError } = await supabaseAdmin
+        .from('cloned_voices')
+        .select('voice_id')
+        .eq('voice_id', cloned_voice_id)
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (voiceCheckError || !voiceCheck) {
+        throw new Error(`Giọng nói mặc định của KOC (ID: ${cloned_voice_id}) không hợp lệ hoặc không tồn tại. Vui lòng vào Chỉnh sửa KOC và chọn lại.`);
+      }
+    }
 
     const { voice_name: _removed, cloned_voice_name: _removed2, ...apiBody } = body || {};
 
