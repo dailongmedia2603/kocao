@@ -41,45 +41,30 @@ export const SessionContextProvider = ({
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-    navigate("/login");
-  };
+    // onAuthStateChange sẽ xử lý việc cập nhật state và điều hướng
+  }, []);
 
-  const fetchProfileAndSubscription = useCallback(async (currentUser: User) => {
-    try {
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", currentUser.id)
-        .single();
-
-      if (profileError) throw profileError;
-      setProfile(profileData);
-
-      const { data: subData, error: subError } = await supabase
-        .from('user_subscriptions')
-        .select('current_period_videos_used, subscription_plans(name, monthly_video_limit)')
-        .eq('user_id', currentUser.id)
-        .single();
-      
-      if (subError && subError.code !== 'PGRST116') {
-        console.error("Error fetching subscription:", subError);
-        setSubscription(null);
-      } else if (subData && subData.subscription_plans) {
-        const plan = subData.subscription_plans as unknown as { name: string; monthly_video_limit: number };
-        setSubscription({
-          plan_name: plan.name,
-          videos_used: subData.current_period_videos_used,
-          video_limit: plan.monthly_video_limit,
-        });
-      } else {
-        setSubscription(null);
-      }
-      return true;
-    } catch (error) {
-      console.error("Failed to fetch user data, session may be invalid.", error);
-      return false;
+  const fetchSubscription = useCallback(async (userId: string) => {
+    const { data: subData, error: subError } = await supabase
+      .from('user_subscriptions')
+      .select('current_period_videos_used, subscription_plans(name, monthly_video_limit)')
+      .eq('user_id', userId)
+      .single();
+    
+    if (subError && subError.code !== 'PGRST116') {
+      console.error("Error fetching subscription:", subError);
+      setSubscription(null);
+    } else if (subData && subData.subscription_plans) {
+      const plan = subData.subscription_plans as unknown as { name: string; monthly_video_limit: number };
+      setSubscription({
+        plan_name: plan.name,
+        videos_used: subData.current_period_videos_used,
+        video_limit: plan.monthly_video_limit,
+      });
+    } else {
+      setSubscription(null);
     }
   }, []);
 
@@ -88,22 +73,38 @@ export const SessionContextProvider = ({
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         if (session?.user) {
-          const success = await fetchProfileAndSubscription(session.user);
-          if (success) {
-            setSession(session);
-            setUser(session.user);
-          } else {
+          // Session exists, now we MUST validate it by fetching the profile.
+          const { data: profileData, error: profileError } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", session.user.id)
+            .single();
+
+          if (profileError || !profileData) {
+            // This is an invalid session (e.g., user deleted but cookie remains).
+            // Force sign out to clean up.
+            console.error("Session exists but profile fetch failed. Forcing sign out.", profileError);
             await supabase.auth.signOut();
             setSession(null);
             setUser(null);
             setProfile(null);
             setSubscription(null);
+          } else {
+            // Session is valid, profile exists.
+            setSession(session);
+            setUser(session.user);
+            setProfile(profileData);
+            await fetchSubscription(session.user.id);
           }
         } else {
+          // No session, clear everything.
           setSession(null);
           setUser(null);
           setProfile(null);
           setSubscription(null);
+          if (location.pathname !== '/login' && location.pathname !== '/register' && location.pathname !== '/forgot-password') {
+            navigate('/login');
+          }
         }
         setLoading(false);
       }
@@ -112,36 +113,28 @@ export const SessionContextProvider = ({
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, [fetchProfileAndSubscription]);
+  }, [fetchSubscription, navigate]);
 
   useEffect(() => {
     if (user) {
-      const profileChannel = supabase
-        .channel(`public:profiles:id=eq.${user.id}`)
+      const channels = supabase.channel(`user-updates-${user.id}`)
         .on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
-          (payload) => {
-            setProfile(payload.new as Profile);
-          }
+          (payload) => setProfile(payload.new as Profile)
         )
-        .subscribe();
-
-      const subChannel = supabase
-        .channel(`public:user_subscriptions:user_id=eq.${user.id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'user_subscriptions', filter: `user_id=eq.${user.id}` },
-          () => {
-            fetchProfileAndSubscription(user);
-          }
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'user_subscriptions', filter: `user_id=eq.${user.id}` },
+          () => fetchSubscription(user.id)
         )
         .subscribe();
 
       return () => {
-        supabase.removeChannel(profileChannel);
-        supabase.removeChannel(subChannel);
+        supabase.removeChannel(channels);
       };
     }
-  }, [user, fetchProfileAndSubscription]);
+  }, [user, fetchSubscription]);
 
   const value = {
     session,
