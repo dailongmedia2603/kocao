@@ -27,11 +27,24 @@ serve(async (req) => {
     if (apiKeyError || !apiKeyData) throw new Error("Chưa có API Key Voice nào được cấu hình trong hệ thống.");
     const apiKey = apiKeyData.api_key;
     
-    const { voice_name, preview_text, file_url } = await req.json();
-    if (!voice_name || !preview_text || !file_url) {
-      throw new Error("Thiếu tên giọng nói, văn bản xem trước, hoặc URL của file.");
+    const { voice_name, preview_text, sample_id } = await req.json();
+    if (!voice_name || !preview_text || !sample_id) {
+      throw new Error("Thiếu tên giọng nói, văn bản xem trước, hoặc ID của file mẫu.");
     }
-    logPayload.request_payload = { voice_name, preview_text, file_url_on_r2: file_url };
+    logPayload.request_payload = { voice_name, preview_text, sample_id };
+
+    // Get the public URL from the database using the sample_id
+    const { data: sampleData, error: sampleError } = await supabaseAdmin
+      .from('voice_clone_samples')
+      .select('public_url')
+      .eq('id', sample_id)
+      .eq('user_id', user.id) // Security check
+      .single();
+
+    if (sampleError || !sampleData) {
+      throw new Error(`Không tìm thấy file mẫu với ID: ${sample_id}. Lỗi: ${sampleError?.message}`);
+    }
+    const file_url = sampleData.public_url;
 
     const apiUrl = "https://gateway.vivoo.work/v1m/voice/clone";
     const apiBody = {
