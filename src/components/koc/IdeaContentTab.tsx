@@ -16,6 +16,7 @@ import { ConfigureAiTemplatesDialog } from "@/components/automation/ConfigureAiT
 import { IdeaLogDialog } from "./IdeaLogDialog";
 import { useSession } from "@/contexts/SessionContext";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type Idea = {
   id: string;
@@ -28,6 +29,7 @@ type Idea = {
     display_name: string;
     url: string;
   } | null;
+  error_message: string | null;
 };
 
 type IdeaContentTabProps = {
@@ -38,31 +40,57 @@ type IdeaContentTabProps = {
   defaultTemplateId: string | null;
 };
 
-const StatusBadge = ({ status }: { status: string }) => {
+const StatusBadge = ({ status, errorMessage }: { status: string, errorMessage?: string | null }) => {
+  const badgeContent = (
+    <>
+      {(status === 'Đang xử lý' || status === 'Đang tạo voice' || status === 'Đang tạo video') && (
+        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+      )}
+      {status}
+    </>
+  );
+
+  let badge;
   switch (status) {
     case 'Đã tạo video':
-      return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Đã tạo video</Badge>;
+      badge = <Badge className="bg-green-100 text-green-800 hover:bg-green-100">{badgeContent}</Badge>;
+      break;
     case 'Đã tạo voice':
-      return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Đã tạo voice</Badge>;
     case 'Đã có content':
-      return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Đã có content</Badge>;
+      badge = <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">{badgeContent}</Badge>;
+      break;
     case 'Đang xử lý':
     case 'Đang tạo voice':
     case 'Đang tạo video':
-      return (
-        <Badge variant="outline" className="text-yellow-800 border-yellow-200">
-          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-          {status}
-        </Badge>
-      );
+      badge = <Badge variant="outline" className="text-yellow-800 border-yellow-200">{badgeContent}</Badge>;
+      break;
     case 'Lỗi tạo voice':
     case 'Lỗi tạo video':
     case 'Lỗi tạo content':
-      return <Badge variant="destructive">{status}</Badge>;
+      badge = <Badge variant="destructive">{badgeContent}</Badge>;
+      break;
     case 'Chưa sử dụng':
     default:
-      return <Badge variant="secondary">Chưa sử dụng</Badge>;
+      badge = <Badge variant="secondary">{badgeContent}</Badge>;
+      break;
   }
+
+  if ((status.startsWith('Lỗi') || status.startsWith('Thất bại')) && errorMessage) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="cursor-help">{badge}</div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="max-w-xs">{errorMessage}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return badge;
 };
 
 const IdeaCardMobile = ({ idea, onGenerateScript, onEdit, onDelete, onViewContent, isGeneratingScript, onCreateVoice, isCreatingVoice, onCreateVideo, isCreatingVideo }: { idea: Idea, onGenerateScript: (idea: Idea) => void, onEdit: (idea: Idea) => void, onDelete: (idea: Idea) => void, onViewContent: (content: string | null) => void, isGeneratingScript: boolean, onCreateVoice: (ideaId: string) => void, isCreatingVoice: boolean, onCreateVideo: (idea: Idea) => void, isCreatingVideo: boolean }) => {
@@ -99,7 +127,7 @@ const IdeaCardMobile = ({ idea, onGenerateScript, onEdit, onDelete, onViewConten
                     </DropdownMenu>
                 </div>
                 <div className="mt-2 flex items-center justify-between">
-                    <StatusBadge status={idea.status} />
+                    <StatusBadge status={idea.status} errorMessage={idea.error_message} />
                     {idea.new_content && (
                         <Button variant="link" className="p-0 h-auto text-xs" onClick={() => onViewContent(idea.new_content)}>Xem kịch bản</Button>
                     )}
@@ -277,7 +305,7 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
                   <TableRow key={idea.id}>
                     <TableCell className="font-medium max-w-xs truncate">{idea.idea_content}</TableCell>
                     <TableCell>{idea.new_content ? (<Button variant="link" className="p-0 h-auto" onClick={() => handleViewContent(idea.new_content)}>Xem</Button>) : (<span className="text-muted-foreground text-xs">Chưa có</span>)}</TableCell>
-                    <TableCell><div className="flex flex-col gap-2"><StatusBadge status={idea.status} />{idea.voice_audio_url && (<audio controls src={idea.voice_audio_url} className="h-8 w-full max-w-[200px]" />)}</div></TableCell>
+                    <TableCell><div className="flex flex-col gap-2"><StatusBadge status={idea.status} errorMessage={idea.error_message} />{idea.voice_audio_url && (<audio controls src={idea.voice_audio_url} className="h-8 w-full max-w-[200px]" />)}</div></TableCell>
                     <TableCell>{idea.koc_files ? (<a href={idea.koc_files.url} target="_blank" rel="noopener noreferrer" className="flex items-center text-blue-600 hover:underline"><Video className="mr-2 h-4 w-4" /><span className="truncate max-w-[150px]">{idea.koc_files.display_name}</span></a>) : (<span className="text-muted-foreground text-xs">Chưa có</span>)}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
