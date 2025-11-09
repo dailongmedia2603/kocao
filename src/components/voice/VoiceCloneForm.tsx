@@ -88,15 +88,24 @@ export const VoiceCloneForm = () => {
                 <FormMessage />
               </FormItem>
             )} />
-            <FormField control={form.control} name="file" render={({ field }) => (
-              <FormItem>
-                <FormLabel>File âm thanh</FormLabel>
-                <FormControl>
-                  <Input type="file" accept="audio/*" onChange={(e) => field.onChange(e.target.files)} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="file"
+              render={({ field: { value, onChange, ...fieldProps } }) => (
+                <FormItem>
+                  <FormLabel>File âm thanh</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...fieldProps}
+                      type="file"
+                      accept="audio/*"
+                      onChange={(event) => onChange(event.target.files)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <Button type="submit" className="w-full" disabled={cloneVoiceMutation.isPending}>
               {cloneVoiceMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
               Bắt đầu Clone
