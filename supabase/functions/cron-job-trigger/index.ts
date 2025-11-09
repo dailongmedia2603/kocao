@@ -22,7 +22,8 @@ serve(async (req) => {
     const allowedJobs = [
       'auto-idea-to-voice',
       'auto-voice-to-video',
-      'auto-link-final-video'
+      'auto-link-final-video',
+      'generate-idea-content' // Sửa lỗi: Thêm job tạo kịch bản vào danh sách cho phép
     ];
 
     if (!allowedJobs.includes(job)) {
