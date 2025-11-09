@@ -37,9 +37,9 @@ serve(async (req) => {
     // 2. Update status to 'Đang tạo video'
     await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đang tạo video' }).eq('id', idea.id);
 
-    // 3. Get a random source video for the KOC
+    // 3. Get the next source video for the KOC sequentially
     const { data: sourceVideo, error: videoError } = await supabaseAdmin
-      .rpc('get_random_source_video', { p_koc_id: idea.koc_id })
+      .rpc('get_and_update_next_source_video', { p_koc_id: idea.koc_id })
       .single();
 
     if (videoError || !sourceVideo) {

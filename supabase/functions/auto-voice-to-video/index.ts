@@ -57,9 +57,9 @@ serve(async (req) => {
         console.log(`Voice cho idea ${idea.id} đã hoàn thành. Bắt đầu tạo video.`);
         await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đang tạo video' }).eq('id', idea.id);
 
-        // 4. Lấy một video nguồn NGẪU NHIÊN của KOC
+        // 4. Lấy video nguồn tiếp theo một cách tuần tự
         const { data: sourceVideo, error: videoError } = await supabaseAdmin
-          .rpc('get_random_source_video', { p_koc_id: idea.koc_id })
+          .rpc('get_and_update_next_source_video', { p_koc_id: idea.koc_id })
           .single();
 
         if (videoError || !sourceVideo) {
