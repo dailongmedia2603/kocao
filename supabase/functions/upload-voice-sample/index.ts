@@ -49,7 +49,6 @@ serve(async (req) => {
     
     const publicFileUrl = `${R2_PUBLIC_URL}/${r2Key}`;
 
-    // Insert into the new table
     const { data: newSample, error: insertError } = await supabaseAdmin
       .from('voice_clone_samples')
       .insert({
@@ -57,6 +56,7 @@ serve(async (req) => {
         r2_key: r2Key,
         public_url: publicFileUrl,
         status: 'uploaded',
+        file_name: fileName, // Save the filename
       })
       .select('id')
       .single();
@@ -65,7 +65,8 @@ serve(async (req) => {
       throw new Error(`Lỗi lưu thông tin file: ${insertError.message}`);
     }
 
-    return new Response(JSON.stringify({ success: true, id: newSample.id }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // Return both id and fileName
+    return new Response(JSON.stringify({ success: true, id: newSample.id, fileName: fileName }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (err) {
     return new Response(JSON.stringify({ success: false, error: err.message }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });

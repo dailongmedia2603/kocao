@@ -21,6 +21,7 @@ export const VoiceCloneForm = () => {
   );
   const [file, setFile] = useState<File | null>(null);
   const [sampleId, setSampleId] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
   const uploadFileMutation = useMutation({
     mutationFn: async (fileToUpload: File) => {
@@ -38,16 +39,18 @@ export const VoiceCloneForm = () => {
       const { data, error } = await supabase.functions.invoke("upload-voice-sample", { body: formData });
       if (error) throw new Error(error.message);
       if (data.error) throw new Error(data.error);
-      return data.id;
+      return { id: data.id, fileName: data.fileName };
     },
-    onSuccess: (id) => {
+    onSuccess: ({ id, fileName }) => {
       setSampleId(id);
+      setUploadedFileName(fileName);
       showSuccess("Tải file lên thành công!");
     },
     onError: (error: Error) => {
       showError(`Lỗi tải file: ${error.message}`);
       setFile(null);
       setSampleId(null);
+      setUploadedFileName(null);
     },
   });
 
@@ -55,7 +58,8 @@ export const VoiceCloneForm = () => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
-      setSampleId(null); // Reset previous ID
+      setSampleId(null);
+      setUploadedFileName(null);
       uploadFileMutation.mutate(selectedFile);
     }
   };
@@ -85,6 +89,7 @@ export const VoiceCloneForm = () => {
       setPreviewText("Xin chào, tôi rất vui được hỗ trợ bạn với các dịch vụ giọng nói của chúng tôi. Hãy chọn một giọng nói phù hợp với bạn và cùng bắt đầu hành trình âm thanh sáng tạo của chúng ta");
       setFile(null);
       setSampleId(null);
+      setUploadedFileName(null);
     },
     onError: (error: Error) => {
       showError(`Lỗi: ${error.message}`);
@@ -130,7 +135,7 @@ export const VoiceCloneForm = () => {
               accept="audio/*"
               onChange={handleFileChange}
               disabled={uploadFileMutation.isPending}
-              key={file ? file.name + file.lastModified : 'file-input'}
+              key={uploadedFileName || 'file-input'}
             />
             {uploadFileMutation.isPending && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
@@ -138,10 +143,10 @@ export const VoiceCloneForm = () => {
                 <span>Đang tải file lên...</span>
               </div>
             )}
-            {sampleId && file && (
+            {sampleId && uploadedFileName && (
               <div className="flex items-center gap-2 text-sm text-green-600 mt-2 p-2 bg-green-50 rounded-md">
                 <CheckCircle className="h-4 w-4" />
-                <span>Đã tải lên: {file.name}</span>
+                <span>Đã tải lên: {uploadedFileName}</span>
               </div>
             )}
           </div>
