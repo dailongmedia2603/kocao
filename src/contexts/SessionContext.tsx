@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -41,62 +41,67 @@ export const SessionContextProvider = ({
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const fetchProfileAndSubscription = async (currentUser: User) => {
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", currentUser.id)
-      .single();
-
-    if (profileError) {
-      console.error("Error fetching profile:", profileError);
-    } else {
-      setProfile(profileData);
-    }
-
-    const { data: subData, error: subError } = await supabase
-      .from('user_subscriptions')
-      .select('current_period_videos_used, subscription_plans(name, monthly_video_limit)')
-      .eq('user_id', currentUser.id)
-      .single();
-    
-    if (subError && subError.code !== 'PGRST116') {
-      console.error("Error fetching subscription:", subError);
-    } else if (subData && subData.subscription_plans) {
-      // The type system incorrectly infers this as an array. We force it to be an object.
-      const plan = subData.subscription_plans as unknown as { name: string; monthly_video_limit: number };
-      setSubscription({
-        plan_name: plan.name,
-        videos_used: subData.current_period_videos_used,
-        video_limit: plan.monthly_video_limit,
-      });
-    } else {
-      setSubscription(null);
-    }
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/login");
   };
 
-  useEffect(() => {
-    const getSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfileAndSubscription(session.user);
+  const fetchProfileAndSubscription = useCallback(async (currentUser: User) => {
+    try {
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", currentUser.id)
+        .single();
+
+      if (profileError) throw profileError;
+      setProfile(profileData);
+
+      const { data: subData, error: subError } = await supabase
+        .from('user_subscriptions')
+        .select('current_period_videos_used, subscription_plans(name, monthly_video_limit)')
+        .eq('user_id', currentUser.id)
+        .single();
+      
+      if (subError && subError.code !== 'PGRST116') {
+        console.error("Error fetching subscription:", subError);
+        setSubscription(null);
+      } else if (subData && subData.subscription_plans) {
+        const plan = subData.subscription_plans as unknown as { name: string; monthly_video_limit: number };
+        setSubscription({
+          plan_name: plan.name,
+          videos_used: subData.current_period_videos_used,
+          video_limit: plan.monthly_video_limit,
+        });
+      } else {
+        setSubscription(null);
       }
-      setLoading(false);
-    };
+      return true;
+    } catch (error) {
+      console.error("Failed to fetch user data, session may be invalid.", error);
+      return false;
+    }
+  }, []);
 
-    getSession();
-
+  useEffect(() => {
+    setLoading(true);
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
         if (session?.user) {
-          await fetchProfileAndSubscription(session.user);
+          const success = await fetchProfileAndSubscription(session.user);
+          if (success) {
+            setSession(session);
+            setUser(session.user);
+          } else {
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+            setSubscription(null);
+          }
         } else {
+          setSession(null);
+          setUser(null);
           setProfile(null);
           setSubscription(null);
         }
@@ -107,7 +112,7 @@ export const SessionContextProvider = ({
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchProfileAndSubscription]);
 
   useEffect(() => {
     if (user) {
@@ -136,12 +141,7 @@ export const SessionContextProvider = ({
         supabase.removeChannel(subChannel);
       };
     }
-  }, [user]);
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/login");
-  };
+  }, [user, fetchProfileAndSubscription]);
 
   const value = {
     session,
