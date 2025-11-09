@@ -11,9 +11,10 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+  
+  const { ideaId } = await req.json().catch(() => ({}));
 
   try {
-    const { ideaId } = await req.json();
     if (!ideaId) throw new Error("Idea ID is required.");
 
     const supabaseAdmin = createClient(
@@ -79,10 +80,9 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error in manual-create-voice-from-idea:", error);
     // Rollback status if something fails
-    const { ideaId } = await req.json().catch(() => ({}));
     if (ideaId) {
         const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-        await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đã có content', error_message: error.message }).eq('id', ideaId);
+        await supabaseAdmin.from('koc_content_ideas').update({ status: 'Lỗi tạo voice', error_message: error.message }).eq('id', ideaId);
     }
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
   }
