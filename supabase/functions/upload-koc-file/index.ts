@@ -18,15 +18,13 @@ serve(async (req) => {
     const formData = await req.formData();
     const file = formData.get("file");
     const folderPath = formData.get("folderPath");
-    const fileName = formData.get("fileName"); // Original filename
+    const fileName = formData.get("fileName");
     const kocId = formData.get("kocId");
     const userId = formData.get("userId");
 
     if (!file || !folderPath || !fileName || !kocId || !userId) {
       throw new Error("Thiếu thông tin tệp, folderPath, fileName, kocId, hoặc userId.");
     }
-
-    const r2Key = `${folderPath}/${Date.now()}-${fileName}`;
 
     const fileBuffer = await file.arrayBuffer();
     const s3 = new S3Client({
@@ -36,6 +34,7 @@ serve(async (req) => {
     });
 
     const bucket = Deno.env.get("R2_BUCKET_NAME");
+    const r2Key = `${folderPath}/${Date.now()}-${fileName}`;
 
     await s3.send(new PutObjectCommand({ Bucket: bucket, Key: r2Key, Body: fileBuffer, ContentType: file.type }));
 
@@ -43,15 +42,19 @@ serve(async (req) => {
       koc_id: kocId,
       user_id: userId,
       r2_key: r2Key,
-      display_name: fileName, // Keep original name for display
+      display_name: fileName,
     }).select('id').single();
 
     if (dbError) throw new Error(`Lỗi lưu vào database: ${dbError.message}`);
 
+    // BƯỚC 3: KÍCH HOẠT TẠO THUMBNAIL TỰ ĐỘNG
     if (newFile && isVideo(file.type)) {
+      // Gọi hàm generate-thumbnail mà không cần chờ (fire-and-forget)
+      // để không làm chậm quá trình upload của người dùng.
       supabaseAdmin.functions.invoke("generate-thumbnail", {
         body: { r2_key: r2Key, file_id: newFile.id },
       }).catch(err => {
+        // Ghi lại lỗi nếu việc gọi hàm thất bại, nhưng không làm sập hàm chính
         console.error(`Lỗi khi kích hoạt generate-thumbnail cho file ${newFile.id}:`, err.message);
       });
     }
