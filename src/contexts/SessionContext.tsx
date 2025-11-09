@@ -133,10 +133,8 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
       }
 
       const { data: listener } = supabase.auth.onAuthStateChange(async (event, sess) => {
-        if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN") {
-          // Invalidate all queries to force a refetch with the new token
-          await queryClient.invalidateQueries();
-        }
+        // The new useSupabaseQuery hook handles data refetching more gracefully.
+        // We only need to handle the session state here.
         await loadFromSession(sess);
         setLoading(false);
       });

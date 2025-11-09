@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import KocMobileNav from "@/components/koc/KocMobileNav";
+import { useSupabaseQuery } from "@/hooks/useSupabaseQuery";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -31,14 +30,6 @@ type Koc = {
   default_cloned_voice_id?: string | null;
 };
 
-const fetchKocs = async (userId: string) => {
-  const { data, error } = await supabase
-    .rpc('get_kocs_with_video_count', { p_user_id: userId });
-
-  if (error) throw new Error(error.message);
-  return data as Koc[];
-};
-
 const ListKoc = () => {
   const { user } = useSession();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -46,9 +37,14 @@ const ListKoc = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedKoc, setSelectedKoc] = useState<Koc | null>(null);
 
-  const { data: kocs, isLoading, isError, error } = useQuery<Koc[]>({
+  const { data: kocs, isLoading, isError, error } = useSupabaseQuery<Koc[]>({
     queryKey: ["kocs", user?.id],
-    queryFn: () => fetchKocs(user!.id),
+    queryFn: async (supabase) => {
+      const { data, error } = await supabase
+        .rpc('get_kocs_with_video_count', { p_user_id: user!.id });
+      if (error) throw error;
+      return data as Koc[];
+    },
     enabled: !!user,
   });
 
