@@ -51,6 +51,8 @@ serve(async (req) => {
     if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET_NAME || !R2_PUBLIC_URL) {
       throw new Error("Thiếu cấu hình biến môi trường cho R2.");
     }
+    
+    const cleanPublicUrl = R2_PUBLIC_URL.replace(/^(https?:\/\/)/, '').replace(/\/$/, '');
 
     const s3 = new S3Client({
       region: "auto",
@@ -92,7 +94,7 @@ serve(async (req) => {
           ContentType: videoContentType,
         }));
 
-        const publicUrl = `${R2_PUBLIC_URL}/${r2Key}`;
+        const publicUrl = `https://${cleanPublicUrl}/${r2Key}`;
 
         // **LOGIC MỚI: TẠO KOC_FILE VÀ LIÊN KẾT LẠI IDEA**
         const { data: newKocFile, error: kocFileError } = await supabaseAdmin

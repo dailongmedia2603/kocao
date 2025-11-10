@@ -41,12 +41,14 @@ serve(async (req) => {
         throw new Error("Thiếu cấu hình R2_PUBLIC_URL.");
     }
 
+    // "Làm sạch" URL để tránh lỗi trùng lặp protocol và dấu gạch chéo
+    const cleanPublicUrl = R2_PUBLIC_URL.replace(/^(https?:\/\/)/, '').replace(/\/$/, '');
+
     // Tạo public URL cho mỗi video
     const filesWithUrls = files.map((file) => {
-      // Sửa lỗi: Loại bỏ dấu gạch chéo thừa để tránh URL bị sai
       return {
         ...file,
-        url: `https://${R2_PUBLIC_URL}${file.r2_key}`,
+        url: `https://${cleanPublicUrl}/${file.r2_key}`,
       };
     });
 

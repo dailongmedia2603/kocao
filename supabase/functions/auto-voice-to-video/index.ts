@@ -19,6 +19,8 @@ serve(async (req) => {
     );
     const R2_PUBLIC_URL = Deno.env.get("R2_PUBLIC_URL");
     if (!R2_PUBLIC_URL) throw new Error("Thiếu cấu hình R2_PUBLIC_URL.");
+    
+    const cleanPublicUrl = R2_PUBLIC_URL.replace(/^(https?:\/\/)/, '').replace(/\/$/, '');
 
     // 1. Tìm các idea đã tạo voice xong nhưng chưa bắt đầu tạo video
     const { data: ideas, error: fetchError } = await supabaseAdmin
@@ -65,7 +67,7 @@ serve(async (req) => {
         if (videoError || !sourceVideo) {
           throw new Error(`Không tìm thấy video nguồn nào cho KOC ${idea.koc_id}. Vui lòng tải video nguồn lên.`);
         }
-        const sourceVideoUrl = `${R2_PUBLIC_URL}/${sourceVideo.r2_key}`;
+        const sourceVideoUrl = `https://${cleanPublicUrl}/${sourceVideo.r2_key}`;
 
         // 5. Tạo một tác vụ mới trong dreamface_tasks
         const { data: newDreamfaceTask, error: insertError } = await supabaseAdmin

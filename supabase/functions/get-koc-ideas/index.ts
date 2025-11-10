@@ -28,6 +28,8 @@ serve(async (req) => {
     if (!R2_PUBLIC_URL) {
         throw new Error("Thiếu cấu hình R2_PUBLIC_URL.");
     }
+    
+    const cleanPublicUrl = R2_PUBLIC_URL.replace(/^(https?:\/\/)/, '').replace(/\/$/, '');
 
     const { data: ideas, error } = await supabaseAdmin
       .from("koc_content_ideas")
@@ -46,7 +48,7 @@ serve(async (req) => {
           ...idea,
           koc_files: {
             ...idea.koc_files,
-            url: `${R2_PUBLIC_URL}/${idea.koc_files.r2_key}`
+            url: `https://${cleanPublicUrl}/${idea.koc_files.r2_key}`
           }
         };
       }
