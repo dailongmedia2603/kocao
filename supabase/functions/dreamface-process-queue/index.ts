@@ -24,14 +24,15 @@ const handleApiError = async (response, context) => {
   throw new Error(errorMessage);
 };
 
-function extractR2KeyFromUrl(fileUrl: string, bucket: string) {
-  const u = new URL(fileUrl);
-  let key = u.pathname;
-  if (key.startsWith("/")) key = key.slice(1);
-  if (key.startsWith(`${bucket}/`)) {
-    key = key.slice(bucket.length + 1);
+function extractR2KeyFromUrl(fileUrl: string) {
+  try {
+    const u = new URL(fileUrl);
+    // The key is the pathname, removing the leading slash.
+    return decodeURIComponent(u.pathname.substring(1));
+  } catch (e) {
+    console.error(`Invalid URL passed to extractR2KeyFromUrl: ${fileUrl}`);
+    throw new Error(`Invalid file URL format: ${e.message}`);
   }
-  return decodeURIComponent(key);
 }
 
 serve(async (req) => {
@@ -85,13 +86,13 @@ serve(async (req) => {
 
       let finalVideoUrl = lockedTask.original_video_url;
       if (finalVideoUrl.includes(r2PublicUrl)) {
-        const key = extractR2KeyFromUrl(finalVideoUrl, bucket);
+        const key = extractR2KeyFromUrl(finalVideoUrl);
         finalVideoUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 300 });
       }
 
       let finalAudioUrl = lockedTask.original_audio_url;
       if (finalAudioUrl.includes(r2PublicUrl)) {
-        const key = extractR2KeyFromUrl(finalAudioUrl, bucket);
+        const key = extractR2KeyFromUrl(finalAudioUrl);
         finalAudioUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 300 });
       }
 
