@@ -43,9 +43,10 @@ serve(async (req) => {
 
     // Tạo public URL cho mỗi video
     const filesWithUrls = files.map((file) => {
+      // Sửa lỗi: Loại bỏ dấu gạch chéo thừa để tránh URL bị sai
       return {
         ...file,
-        url: `https://${R2_PUBLIC_URL}/${file.r2_key}`,
+        url: `https://${R2_PUBLIC_URL}${file.r2_key}`,
       };
     });
 
