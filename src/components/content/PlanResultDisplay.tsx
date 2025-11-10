@@ -147,21 +147,21 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
     if (parsedContent) {
       return (
         <div className="space-y-6">
-          <h2 className="text-xl md:text-2xl font-bold text-center">{parsedContent.title}</h2>
+          <h2 className="text-2xl font-bold text-center">{parsedContent.title}</h2>
           
-          <Card><CardHeader><CardTitle className="text-lg flex items-center gap-3"><Target className="h-5 w-5 text-blue-500" />Chiến lược tổng thể</CardTitle></CardHeader><CardContent><article className="prose prose-sm max-w-none"><ReactMarkdown>{parsedContent.strategy}</ReactMarkdown></article></CardContent></Card>
+          <Card><CardHeader><CardTitle className="flex items-center gap-3"><Target className="h-6 w-6 text-blue-500" />Chiến lược tổng thể</CardTitle></CardHeader><CardContent><article className="prose prose-sm max-w-none"><ReactMarkdown>{parsedContent.strategy}</ReactMarkdown></article></CardContent></Card>
 
-          <Card><CardHeader><CardTitle className="text-lg flex items-center gap-3"><Columns className="h-5 w-5 text-green-500" />Các trụ cột nội dung chính</CardTitle></CardHeader><CardContent><Accordion type="single" collapsible className="w-full space-y-2">{parsedContent.pillars.map((pillar, index) => (<AccordionItem value={`pillar-${index}`} key={index} className="border rounded-lg"><AccordionTrigger className="p-4 font-semibold text-left hover:no-underline">{pillar.title}</AccordionTrigger><AccordionContent className="p-4 border-t"><article className="prose prose-sm max-w-none"><ReactMarkdown>{pillar.content}</ReactMarkdown></article></AccordionContent></AccordionItem>))}</Accordion></CardContent></Card>
+          <Card><CardHeader><CardTitle className="flex items-center gap-3"><Columns className="h-6 w-6 text-green-500" />Các trụ cột nội dung chính</CardTitle></CardHeader><CardContent><Accordion type="single" collapsible className="w-full space-y-2">{parsedContent.pillars.map((pillar, index) => (<AccordionItem value={`pillar-${index}`} key={index} className="border rounded-lg"><AccordionTrigger className="p-4 font-semibold hover:no-underline">{pillar.title}</AccordionTrigger><AccordionContent className="p-4 border-t"><article className="prose prose-sm max-w-none"><ReactMarkdown>{pillar.content}</ReactMarkdown></article></AccordionContent></AccordionItem>))}</Accordion></CardContent></Card>
 
-          <Card><CardHeader><CardTitle className="text-lg flex items-center gap-3"><Calendar className="h-5 w-5 text-orange-500" />Lịch đăng đề xuất</CardTitle></CardHeader><CardContent><article className="prose prose-sm max-w-none"><ReactMarkdown>{parsedContent.schedule}</ReactMarkdown></article></CardContent></Card>
+          <Card><CardHeader><CardTitle className="flex items-center gap-3"><Calendar className="h-6 w-6 text-orange-500" />Lịch đăng đề xuất</CardTitle></CardHeader><CardContent><article className="prose prose-sm max-w-none"><ReactMarkdown>{parsedContent.schedule}</ReactMarkdown></article></CardContent></Card>
 
           <Card>
-            <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
-              <CardTitle className="text-lg flex items-center gap-3">
-                <Lightbulb className="h-5 w-5 text-purple-500" />
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-3">
+                <Lightbulb className="h-6 w-6 text-purple-500" />
                 Chủ đề video chi tiết ({allIdeas.length})
               </CardTitle>
-              <Button onClick={onGenerateMore} disabled={isGeneratingMore} size="sm">
+              <Button onClick={onGenerateMore} disabled={isGeneratingMore}>
                 {isGeneratingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                 Tạo thêm 10 idea
               </Button>

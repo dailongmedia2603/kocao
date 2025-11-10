@@ -135,26 +135,26 @@ const TaoKeHoachDetail = () => {
   const logs = plan?.results?.logs || [];
 
   return (
-    <div className="p-4 md:p-6 lg:p-8">
+    <div className="p-6 lg:p-8">
       <Link to="/tao-ke-hoach" className="flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại danh sách
       </Link>
-      <header className="flex flex-col md:flex-row justify-between md:items-start gap-4 mb-6">
+      <header className="flex justify-between items-start mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">{isNew ? "Tạo Kế Hoạch Nội Dung Mới" : "Chi Tiết Kế Hoạch"}</h1>
-          <p className="text-sm text-muted-foreground mt-1 md:text-base">
+          <h1 className="text-3xl font-bold">{isNew ? "Tạo Kế Hoạch Nội Dung Mới" : "Chi Tiết Kế Hoạch"}</h1>
+          <p className="text-muted-foreground mt-1">
             {isNew ? "Điền thông tin để AI phân tích và đề xuất chiến lược nội dung." : "Xem lại thông tin và kết quả phân tích của kế hoạch."}
           </p>
         </div>
         {!isNew && (
-          <div className="flex items-center gap-2 w-full md:w-auto justify-start md:justify-end">
+          <div className="flex items-center gap-2">
             {logs.length > 0 && (
-              <Button variant="outline" size="sm" onClick={() => setIsLogVisible(true)}>
+              <Button variant="outline" onClick={() => setIsLogVisible(true)}>
                 <History className="mr-2 h-4 w-4" />
-                Xem Log
+                Xem Log Prompt
               </Button>
             )}
-            <Button size="sm" onClick={() => regenerateMutation.mutate()} disabled={regenerateMutation.isPending}>
+            <Button onClick={() => regenerateMutation.mutate()} disabled={regenerateMutation.isPending}>
               {regenerateMutation.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -169,7 +169,7 @@ const TaoKeHoachDetail = () => {
       <div className="space-y-8">
         <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
           <AccordionItem value="item-1" className="border rounded-lg">
-            <AccordionTrigger className="p-4 text-lg font-semibold hover:no-underline">
+            <AccordionTrigger className="p-4 text-xl font-semibold hover:no-underline">
               <div className="flex items-center gap-3">
                 <PencilLine className="h-6 w-6 text-blue-500" />
                 1. Nhập thông tin
@@ -183,7 +183,7 @@ const TaoKeHoachDetail = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-3">
+            <CardTitle className="text-xl font-semibold flex items-center gap-3">
               <Sparkles className="h-6 w-6 text-purple-500" />
               2. Kết quả & Đề xuất
             </CardTitle>

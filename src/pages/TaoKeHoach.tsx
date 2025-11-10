@@ -66,13 +66,13 @@ const TaoKeHoach = () => {
 
   return (
     <>
-      <div className="p-4 md:p-6 lg:p-8">
+      <div className="p-6 lg:p-8">
         <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Lên Kế Hoạch Nội Dung</h1>
-            <p className="text-sm text-muted-foreground mt-1 md:text-base">Xây dựng chiến lược và định hướng nội dung cho kênh KOC của bạn.</p>
+            <h1 className="text-3xl font-bold">Lên Kế Hoạch Nội Dung</h1>
+            <p className="text-muted-foreground mt-1">Xây dựng chiến lược và định hướng nội dung cho kênh KOC của bạn.</p>
           </div>
-          <div className="flex items-center justify-center gap-3 w-full md:w-auto md:justify-end">
+          <div className="flex items-center gap-2 w-full md:w-auto">
             <Button variant="outline" onClick={() => setIsConfigureOpen(true)}>
               <Settings className="mr-2 h-4 w-4" /> Cấu hình prompt
             </Button>

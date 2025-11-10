@@ -24,10 +24,7 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocId, use
 
   const uploadMutation = useMutation({
     mutationFn: async (files: File[]) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
-
-      const uploadPromises = files.map(async (file) => {
+      const uploadPromises = files.map(file => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("folderPath", folderPath);
@@ -35,28 +32,11 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocId, use
         formData.append("kocId", kocId);
         formData.append("userId", userId);
 
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-koc-file`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-            body: formData,
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: response.statusText }));
-          throw new Error(`Lỗi tải lên ${file.name}: ${errorData.error || 'Unknown error'}`);
-        }
-
-        const result = await response.json();
-        if (result.error) {
-          throw new Error(`Lỗi tải lên ${file.name}: ${result.error}`);
-        }
+        return supabase.functions.invoke("upload-koc-file", { body: formData })
+          .then(({ error }) => {
+            if (error) throw new Error(`Lỗi tải lên ${file.name}: ${error.message}`);
+          });
       });
-
       await Promise.all(uploadPromises);
       return files.length;
     },

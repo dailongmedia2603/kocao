@@ -37,7 +37,7 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [rawSubscription, setRawSubscription] = useState<UserSubscriptionInfo>(null);
+  const [subscription, setSubscription] = useState<UserSubscriptionInfo>(null);
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
@@ -48,18 +48,6 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
     []
   );
 
-  const subscription = useMemo(() => {
-    if (profile?.role === 'admin') {
-      return {
-        plan_name: "Admin Unlimited",
-        videos_used: 0,
-        video_limit: Infinity,
-        price: 0,
-      };
-    }
-    return rawSubscription;
-  }, [profile, rawSubscription]);
-
   const fetchSubscription = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from("user_subscriptions")
@@ -69,20 +57,20 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
 
     if (error && error.code !== "PGRST116") {
       console.error("Error fetching subscription:", error);
-      setRawSubscription(null);
+      setSubscription(null);
       return;
     }
 
     if (data && (data as any).subscription_plans) {
       const plan = (data as any).subscription_plans as { name: string; monthly_video_limit: number; price: number };
-      setRawSubscription({
+      setSubscription({
         plan_name: plan.name,
         videos_used: (data as any).current_period_videos_used ?? 0,
         video_limit: plan.monthly_video_limit ?? 0,
         price: plan.price ?? 0,
       });
     } else {
-      setRawSubscription(null);
+      setSubscription(null);
     }
   }, []);
 
@@ -109,7 +97,7 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
         setSession(null);
         setUser(null);
         setProfile(null);
-        setRawSubscription(null);
+        setSubscription(null);
         if (!publicPaths.has(location.pathname)) navigate("/login", { replace: true });
         return;
       }
@@ -145,6 +133,10 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
       }
 
       const { data: listener } = supabase.auth.onAuthStateChange(async (event, sess) => {
+        if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN") {
+          // Invalidate all queries to force a refetch with the new token
+          await queryClient.invalidateQueries();
+        }
         await loadFromSession(sess);
         setLoading(false);
       });

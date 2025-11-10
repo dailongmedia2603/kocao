@@ -65,7 +65,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   }
 };
 
-const IdeaCardMobile = ({ idea, onGenerateScript, onEdit, onDelete, onViewContent, isGeneratingScript, onCreateVoice, isCreatingVoice, onCreateVideo, isCreatingVideo }: { idea: Idea, onGenerateScript: (idea: Idea) => void, onEdit: (idea: Idea) => void, onDelete: (idea: Idea) => void, onViewContent: (content: string | null) => void, isGeneratingScript: boolean, onCreateVoice: (ideaId: string) => void, isCreatingVoice: boolean, onCreateVideo: (ideaId: string) => void, isCreatingVideo: boolean }) => {
+const IdeaCardMobile = ({ idea, onGenerateScript, onEdit, onDelete, onViewContent, isGeneratingScript, onCreateVoice, isCreatingVoice, onCreateVideo, isCreatingVideo }: { idea: Idea, onGenerateScript: (idea: Idea) => void, onEdit: (idea: Idea) => void, onDelete: (idea: Idea) => void, onViewContent: (content: string | null) => void, isGeneratingScript: boolean, onCreateVoice: (ideaId: string) => void, isCreatingVoice: boolean, onCreateVideo: (idea: Idea) => void, isCreatingVideo: boolean }) => {
     return (
         <Card>
             <CardContent className="p-3">
@@ -85,7 +85,7 @@ const IdeaCardMobile = ({ idea, onGenerateScript, onEdit, onDelete, onViewConten
                                 </DropdownMenuItem>
                             )}
                             {(idea.status === 'Đã tạo voice' || idea.status === 'Lỗi tạo video') && (
-                                <DropdownMenuItem onClick={() => onCreateVideo(idea.id)} disabled={isCreatingVideo}>
+                                <DropdownMenuItem onClick={() => onCreateVideo(idea)} disabled={isCreatingVideo}>
                                     <Video className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo video' ? 'Tạo lại video' : 'Tạo video'}
                                 </DropdownMenuItem>
                             )}
@@ -192,30 +192,25 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
   });
 
   const createVideoMutation = useMutation({
-    mutationFn: async (ideaId: string) => {
-      const { data, error } = await supabase.functions.invoke("manual-create-video-from-idea", {
-        body: { ideaId },
+    mutationFn: async (idea: Idea) => {
+      if (!user) throw new Error("User not authenticated.");
+      const { data, error } = await supabase.rpc('check_and_deduct_credit', {
+        p_user_id: user.id,
+        p_koc_id: kocId,
+        p_idea_id: idea.id,
       });
-      if (error) throw new Error(error.message);
-      if (data.error) throw new Error(data.error);
-      return data;
-    },
-    onMutate: async (ideaId: string) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previousIdeas = queryClient.getQueryData<Idea[]>(queryKey);
-      queryClient.setQueryData<Idea[]>(queryKey, (old) => old ? old.map(idea => idea.id === ideaId ? { ...idea, status: 'Đang tạo video' } : idea) : []);
-      showSuccess("Đã gửi yêu cầu tạo video. Vui lòng chờ trong giây lát.");
-      return { previousIdeas };
+      if (error) throw error;
+      if (!data[0].success) throw new Error(data[0].message);
+      return data[0];
     },
     onSuccess: (data) => {
       showSuccess(data.message);
       queryClient.invalidateQueries({ queryKey });
     },
-    onError: (error: Error, ideaId, context: any) => {
-      if (context?.previousIdeas) queryClient.setQueryData(queryKey, context.previousIdeas);
+    onError: (error: Error) => {
       showError(`Lỗi tạo video: ${error.message}`);
+      queryClient.invalidateQueries({ queryKey });
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
 
   const handleAddNew = () => { setSelectedIdea(null); setAddEditOpen(true); };
@@ -293,7 +288,7 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
                         <DropdownMenuContent align="end">
                           {(idea.status === 'Chưa sử dụng' || !idea.new_content || idea.status === 'Lỗi tạo content') && (<DropdownMenuItem onClick={() => handleGenerateNow(idea)} disabled={generateContentMutation.isPending}><Wand2 className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo content' ? 'Tạo lại kịch bản' : 'Tạo kịch bản'}</DropdownMenuItem>)}
                           {(idea.status === 'Đã có content' || idea.status === 'Lỗi tạo voice') && (<DropdownMenuItem onClick={() => createVoiceMutation.mutate(idea.id)} disabled={createVoiceMutation.isPending}><Mic className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo voice' ? 'Tạo lại voice' : 'Tạo voice'}</DropdownMenuItem>)}
-                          {(idea.status === 'Đã tạo voice' || idea.status === 'Lỗi tạo video') && (<DropdownMenuItem onClick={() => createVideoMutation.mutate(idea.id)} disabled={createVideoMutation.isPending}><Video className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo video' ? 'Tạo lại video' : 'Tạo video'}</DropdownMenuItem>)}
+                          {(idea.status === 'Đã tạo voice' || idea.status === 'Lỗi tạo video') && (<DropdownMenuItem onClick={() => createVideoMutation.mutate(idea)} disabled={createVideoMutation.isPending}><Video className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo video' ? 'Tạo lại video' : 'Tạo video'}</DropdownMenuItem>)}
                           <DropdownMenuItem onClick={() => handleEdit(idea)}><Edit className="mr-2 h-4 w-4" /> Sửa</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDelete(idea)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" /> Xóa</DropdownMenuItem>
                         </DropdownMenuContent>
