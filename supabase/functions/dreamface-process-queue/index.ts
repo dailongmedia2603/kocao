@@ -75,14 +75,14 @@ serve(async (req) => {
 
       let finalVideoUrl = lockedTask.original_video_url;
       if (finalVideoUrl.includes(r2PublicUrl)) {
-        const keyWithEncoding = finalVideoUrl.replace(`https://${r2PublicUrl}/`, '');
+        const keyWithEncoding = finalVideoUrl.substring(finalVideoUrl.indexOf(r2PublicUrl) + r2PublicUrl.length + 1);
         const decodedKey = decodeURIComponent(keyWithEncoding);
         finalVideoUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: decodedKey }), { expiresIn: 300 });
       }
 
       let finalAudioUrl = lockedTask.original_audio_url;
       if (finalAudioUrl.includes(r2PublicUrl)) {
-        const keyWithEncoding = finalAudioUrl.replace(`https://${r2PublicUrl}/`, '');
+        const keyWithEncoding = finalAudioUrl.substring(finalAudioUrl.indexOf(r2PublicUrl) + r2PublicUrl.length + 1);
         const decodedKey = decodeURIComponent(keyWithEncoding);
         finalAudioUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: decodedKey }), { expiresIn: 300 });
       }
