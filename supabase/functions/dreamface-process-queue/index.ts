@@ -75,14 +75,16 @@ serve(async (req) => {
 
       let finalVideoUrl = lockedTask.original_video_url;
       if (finalVideoUrl.includes(r2PublicUrl)) {
-        const videoKey = decodeURIComponent(new URL(finalVideoUrl).pathname.substring(1));
-        finalVideoUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: videoKey }), { expiresIn: 300 });
+        const keyWithEncoding = finalVideoUrl.replace(`https://${r2PublicUrl}/`, '');
+        const decodedKey = decodeURIComponent(keyWithEncoding);
+        finalVideoUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: decodedKey }), { expiresIn: 300 });
       }
 
       let finalAudioUrl = lockedTask.original_audio_url;
       if (finalAudioUrl.includes(r2PublicUrl)) {
-        const audioKey = decodeURIComponent(new URL(finalAudioUrl).pathname.substring(1));
-        finalAudioUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: audioKey }), { expiresIn: 300 });
+        const keyWithEncoding = finalAudioUrl.replace(`https://${r2PublicUrl}/`, '');
+        const decodedKey = decodeURIComponent(keyWithEncoding);
+        finalAudioUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: decodedKey }), { expiresIn: 300 });
       }
 
       // 5. Fetch video and audio files from their final URLs
