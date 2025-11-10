@@ -64,7 +64,7 @@ serve(async (req) => {
       if (apiKeyError || !apiKeyData) throw new Error(`Chưa có API Key Dreamface nào được cấu hình trong hệ thống.`);
       const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
-      // 4. Generate pre-signed URLs for private R2 files
+      // 4. Generate pre-signed URLs for private R2 files IF NEEDED
       const s3 = new S3Client({
         region: "auto",
         endpoint: `https://${Deno.env.get("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
@@ -73,21 +73,25 @@ serve(async (req) => {
       const bucket = Deno.env.get("R2_BUCKET_NAME");
       const r2PublicUrl = Deno.env.get("R2_PUBLIC_URL");
 
-      const videoKey = lockedTask.original_video_url.replace(`https://${r2PublicUrl}/`, '');
-      const audioKey = lockedTask.original_audio_url.replace(`https://${r2PublicUrl}/`, '');
+      let finalVideoUrl = lockedTask.original_video_url;
+      if (finalVideoUrl.includes(r2PublicUrl)) {
+        const videoKey = finalVideoUrl.replace(`https://${r2PublicUrl}/`, '');
+        finalVideoUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: videoKey }), { expiresIn: 300 });
+      }
 
-      const [signedVideoUrl, signedAudioUrl] = await Promise.all([
-        getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: videoKey }), { expiresIn: 300 }),
-        getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: audioKey }), { expiresIn: 300 })
-      ]);
+      let finalAudioUrl = lockedTask.original_audio_url;
+      if (finalAudioUrl.includes(r2PublicUrl)) {
+        const audioKey = finalAudioUrl.replace(`https://${r2PublicUrl}/`, '');
+        finalAudioUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: audioKey }), { expiresIn: 300 });
+      }
 
-      // 5. Fetch video and audio files from their signed URLs
+      // 5. Fetch video and audio files from their final URLs
       const [videoResponse, audioResponse] = await Promise.all([
-        fetch(signedVideoUrl),
-        fetch(signedAudioUrl)
+        fetch(finalVideoUrl),
+        fetch(finalAudioUrl)
       ]);
-      if (!videoResponse.ok) throw new Error(`Failed to fetch video from signed URL: ${videoResponse.statusText}`);
-      if (!audioResponse.ok) throw new Error(`Failed to fetch audio from signed URL: ${audioResponse.statusText}`);
+      if (!videoResponse.ok) throw new Error(`Failed to fetch video from URL: ${videoResponse.statusText}`);
+      if (!audioResponse.ok) throw new Error(`Failed to fetch audio from URL: ${audioResponse.statusText}`);
       
       const videoBlob = await videoResponse.blob();
       const audioBlob = await audioResponse.blob();
