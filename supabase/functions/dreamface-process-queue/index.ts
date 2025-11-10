@@ -2,7 +2,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { S3Client, GetObjectCommand } from "npm:@aws-sdk/client-s3@^3.609.0";
-import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@^3.609.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +26,6 @@ const handleApiError = async (response, context) => {
 function extractR2KeyFromUrl(fileUrl: string) {
   try {
     const u = new URL(fileUrl);
-    // The key is the pathname, removing the leading slash.
     return decodeURIComponent(u.pathname.substring(1));
   } catch (e) {
     console.error(`Invalid URL passed to extractR2KeyFromUrl: ${fileUrl}`);
@@ -75,36 +73,29 @@ serve(async (req) => {
       const s3 = new S3Client({
         region: "auto",
         endpoint: `https://${Deno.env.get("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
-        forcePathStyle: true,
         credentials: {
           accessKeyId: Deno.env.get("R2_ACCESS_KEY_ID")!,
           secretAccessKey: Deno.env.get("R2_SECRET_ACCESS_KEY")!,
         },
       });
       const bucket = Deno.env.get("R2_BUCKET_NAME")!;
-      const r2PublicUrl = Deno.env.get("R2_PUBLIC_URL")!;
 
-      let finalVideoUrl = lockedTask.original_video_url;
-      if (finalVideoUrl.includes(r2PublicUrl)) {
-        const key = extractR2KeyFromUrl(finalVideoUrl);
-        finalVideoUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 300 });
-      }
+      // --- START: SỬA LỖI - TẢI TỆP TRỰC TIẾP ---
+      const videoKey = extractR2KeyFromUrl(lockedTask.original_video_url);
+      const audioKey = extractR2KeyFromUrl(lockedTask.original_audio_url);
 
-      let finalAudioUrl = lockedTask.original_audio_url;
-      if (finalAudioUrl.includes(r2PublicUrl)) {
-        const key = extractR2KeyFromUrl(finalAudioUrl);
-        finalAudioUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 300 });
-      }
-
-      const [videoResponse, audioResponse] = await Promise.all([
-        fetch(finalVideoUrl),
-        fetch(finalAudioUrl)
+      const [videoObject, audioObject] = await Promise.all([
+        s3.send(new GetObjectCommand({ Bucket: bucket, Key: videoKey })),
+        s3.send(new GetObjectCommand({ Bucket: bucket, Key: audioKey }))
       ]);
-      if (!videoResponse.ok) throw new Error(`Failed to fetch video from URL: ${videoResponse.statusText}`);
-      if (!audioResponse.ok) throw new Error(`Failed to fetch audio from URL: ${audioResponse.statusText}`);
-      
-      const videoBlob = await videoResponse.blob();
-      const audioBlob = await audioResponse.blob();
+
+      if (!videoObject.Body || !audioObject.Body) {
+        throw new Error("Không thể đọc nội dung tệp từ R2.");
+      }
+
+      const videoBlob = await new Response(videoObject.Body).blob();
+      const audioBlob = await new Response(audioObject.Body).blob();
+      // --- END: SỬA LỖI ---
       
       const videoFileName = decodeURIComponent(lockedTask.original_video_url.split('/').pop()?.split('?')[0] || 'video.mp4');
       const audioFileName = decodeURIComponent(lockedTask.original_audio_url.split('/').pop()?.split('?')[0] || 'audio.mp3');
