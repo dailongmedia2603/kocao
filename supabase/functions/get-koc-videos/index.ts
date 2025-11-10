@@ -1,8 +1,6 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { S3Client, GetObjectCommand } from "npm:@aws-sdk/client-s3@^3.609.0";
-import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@^3.609.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,28 +36,18 @@ serve(async (req) => {
       throw new Error(`Lỗi truy vấn CSDL: ${dbError.message}`);
     }
 
-    // Tạo S3 client để tạo presigned URL
-    const s3 = new S3Client({
-      region: "auto",
-      endpoint: `https://${Deno.env.get("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId: Deno.env.get("R2_ACCESS_KEY_ID"),
-        secretAccessKey: Deno.env.get("R2_SECRET_ACCESS_KEY"),
-      },
-    });
-    const bucket = Deno.env.get("R2_BUCKET_NAME");
+    const R2_PUBLIC_URL = Deno.env.get("R2_PUBLIC_URL");
+    if (!R2_PUBLIC_URL) {
+        throw new Error("Thiếu cấu hình R2_PUBLIC_URL.");
+    }
 
-    // Tạo presigned URL cho mỗi video
-    const filesWithUrls = await Promise.all(
-      files.map(async (file) => {
-        const url = await getSignedUrl(
-          s3,
-          new GetObjectCommand({ Bucket: bucket, Key: file.r2_key }),
-          { expiresIn: 3600 } // URL có hiệu lực trong 1 giờ
-        );
-        return { ...file, url };
-      })
-    );
+    // Tạo public URL cho mỗi video
+    const filesWithUrls = files.map((file) => {
+      return {
+        ...file,
+        url: `https://${R2_PUBLIC_URL}/${file.r2_key}`,
+      };
+    });
 
     return new Response(JSON.stringify({ data: filesWithUrls }), {
       status: 200,

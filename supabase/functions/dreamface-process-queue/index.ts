@@ -62,13 +62,28 @@ serve(async (req) => {
       if (apiKeyError || !apiKeyData) throw new Error(`Chưa có API Key Dreamface nào được cấu hình trong hệ thống.`);
       const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
-      // 4. Fetch video and audio files from their URLs
-      const [videoResponse, audioResponse] = await Promise.all([
-        fetch(lockedTask.original_video_url),
-        fetch(lockedTask.original_audio_url)
-      ]);
-      if (!videoResponse.ok) throw new Error(`Failed to fetch video from URL: ${lockedTask.original_video_url}`);
-      if (!audioResponse.ok) throw new Error(`Failed to fetch audio from URL: ${lockedTask.original_audio_url}`);
+      // 4. Fetch video and audio files from their URLs with detailed error handling
+      let videoResponse, audioResponse;
+
+      try {
+        videoResponse = await fetch(lockedTask.original_video_url);
+        if (!videoResponse.ok) {
+          const errorText = await videoResponse.text();
+          throw new Error(`Failed to fetch video. Status: ${videoResponse.status}. URL: ${lockedTask.original_video_url}. Body: ${errorText.slice(0, 200)}`);
+        }
+      } catch (e) {
+        throw new Error(`Network error fetching video URL: ${e.message}`);
+      }
+
+      try {
+        audioResponse = await fetch(lockedTask.original_audio_url);
+        if (!audioResponse.ok) {
+          const errorText = await audioResponse.text();
+          throw new Error(`Failed to fetch audio. Status: ${audioResponse.status}. URL: ${lockedTask.original_audio_url}. Body: ${errorText.slice(0, 200)}`);
+        }
+      } catch (e) {
+        throw new Error(`Network error fetching audio URL: ${e.message}`);
+      }
       
       const videoBlob = await videoResponse.blob();
       const audioBlob = await audioResponse.blob();
