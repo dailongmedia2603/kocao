@@ -99,7 +99,6 @@ type Idea = {
     display_name: string;
     url: string;
   } | null;
-  error_message: string | null;
 };
 
 // Data fetching
