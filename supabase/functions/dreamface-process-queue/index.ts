@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { S3Client, GetObjectCommand } from "npm:@aws-sdk/client-s3@^3.609.0";
+import { getSignedUrl } from "npm:@aws-sdk/s3-request-presigner@^3.609.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,13 +64,30 @@ serve(async (req) => {
       if (apiKeyError || !apiKeyData) throw new Error(`Chưa có API Key Dreamface nào được cấu hình trong hệ thống.`);
       const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
-      // 4. Fetch video and audio files from their URLs
-      const [videoResponse, audioResponse] = await Promise.all([
-        fetch(lockedTask.original_video_url),
-        fetch(lockedTask.original_audio_url)
+      // 4. Generate pre-signed URLs for private R2 files
+      const s3 = new S3Client({
+        region: "auto",
+        endpoint: `https://${Deno.env.get("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
+        credentials: { accessKeyId: Deno.env.get("R2_ACCESS_KEY_ID"), secretAccessKey: Deno.env.get("R2_SECRET_ACCESS_KEY") },
+      });
+      const bucket = Deno.env.get("R2_BUCKET_NAME");
+      const r2PublicUrl = Deno.env.get("R2_PUBLIC_URL");
+
+      const videoKey = lockedTask.original_video_url.replace(`https://${r2PublicUrl}/`, '');
+      const audioKey = lockedTask.original_audio_url.replace(`https://${r2PublicUrl}/`, '');
+
+      const [signedVideoUrl, signedAudioUrl] = await Promise.all([
+        getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: videoKey }), { expiresIn: 300 }),
+        getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: audioKey }), { expiresIn: 300 })
       ]);
-      if (!videoResponse.ok) throw new Error(`Failed to fetch video from URL: ${lockedTask.original_video_url}`);
-      if (!audioResponse.ok) throw new Error(`Failed to fetch audio from URL: ${lockedTask.original_audio_url}`);
+
+      // 5. Fetch video and audio files from their signed URLs
+      const [videoResponse, audioResponse] = await Promise.all([
+        fetch(signedVideoUrl),
+        fetch(signedAudioUrl)
+      ]);
+      if (!videoResponse.ok) throw new Error(`Failed to fetch video from signed URL: ${videoResponse.statusText}`);
+      if (!audioResponse.ok) throw new Error(`Failed to fetch audio from signed URL: ${audioResponse.statusText}`);
       
       const videoBlob = await videoResponse.blob();
       const audioBlob = await audioResponse.blob();
@@ -79,7 +98,7 @@ serve(async (req) => {
       const videoFile = new File([videoBlob], videoFileName, { type: videoBlob.type });
       const audioFile = new File([audioBlob], audioFileName, { type: audioBlob.type });
 
-      // 5. Execute the multi-step Dreamface API process
+      // 6. Execute the multi-step Dreamface API process
       const formVideo = new FormData();
       formVideo.append("accountId", creds.accountId); formVideo.append("userId", creds.userId); formVideo.append("tokenId", creds.tokenId); formVideo.append("clientId", creds.clientId); formVideo.append("file", videoFile, "video.mp4");
       const uploadVideoRes = await fetch(`${API_BASE_URL}/upload-video`, { method: 'POST', body: formVideo });
