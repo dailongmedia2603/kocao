@@ -24,6 +24,16 @@ const handleApiError = async (response, context) => {
   throw new Error(errorMessage);
 };
 
+function extractR2KeyFromUrl(fileUrl: string, bucket: string) {
+  const u = new URL(fileUrl);
+  let key = u.pathname;
+  if (key.startsWith("/")) key = key.slice(1);
+  if (key.startsWith(`${bucket}/`)) {
+    key = key.slice(bucket.length + 1);
+  }
+  return decodeURIComponent(key);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -32,7 +42,6 @@ serve(async (req) => {
   const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   
   try {
-    // 1. Find a pending task
     const { data: task, error: findError } = await supabaseAdmin
       .from('dreamface_tasks')
       .select('*')
@@ -42,13 +51,12 @@ serve(async (req) => {
       .single();
 
     if (findError) {
-      if (findError.code === 'PGRST116') { // No rows found
+      if (findError.code === 'PGRST116') {
         return new Response(JSON.stringify({ message: "Queue is empty." }), { status: 200, headers: corsHeaders });
       }
       throw findError;
     }
 
-    // 2. Lock the task
     const { data: lockedTask, error: lockError } = await supabaseAdmin
       .from('dreamface_tasks')
       .update({ status: 'processing' })
@@ -59,35 +67,34 @@ serve(async (req) => {
     if (lockError) throw lockError;
 
     try {
-      // 3. Get a shared API key from the system
       const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin.from("user_dreamface_api_keys").select("account_id, user_id_dreamface, token_id, client_id").limit(1).single();
       if (apiKeyError || !apiKeyData) throw new Error(`Chưa có API Key Dreamface nào được cấu hình trong hệ thống.`);
       const creds = { accountId: apiKeyData.account_id, userId: apiKeyData.user_id_dreamface, tokenId: apiKeyData.token_id, clientId: apiKeyData.client_id };
 
-      // 4. Generate pre-signed URLs for private R2 files IF NEEDED
       const s3 = new S3Client({
         region: "auto",
         endpoint: `https://${Deno.env.get("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
-        credentials: { accessKeyId: Deno.env.get("R2_ACCESS_KEY_ID"), secretAccessKey: Deno.env.get("R2_SECRET_ACCESS_KEY") },
+        forcePathStyle: true,
+        credentials: {
+          accessKeyId: Deno.env.get("R2_ACCESS_KEY_ID")!,
+          secretAccessKey: Deno.env.get("R2_SECRET_ACCESS_KEY")!,
+        },
       });
-      const bucket = Deno.env.get("R2_BUCKET_NAME");
-      const r2PublicUrl = Deno.env.get("R2_PUBLIC_URL");
+      const bucket = Deno.env.get("R2_BUCKET_NAME")!;
+      const r2PublicUrl = Deno.env.get("R2_PUBLIC_URL")!;
 
       let finalVideoUrl = lockedTask.original_video_url;
       if (finalVideoUrl.includes(r2PublicUrl)) {
-        const keyWithEncoding = finalVideoUrl.substring(finalVideoUrl.indexOf(r2PublicUrl) + r2PublicUrl.length + 1);
-        const decodedKey = decodeURIComponent(keyWithEncoding);
-        finalVideoUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: decodedKey }), { expiresIn: 300 });
+        const key = extractR2KeyFromUrl(finalVideoUrl, bucket);
+        finalVideoUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 300 });
       }
 
       let finalAudioUrl = lockedTask.original_audio_url;
       if (finalAudioUrl.includes(r2PublicUrl)) {
-        const keyWithEncoding = finalAudioUrl.substring(finalAudioUrl.indexOf(r2PublicUrl) + r2PublicUrl.length + 1);
-        const decodedKey = decodeURIComponent(keyWithEncoding);
-        finalAudioUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: decodedKey }), { expiresIn: 300 });
+        const key = extractR2KeyFromUrl(finalAudioUrl, bucket);
+        finalAudioUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 300 });
       }
 
-      // 5. Fetch video and audio files from their final URLs
       const [videoResponse, audioResponse] = await Promise.all([
         fetch(finalVideoUrl),
         fetch(finalAudioUrl)
@@ -98,13 +105,12 @@ serve(async (req) => {
       const videoBlob = await videoResponse.blob();
       const audioBlob = await audioResponse.blob();
       
-      const videoFileName = lockedTask.original_video_url.split('/').pop()?.split('?')[0] || 'video.mp4';
-      const audioFileName = lockedTask.original_audio_url.split('/').pop()?.split('?')[0] || 'audio.mp3';
+      const videoFileName = decodeURIComponent(lockedTask.original_video_url.split('/').pop()?.split('?')[0] || 'video.mp4');
+      const audioFileName = decodeURIComponent(lockedTask.original_audio_url.split('/').pop()?.split('?')[0] || 'audio.mp3');
 
       const videoFile = new File([videoBlob], videoFileName, { type: videoBlob.type });
       const audioFile = new File([audioBlob], audioFileName, { type: audioBlob.type });
 
-      // 6. Execute the multi-step Dreamface API process
       const formVideo = new FormData();
       formVideo.append("accountId", creds.accountId); formVideo.append("userId", creds.userId); formVideo.append("tokenId", creds.tokenId); formVideo.append("clientId", creds.clientId); formVideo.append("file", videoFile, "video.mp4");
       const uploadVideoRes = await fetch(`${API_BASE_URL}/upload-video`, { method: 'POST', body: formVideo });
@@ -143,9 +149,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, message: `Task ${lockedTask.id} processed successfully.` }), { status: 200, headers: corsHeaders });
 
     } catch (processingError) {
-      // If any step fails, update the task to 'failed'
       await supabaseAdmin.from('dreamface_tasks').update({ status: 'failed', error_message: processingError.message }).eq('id', lockedTask.id);
-      throw processingError; // Re-throw to be caught by the outer catch block
+      throw processingError;
     }
   } catch (error) {
     console.error(`[dreamface-process-queue] CRITICAL ERROR:`, error.message);
