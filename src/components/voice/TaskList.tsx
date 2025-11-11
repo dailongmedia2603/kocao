@@ -51,11 +51,17 @@ type VoiceTask = {
   audio_url: string | null;
   error_message: string | null;
   cloned_voice_name: string | null;
+  koc_content_ideas: { idea_content: string }[] | null;
 };
 
 const fetchTasks = async (userId: string): Promise<VoiceTask[]> => {
   if (!userId) return [];
-  const { data, error } = await supabase.from('voice_tasks').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(100);
+  const { data, error } = await supabase
+    .from('voice_tasks')
+    .select('*, koc_content_ideas(idea_content)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(100);
   if (error) throw error;
   return data as VoiceTask[];
 };
@@ -75,6 +81,13 @@ const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView, onRetry }: 
     return message;
   };
 
+  const ideaContent = task.koc_content_ideas?.[0]?.idea_content;
+  const displayName = ideaContent 
+    ? (ideaContent.length > 50 ? `${ideaContent.substring(0, 50)}...` : ideaContent)
+    : task.voice_name;
+  
+  const title = ideaContent || task.voice_name;
+
   return (
     <div className="p-3 rounded-md border bg-background">
       <div className="flex items-start justify-between gap-4">
@@ -86,7 +99,7 @@ const TaskItem = ({ task, onSelect, isSelected, onDelete, onLogView, onRetry }: 
             className="mt-1"
           />
           <div className="flex-1 min-w-0">
-            <p className="font-semibold truncate text-sm">{task.voice_name}</p>
+            <p className="font-semibold truncate text-sm" title={title}>{displayName}</p>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               {getStatusBadge(task.status)}
               <p className="text-xs text-muted-foreground">
