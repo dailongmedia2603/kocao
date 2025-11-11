@@ -81,13 +81,11 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocId, use
               <ScrollArea className="h-40 border rounded-lg p-2">
                 <div className="space-y-2">
                   {selectedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 rounded-md bg-muted">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <FileIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-grow min-w-0">
-                          <p className="font-medium truncate text-sm" title={file.name}>{file.name}</p>
-                          <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                        </div>
+                    <div key={index} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted">
+                      <FileIcon className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate text-sm" title={file.name}>{file.name}</p>
+                        <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                       </div>
                       <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={() => removeFile(file)}><X className="h-4 w-4" /></Button>
                     </div>
