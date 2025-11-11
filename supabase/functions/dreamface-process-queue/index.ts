@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { S3Client, PutObjectCommand } from "npm:@aws-sdk/client-s3@^3.609.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,14 +99,14 @@ serve(async (req) => {
       const formVideo = new FormData();
       formVideo.append("accountId", creds.accountId); formVideo.append("userId", creds.userId); formVideo.append("tokenId", creds.tokenId); formVideo.append("clientId", creds.clientId); formVideo.append("file", videoFile, "video.mp4");
       const uploadVideoRes = await fetch(`${API_BASE_URL}/upload-video`, { method: 'POST', body: formVideo });
-      const videoData = await uploadVideoRes.json();
       if (!uploadVideoRes.ok) await handleApiError(uploadVideoRes, 'upload-video');
+      const videoData = await uploadVideoRes.json();
       const uploadedVideoUrl = videoData.file_url;
       if (!uploadedVideoUrl) throw new Error("Did not receive file_url from video upload");
 
       const avatarListRes = await fetch(`${API_BASE_URL}/avatar-list?${new URLSearchParams({...creds, page_size: 20}).toString()}`);
-      const avatarListData = await avatarListRes.json();
       if (!avatarListRes.ok) await handleApiError(avatarListRes, 'avatar-list');
+      const avatarListData = await avatarListRes.json();
       const avatars = avatarListData?.data?.avatars;
       if (!avatarListData.success || !Array.isArray(avatars)) throw new Error(`Could not get avatar list. Response: ${JSON.stringify(avatarListData)}`);
       
@@ -117,8 +118,8 @@ serve(async (req) => {
       const formAudio = new FormData();
       formAudio.append("accountId", creds.accountId); formAudio.append("userId", creds.userId); formAudio.append("tokenId", creds.tokenId); formAudio.append("clientId", creds.clientId); formAudio.append("avatarId", avatarId); formAudio.append("avatarPath", avatarPath); formAudio.append("file", audioFile, audioFileName);
       const uploadAudioRes = await fetch(`${API_BASE_URL}/upload-voice`, { method: 'POST', body: formAudio });
-      const audioData = await uploadAudioRes.json();
       if (!uploadAudioRes.ok) await handleApiError(uploadAudioRes, 'upload-voice');
+      const audioData = await uploadAudioRes.json();
       if (!audioData.success) throw new Error(`Audio upload failed: ${JSON.stringify(audioData)}`);
       
       const animateId = audioData.video_data?.animate_id || audioData.video_data?.animate_image_id;
