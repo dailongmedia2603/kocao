@@ -130,11 +130,28 @@ serve(async (req) => {
           throw new Error("No default AI prompt template found for this KOC, user, or system-wide.");
         }
 
-        // **SỬA LỖI TẠI ĐÂY:** Sử dụng `general_prompt` từ template và thay thế các biến
-        const basePrompt = templateData.general_prompt || "Phát triển ý tưởng sau thành kịch bản: {{IDEA_CONTENT}}";
-        const fullPrompt = basePrompt
-          .replace(/{{KOC_NAME}}/g, koc.name)
-          .replace(/{{IDEA_CONTENT}}/g, idea.idea_content);
+        // **FIX:** Rebuild the detailed prompt using all fields from the template
+        const fullPrompt = `
+Bạn là một chuyên gia sáng tạo nội dung cho KOC tên là "${koc.name}".
+Hãy phát triển ý tưởng sau đây thành một kịch bản video hoàn chỉnh:
+
+**Ý tưởng gốc:**
+---
+${idea.idea_content}
+---
+
+**Yêu cầu chi tiết về kịch bản:**
+- **Yêu cầu chung:** ${templateData.general_prompt || 'Không có'}
+- **Tông giọng:** ${templateData.tone_of_voice || 'chuyên nghiệp, hấp dẫn'}
+- **Văn phong:** ${templateData.writing_style || 'kể chuyện, sử dụng văn nói'}
+- **Cách viết:** ${templateData.writing_method || 'sử dụng câu ngắn, đi thẳng vào vấn đề'}
+- **Vai trò của bạn (AI):** ${templateData.ai_role || 'Một chuyên gia sáng tạo nội dung'}
+- **Yêu cầu bắt buộc:** ${templateData.mandatory_requirements || 'Không có'}
+- **Lời thoại ví dụ (tham khảo):** ${templateData.example_dialogue || 'Không có'}
+- **Độ dài tối đa:** ${templateData.word_count ? `Không vượt quá ${templateData.word_count} từ.` : 'Giữ kịch bản ngắn gọn, súc tích.'}
+
+**QUAN TRỌNG:** Chỉ trả về nội dung kịch bản hoàn chỉnh, không thêm bất kỳ lời giải thích, tiêu đề hay ghi chú nào khác.
+`.trim();
 
         const credentialsJson = Deno.env.get("GOOGLE_CREDENTIALS_JSON");
         if (!credentialsJson) throw new Error("Secret GOOGLE_CREDENTIALS_JSON chưa được cấu hình trong Supabase Vault.");
