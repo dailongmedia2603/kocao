@@ -25,6 +25,7 @@ export type SubscriptionPlan = {
   name: string;
   description: string | null;
   monthly_video_limit: number;
+  monthly_voice_limit: number;
   price: number;
   is_active: boolean;
   created_at: string;
@@ -87,6 +88,7 @@ const SubscriptionPlans = () => {
               <TableRow>
                 <TableHead>Tên gói</TableHead>
                 <TableHead>Giới hạn Video/Tháng</TableHead>
+                <TableHead>Giới hạn Voice/Tháng</TableHead>
                 <TableHead>Giá</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead>Ngày tạo</TableHead>
@@ -97,7 +99,7 @@ const SubscriptionPlans = () => {
               {isLoading ? (
                 [...Array(3)].map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell colSpan={6}><Skeleton className="h-8 w-full" /></TableCell>
+                    <TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell>
                   </TableRow>
                 ))
               ) : plans.length > 0 ? (
@@ -105,6 +107,7 @@ const SubscriptionPlans = () => {
                   <TableRow key={plan.id}>
                     <TableCell className="font-medium">{plan.name}</TableCell>
                     <TableCell>{plan.monthly_video_limit}</TableCell>
+                    <TableCell>{plan.monthly_voice_limit}</TableCell>
                     <TableCell>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(plan.price)}</TableCell>
                     <TableCell>
                       <Badge variant={plan.is_active ? "default" : "outline"} className={plan.is_active ? "bg-green-100 text-green-800" : ""}>
@@ -126,7 +129,7 @@ const SubscriptionPlans = () => {
                   </TableRow>
                 ))
               ) : (
-                <TableRow><TableCell colSpan={6} className="h-24 text-center">Chưa có gói cước nào.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="h-24 text-center">Chưa có gói cước nào.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

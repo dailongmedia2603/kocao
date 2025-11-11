@@ -18,6 +18,7 @@ const formSchema = z.object({
   name: z.string().min(1, "Tên gói không được để trống"),
   description: z.string().optional(),
   monthly_video_limit: z.coerce.number().min(0, "Giới hạn phải là số không âm"),
+  monthly_voice_limit: z.coerce.number().min(0, "Giới hạn phải là số không âm"),
   price: z.coerce.number().min(0, "Giá phải là số không âm"),
   is_active: z.boolean().default(true),
 });
@@ -49,6 +50,7 @@ export const AddEditPlanDialog = ({ isOpen, onOpenChange, plan }: AddEditPlanDia
       name: "",
       description: "",
       monthly_video_limit: 0,
+      monthly_voice_limit: 0,
       price: 0,
       is_active: true,
     },
@@ -59,7 +61,7 @@ export const AddEditPlanDialog = ({ isOpen, onOpenChange, plan }: AddEditPlanDia
       if (plan) {
         form.reset(plan);
       } else {
-        form.reset({ name: "", description: "", monthly_video_limit: 0, price: 0, is_active: true });
+        form.reset({ name: "", description: "", monthly_video_limit: 0, monthly_voice_limit: 0, price: 0, is_active: true });
       }
     }
   }, [plan, form, isOpen]);
@@ -95,27 +97,28 @@ export const AddEditPlanDialog = ({ isOpen, onOpenChange, plan }: AddEditPlanDia
             <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Mô tả</FormLabel><FormControl><Textarea placeholder="Mô tả ngắn về gói cước..." {...field} /></FormControl><FormMessage /></FormItem>)} />
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="monthly_video_limit" render={({ field }) => (<FormItem><FormLabel>Giới hạn Video/Tháng</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField
-                control={form.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Giá (VND)</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="1.000.000"
-                        value={formatNumber(field.value)}
-                        onChange={(e) => {
-                          const rawValue = parseNumber(e.target.value);
-                          field.onChange(rawValue);
-                        }}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormField control={form.control} name="monthly_voice_limit" render={({ field }) => (<FormItem><FormLabel>Giới hạn Voice/Tháng</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
             </div>
+            <FormField
+              control={form.control}
+              name="price"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Giá (VND)</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="1.000.000"
+                      value={formatNumber(field.value)}
+                      onChange={(e) => {
+                        const rawValue = parseNumber(e.target.value);
+                        field.onChange(rawValue);
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField control={form.control} name="is_active" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"><div className="space-y-0.5"><FormLabel>Kích hoạt</FormLabel><FormDescription>Gói cước này có thể được gán cho người dùng.</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)} />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
