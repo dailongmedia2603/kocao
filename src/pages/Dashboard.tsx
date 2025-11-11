@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
-import { OnboardingWizard } from "../components/onboarding/OnboardingWizard";
+import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 const Dashboard = () => {
