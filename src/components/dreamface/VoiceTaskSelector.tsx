@@ -70,14 +70,14 @@ export const VoiceTaskSelector = ({ onAudioUrlSelect, selectedAudioUrl }: VoiceT
             <p className="text-sm">{selectedTaskName || 'Một file từ thư viện'}</p>
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => onAudioUrlSelect(null)}>Thay đổi</Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => onAudioUrlSelect(null)}>Thay đổi</Button>
       </div>
     );
   }
 
   return (
     <>
-      <Button variant="outline" className="w-full h-20 border-dashed" onClick={() => setIsOpen(true)}>
+      <Button type="button" variant="outline" className="w-full h-20 border-dashed" onClick={() => setIsOpen(true)}>
         <Library className="mr-2 h-5 w-5" />
         Chọn từ Thư viện Âm thanh
       </Button>
