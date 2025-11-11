@@ -12,37 +12,35 @@ export const OnboardingStepper = ({ currentStep, steps }: OnboardingStepperProps
       <ol role="list" className="flex items-center">
         {steps.map((step, stepIdx) => (
           <li key={step} className={cn("relative", stepIdx !== steps.length - 1 ? "flex-1" : "")}>
-            {stepIdx < currentStep ? (
-              // Completed Step
-              <div className="flex items-center">
-                <span className="flex h-9 items-center">
+            <div className="relative z-10 flex items-center bg-gray-50/50 pr-2">
+              <span className="flex h-9 items-center">
+                {stepIdx < currentStep ? (
+                  // Completed Step
                   <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-green-600 group-hover:bg-green-800">
                     <Check className="h-5 w-5 text-white" aria-hidden="true" />
                   </span>
-                </span>
-                <span className="ml-4 hidden text-sm font-medium text-gray-900 md:inline-block">{step}</span>
-              </div>
-            ) : stepIdx === currentStep ? (
-              // Current Step
-              <div className="flex items-center" aria-current="step">
-                <span className="flex h-9 items-center">
+                ) : stepIdx === currentStep ? (
+                  // Current Step
                   <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-red-600 bg-white">
                     <span className="h-2.5 w-2.5 rounded-full bg-red-600" />
                   </span>
-                </span>
-                <span className="ml-4 hidden text-sm font-medium text-red-600 md:inline-block">{step}</span>
-              </div>
-            ) : (
-              // Upcoming Step
-              <div className="flex items-center">
-                <span className="flex h-9 items-center">
+                ) : (
+                  // Upcoming Step
                   <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-300 bg-white group-hover:border-gray-400">
                     <span className="h-2.5 w-2.5 rounded-full bg-transparent group-hover:bg-gray-300" />
                   </span>
-                </span>
-                <span className="ml-4 hidden text-sm font-medium text-gray-500 md:inline-block">{step}</span>
-              </div>
-            )}
+                )}
+              </span>
+              <span
+                className={cn(
+                  "ml-4 hidden text-sm font-medium md:inline-block",
+                  stepIdx === currentStep ? "text-red-600" : "text-gray-900",
+                  stepIdx > currentStep && "text-gray-500"
+                )}
+              >
+                {step}
+              </span>
+            </div>
 
             {/* Connector */}
             {stepIdx < steps.length - 1 ? (
