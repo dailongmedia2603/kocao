@@ -32,9 +32,9 @@ export const OnboardingStepper = ({ currentStep }: OnboardingStepperProps) => {
   }, [currentStep]);
 
   return (
-    <div ref={scrollContainerRef} className="overflow-x-auto no-scrollbar -mx-6 px-2">
+    <div ref={scrollContainerRef} className="overflow-x-auto no-scrollbar -mx-6 px-2 md:mx-0 md:px-0 md:overflow-visible">
       <nav aria-label="Progress">
-        <ol role="list" className="flex items-start py-4">
+        <ol role="list" className="flex items-start py-4 md:justify-center">
           {stepsConfig.map((step, stepIdx) => {
             const isCompleted = stepIdx < currentStep;
             const isCurrent = stepIdx === currentStep;
