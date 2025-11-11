@@ -126,31 +126,40 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange, kocId, defaul
             )}
           </div>
         </CardContent>
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {!isDefaultForKoc && (
-                <DropdownMenuItem onClick={() => setDefaultMutation.mutate(template.id)}>
-                  <Star className="mr-2 h-4 w-4" /> Đặt làm mặc định
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+          {!isDefaultForKoc && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setDefaultMutation.mutate(template.id)}
+              disabled={setDefaultMutation.isPending && setDefaultMutation.variables === template.id}
+            >
+              {setDefaultMutation.isPending && setDefaultMutation.variables === template.id ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Star className="mr-2 h-4 w-4" />
+              )}
+              Mặc định
+            </Button>
+          )}
+          {isUserTemplate && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleEdit(template)}>
+                  <Edit className="mr-2 h-4 w-4" /> Sửa
                 </DropdownMenuItem>
-              )}
-              {isUserTemplate && (
-                <>
-                  <DropdownMenuItem onClick={() => handleEdit(template)}>
-                    <Edit className="mr-2 h-4 w-4" /> Sửa
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(template)}>
-                    <Trash2 className="mr-2 h-4 w-4" /> Xóa
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(template)}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </Card>
     );
