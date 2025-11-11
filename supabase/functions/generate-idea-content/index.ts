@@ -120,35 +120,21 @@ serve(async (req) => {
           .single();
         if (kocError || !koc) throw new Error(`KOC with id ${idea.koc_id} not found.`);
 
-        const { data: template, error: templateError } = await supabaseAdmin
-          .rpc('get_default_template_for_koc', { p_koc_id: idea.koc_id })
+        const { data: templateData, error: templateError } = await supabaseAdmin
+          .from('ai_prompt_templates')
+          .select('*')
+          .eq('id', (await supabaseAdmin.rpc('get_default_template_for_koc', { p_koc_id: idea.koc_id })).data[0].template_id)
           .single();
         
-        if (templateError || !template) {
+        if (templateError || !templateData) {
           throw new Error("No default AI prompt template found for this KOC, user, or system-wide.");
         }
 
-        const fullPrompt = `
-          Bạn là một chuyên gia sáng tạo nội dung cho KOC tên là "${koc.name}".
-          Hãy phát triển ý tưởng sau đây thành một kịch bản video hoàn chỉnh:
-          
-          **Ý tưởng gốc:**
-          ---
-          ${idea.idea_content}
-          ---
-
-          **Yêu cầu chi tiết về kịch bản:**
-          - **Yêu cầu chung:** ${template.general_prompt || 'Không có'}
-          - **Tông giọng:** ${template.tone_of_voice || 'Tự nhiên, hấp dẫn'}
-          - **Văn phong:** ${template.writing_style || 'Kể chuyện, gần gũi'}
-          - **Cách viết:** ${template.writing_method || 'Sử dụng câu ngắn, dễ hiểu'}
-          - **Vai trò của bạn (AI):** ${template.ai_role || 'Một người bạn đang chia sẻ câu chuyện'}
-          - **Yêu cầu bắt buộc:** ${template.mandatory_requirements || 'Không có'}
-          - **Lời thoại ví dụ (tham khảo):** ${template.example_dialogue || 'Không có'}
-          - **Độ dài tối đa:** ${template.word_count ? `Không vượt quá ${template.word_count} từ.` : 'Ngắn gọn, súc tích.'}
-
-          **QUAN TRỌNG:** Chỉ trả về nội dung kịch bản hoàn chỉnh, không thêm bất kỳ lời giải thích, tiêu đề hay ghi chú nào khác.
-        `;
+        // **SỬA LỖI TẠI ĐÂY:** Sử dụng `general_prompt` từ template và thay thế các biến
+        const basePrompt = templateData.general_prompt || "Phát triển ý tưởng sau thành kịch bản: {{IDEA_CONTENT}}";
+        const fullPrompt = basePrompt
+          .replace(/{{KOC_NAME}}/g, koc.name)
+          .replace(/{{IDEA_CONTENT}}/g, idea.idea_content);
 
         const credentialsJson = Deno.env.get("GOOGLE_CREDENTIALS_JSON");
         if (!credentialsJson) throw new Error("Secret GOOGLE_CREDENTIALS_JSON chưa được cấu hình trong Supabase Vault.");
@@ -158,7 +144,7 @@ serve(async (req) => {
 
         const accessToken = await getGcpAccessToken(credentials);
         const region = "us-central1";
-        const model = template.model || "gemini-2.5-pro";
+        const model = templateData.model || "gemini-2.5-pro";
         const vertexUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent`;
 
         const vertexResponse = await fetch(vertexUrl, {
