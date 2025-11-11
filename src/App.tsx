@@ -26,7 +26,13 @@ import SubscriptionPlans from "./pages/admin/SubscriptionPlans";
 import SubscriptionPage from "./pages/Subscription";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false, // Tắt tính năng tự động làm mới khi focus lại cửa sổ
+    },
+  },
+});
 
 function App() {
   return (

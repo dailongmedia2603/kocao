@@ -62,6 +62,9 @@ const AutomationDetail = () => {
 
         const channel = supabase
             .channel(`campaign-activity:${campaignId}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'automation_campaigns', filter: `id=eq.${campaignId}` }, () => {
+                queryClient.invalidateQueries({ queryKey: ['automation_campaign', campaignId] });
+            })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'koc_content_ideas' }, () => {
                 queryClient.invalidateQueries({ queryKey });
             })

@@ -52,17 +52,13 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
     setLoading(true);
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      // Việc set loading=false sẽ được xử lý ở effect phụ thuộc vào session
     });
 
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // Khi đăng xuất, xóa toàn bộ cache để tránh rò rỉ dữ liệu
         if (event === 'SIGNED_OUT') {
           queryClient.clear();
         }
-        // Cập nhật session state. Đây là cốt lõi của việc sửa lỗi.
-        // Thư viện Supabase tự động làm mới token, listener này chỉ cần đồng bộ state của React.
         setSession(session);
       }
     );
@@ -72,63 +68,78 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
     };
   }, [queryClient]);
 
-  // Effect phụ để lấy profile và subscription khi session thay đổi
+  // Effect phụ để lấy profile và subscription khi session thay đổi và lắng nghe realtime
   useEffect(() => {
     if (session?.user) {
       setLoading(true);
-      let profileFetched = false;
-      let subscriptionFetched = false;
 
-      const checkLoadingDone = () => {
-        if (profileFetched && subscriptionFetched) {
-          setLoading(false);
+      const fetchProfile = async () => {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", session.user.id)
+          .single();
+        if (error && error.code !== 'PGRST116') {
+          console.error("Error fetching profile:", error);
+          showError("Không thể tải thông tin người dùng.");
+        }
+        setProfile(data as Profile | null);
+      };
+
+      const fetchSubscription = async () => {
+        const { data, error } = await supabase
+          .from("user_subscriptions")
+          .select("current_period_videos_used, current_period_voices_used, subscription_plans(name, monthly_video_limit, monthly_voice_limit, price)")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        if (error && error.code !== "PGRST116") {
+          console.error("Error fetching subscription:", error);
+        }
+        if (data && (data as any).subscription_plans) {
+          const plan = (data as any).subscription_plans;
+          setSubscription({
+            plan_name: plan.name,
+            videos_used: data.current_period_videos_used ?? 0,
+            video_limit: plan.monthly_video_limit ?? 0,
+            voices_used: data.current_period_voices_used ?? 0,
+            voice_limit: plan.monthly_voice_limit ?? 0,
+            price: plan.price ?? 0,
+          });
+        } else {
+          setSubscription(null);
         }
       };
 
-      // Lấy profile
-      supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", session.user.id)
-        .single()
-        .then(({ data, error }) => {
-          if (error && error.code !== 'PGRST116') {
-            console.error("Error fetching profile:", error);
-            showError("Không thể tải thông tin người dùng.");
-          }
-          setProfile(data as Profile | null);
-          profileFetched = true;
-          checkLoadingDone();
-        });
+      const fetchData = async () => {
+        await Promise.all([fetchProfile(), fetchSubscription()]);
+        setLoading(false);
+      };
 
-      // Lấy subscription
-      supabase
-        .from("user_subscriptions")
-        .select("current_period_videos_used, current_period_voices_used, subscription_plans(name, monthly_video_limit, monthly_voice_limit, price)")
-        .eq("user_id", session.user.id)
-        .maybeSingle()
-        .then(({ data, error }) => {
-          if (error && error.code !== "PGRST116") {
-            console.error("Error fetching subscription:", error);
-          }
-          if (data && (data as any).subscription_plans) {
-            const plan = (data as any).subscription_plans;
-            setSubscription({
-              plan_name: plan.name,
-              videos_used: data.current_period_videos_used ?? 0,
-              video_limit: plan.monthly_video_limit ?? 0,
-              voices_used: data.current_period_voices_used ?? 0,
-              voice_limit: plan.monthly_voice_limit ?? 0,
-              price: plan.price ?? 0,
-            });
-          } else {
-            setSubscription(null);
-          }
-          subscriptionFetched = true;
-          checkLoadingDone();
-        });
+      fetchData();
+
+      const profileChannel = supabase
+        .channel(`profile-changes-${session.user.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${session.user.id}` },
+          () => fetchProfile()
+        )
+        .subscribe();
+
+      const subscriptionChannel = supabase
+        .channel(`subscription-changes-${session.user.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'user_subscriptions', filter: `user_id=eq.${session.user.id}` },
+          () => fetchSubscription()
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(profileChannel);
+        supabase.removeChannel(subscriptionChannel);
+      };
     } else {
-      // Không có session, xóa dữ liệu và dừng loading
       setProfile(null);
       setSubscription(null);
       setLoading(false);

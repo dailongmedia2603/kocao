@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -45,6 +45,23 @@ const SubscriptionPlans = () => {
       return data;
     },
   });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('subscription-plans-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'subscription_plans' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['subscription_plans'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const deletePlanMutation = useMutation({
     mutationFn: async (planId: string) => {

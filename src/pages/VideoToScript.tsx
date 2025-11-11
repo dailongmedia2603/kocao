@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
@@ -99,6 +99,25 @@ const VideoToScript = () => {
       return data?.some(task => task.status === 'processing') ? 15000 : false;
     },
   });
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('transcription-tasks-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transcription_tasks', filter: `user_id=eq.${user.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 
   const { data: serverFiles = [], isLoading: isLoadingServerFiles } = useQuery<string[]>({
     queryKey: ['server_video_files'],

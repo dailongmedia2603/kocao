@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,7 @@ import { DreamfaceLogDialog } from "@/components/dreamface/DreamfaceLogDialog";
 import { KocVideoSelector } from "@/components/dreamface/KocVideoSelector";
 import { VoiceTaskSelector } from "@/components/dreamface/VoiceTaskSelector";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useSession } from "@/contexts/SessionContext";
 
 const getStatusBadge = (status: string, errorMessage?: string | null) => {
   switch (status) {
@@ -53,6 +54,7 @@ const TaoVideo = () => {
   const [taskToDelete, setTaskToDelete] = useState<any | null>(null);
   const [isLogOpen, setLogOpen] = useState(false);
   const queryClient = useQueryClient();
+  const { user } = useSession();
 
   const { data: kocs, isLoading: isLoadingKocs } = useQuery({
     queryKey: ['kocs'],
@@ -78,8 +80,26 @@ const TaoVideo = () => {
       );
       return shouldRefetch ? 60000 : false;
     },
-    refetchOnWindowFocus: false,
   });
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('dreamface-tasks-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'dreamface_tasks', filter: `user_id=eq.${user.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['dreamface_tasks'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 
   const createVideoMutation = useMutation({
     mutationFn: async () => {

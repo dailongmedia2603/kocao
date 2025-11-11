@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { CampaignCard, type Campaign } from "@/components/automation/CampaignCar
 const Automation = () => {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const { user } = useSession();
+  const queryClient = useQueryClient();
 
   const { data: campaigns = [], isLoading } = useQuery<Campaign[]>({
     queryKey: ["automation_campaigns", user?.id],
@@ -27,6 +28,25 @@ const Automation = () => {
     },
     enabled: !!user,
   });
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('automation-campaigns-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'automation_campaigns', filter: `user_id=eq.${user.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['automation_campaigns', user.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 
   return (
     <>

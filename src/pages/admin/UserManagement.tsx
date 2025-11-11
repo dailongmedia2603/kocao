@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
@@ -50,6 +50,33 @@ const UserManagement = () => {
       return data;
     },
   });
+
+  useEffect(() => {
+    const invalidateUsers = () => {
+      queryClient.invalidateQueries({ queryKey: ['all_users'] });
+    };
+
+    const profilesChannel = supabase
+      .channel('admin-profiles-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, invalidateUsers)
+      .subscribe();
+
+    const subscriptionsChannel = supabase
+      .channel('admin-subscriptions-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_subscriptions' }, invalidateUsers)
+      .subscribe();
+      
+    const usersChannel = supabase
+      .channel('admin-auth-users-changes')
+      .on('postgres_changes', { event: '*', schema: 'auth', table: 'users' }, invalidateUsers)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(subscriptionsChannel);
+      supabase.removeChannel(usersChannel);
+    };
+  }, [queryClient]);
 
   const updateUserRoleMutation = useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string, newRole: 'admin' | 'user' }) => {

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import KocMobileNav from "@/components/koc/KocMobileNav";
@@ -41,6 +41,7 @@ const fetchKocs = async (userId: string) => {
 
 const ListKoc = () => {
   const { user } = useSession();
+  const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -51,6 +52,25 @@ const ListKoc = () => {
     queryFn: () => fetchKocs(user!.id),
     enabled: !!user,
   });
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('kocs-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'kocs', filter: `user_id=eq.${user.id}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['kocs', user.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 
   const handleEdit = (koc: Koc) => {
     setSelectedKoc(koc);
