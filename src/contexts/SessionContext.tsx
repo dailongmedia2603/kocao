@@ -70,14 +70,15 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
 
   // Effect phụ để lấy profile và subscription khi session thay đổi và lắng nghe realtime
   useEffect(() => {
-    if (session?.user) {
+    const userId = session?.user?.id;
+    if (userId) {
       setLoading(true);
 
       const fetchProfile = async () => {
         const { data, error } = await supabase
           .from("profiles")
           .select("*")
-          .eq("id", session.user.id)
+          .eq("id", userId)
           .single();
         if (error && error.code !== 'PGRST116') {
           console.error("Error fetching profile:", error);
@@ -90,7 +91,7 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
         const { data, error } = await supabase
           .from("user_subscriptions")
           .select("current_period_videos_used, current_period_voices_used, subscription_plans(name, monthly_video_limit, monthly_voice_limit, price)")
-          .eq("user_id", session.user.id)
+          .eq("user_id", userId)
           .maybeSingle();
         if (error && error.code !== "PGRST116") {
           console.error("Error fetching subscription:", error);
@@ -118,19 +119,19 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
       fetchData();
 
       const profileChannel = supabase
-        .channel(`profile-changes-${session.user.id}`)
+        .channel(`profile-changes-${userId}`)
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${session.user.id}` },
+          { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
           () => fetchProfile()
         )
         .subscribe();
 
       const subscriptionChannel = supabase
-        .channel(`subscription-changes-${session.user.id}`)
+        .channel(`subscription-changes-${userId}`)
         .on(
           'postgres_changes',
-          { event: '*', schema: 'public', table: 'user_subscriptions', filter: `user_id=eq.${session.user.id}` },
+          { event: '*', schema: 'public', table: 'user_subscriptions', filter: `user_id=eq.${userId}` },
           () => fetchSubscription()
         )
         .subscribe();
@@ -144,7 +145,7 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
       setSubscription(null);
       setLoading(false);
     }
-  }, [session]);
+  }, [session?.user?.id]);
 
   const value = useMemo<SessionContextType>(
     () => ({
