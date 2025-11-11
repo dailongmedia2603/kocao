@@ -13,12 +13,14 @@ import { UploadVideoDialog } from "@/components/koc/UploadVideoDialog";
 import { CreateCampaignDialog } from "@/components/automation/CreateCampaignDialog";
 import { Link } from "react-router-dom";
 import { CheckCircle, Loader2 } from "lucide-react";
+import { ConfigureAiTemplatesDialog } from "@/components/automation/ConfigureAiTemplatesDialog";
 
 const STEPS = [
   "Tạo KOC",
   "Clone Voice",
   "Gán Voice",
   "Tải Video Nguồn",
+  "Prompt Nội dung",
   "Tạo Automation",
   "Hoàn tất",
 ];
@@ -33,6 +35,7 @@ export const OnboardingWizard = () => {
   const [isEditKocOpen, setEditKocOpen] = useState(false);
   const [isUploadVideoOpen, setUploadVideoOpen] = useState(false);
   const [isCreateCampaignOpen, setCreateCampaignOpen] = useState(false);
+  const [isConfigurePromptOpen, setConfigurePromptOpen] = useState(false);
 
   // Data queries to determine progress
   const { data: kocs, isLoading: isLoadingKocs } = useQuery({
@@ -93,8 +96,11 @@ export const OnboardingWizard = () => {
           step = 3;
           if (sourceVideos && sourceVideos.length > 0) {
             step = 4;
-            if (campaigns && campaigns.length > 0) {
+            if (activeKoc && activeKoc.default_prompt_template_id) {
               step = 5;
+              if (campaigns && campaigns.length > 0) {
+                step = 6;
+              }
             }
           }
         }
@@ -114,8 +120,10 @@ export const OnboardingWizard = () => {
       case 3:
         return <CardContent><p className="text-muted-foreground mb-4">Giờ hãy cung cấp ít nhất một video nguồn. Video này sẽ được dùng làm "khuôn" cho các video AI tạo ra.</p><Button onClick={() => setUploadVideoOpen(true)}>Tải Video Nguồn</Button></CardContent>;
       case 4:
-        return <CardContent><p className="text-muted-foreground mb-4">Gần xong rồi! Hãy tạo một chiến dịch tự động để kết nối KOC, giọng nói và các thiết lập AI lại với nhau.</p><Button onClick={() => setCreateCampaignOpen(true)}>Tạo Chiến Dịch</Button></CardContent>;
+        return <CardContent><p className="text-muted-foreground mb-4">Mỗi KOC cần một "khuôn" kịch bản (prompt) mặc định để AI có thể tự động tạo nội dung. Hãy cấu hình prompt mặc định cho KOC này.</p><Button onClick={() => setConfigurePromptOpen(true)}>Cấu hình Prompt</Button></CardContent>;
       case 5:
+        return <CardContent><p className="text-muted-foreground mb-4">Gần xong rồi! Hãy tạo một chiến dịch tự động để kết nối KOC, giọng nói và các thiết lập AI lại với nhau.</p><Button onClick={() => setCreateCampaignOpen(true)}>Tạo Chiến Dịch</Button></CardContent>;
+      case 6:
         return <CardContent className="text-center"><CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" /><p className="text-lg font-semibold">Bạn đã hoàn tất thiết lập ban đầu!</p><p className="text-muted-foreground mb-6">Giờ đây bạn đã sẵn sàng để tự động hóa quy trình sáng tạo. Bước tiếp theo là xây dựng kế hoạch nội dung cho KOC của bạn.</p><Button asChild><Link to="/tao-ke-hoach">Bắt đầu xây dựng kế hoạch</Link></Button></CardContent>;
       default:
         return <CardContent><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></CardContent>;
@@ -129,7 +137,7 @@ export const OnboardingWizard = () => {
         <CardHeader>
           <CardTitle className="text-2xl">{STEPS[currentStep]}</CardTitle>
           <CardDescription>
-            {currentStep < 5 ? `Bước ${currentStep + 1} trên 5 trong quy trình thiết lập.` : "Hoàn thành!"}
+            {currentStep < 6 ? `Bước ${currentStep + 1} trên 6 trong quy trình thiết lập.` : "Hoàn thành!"}
           </CardDescription>
         </CardHeader>
         {renderStepContent()}
@@ -143,6 +151,7 @@ export const OnboardingWizard = () => {
       <EditKocDialog isOpen={isEditKocOpen} onOpenChange={setEditKocOpen} koc={activeKoc} />
       {activeKoc && <UploadVideoDialog isOpen={isUploadVideoOpen} onOpenChange={setUploadVideoOpen} kocId={activeKoc.id} userId={activeKoc.user_id} kocName={activeKoc.name} folderPath={`${activeKoc.folder_path}/sources/videos`} accept="video/*" />}
       <CreateCampaignDialog isOpen={isCreateCampaignOpen} onOpenChange={setCreateCampaignOpen} />
+      {activeKoc && <ConfigureAiTemplatesDialog isOpen={isConfigurePromptOpen} onOpenChange={setConfigurePromptOpen} kocId={activeKoc.id} defaultTemplateIdForKoc={activeKoc.default_prompt_template_id} />}
     </div>
   );
 };

@@ -74,6 +74,7 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange, kocId, defaul
     onSuccess: () => {
       showSuccess("Đặt template mặc định cho KOC này thành công!");
       queryClient.invalidateQueries({ queryKey: ["koc", kocId] });
+      queryClient.invalidateQueries({ queryKey: ["onboarding_kocs", user?.id] });
     },
     onError: (error: Error) => showError(error.message),
   });

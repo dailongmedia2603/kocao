@@ -1,6 +1,6 @@
 import { useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Check, UserPlus, Mic, Link2, UploadCloud, Bot, PartyPopper } from "lucide-react";
+import { Check, UserPlus, Mic, Link2, UploadCloud, Bot, PartyPopper, FileText } from "lucide-react";
 
 type OnboardingStepperProps = {
   currentStep: number;
@@ -12,6 +12,7 @@ const stepsConfig = [
   { label: "Clone Voice", icon: Mic, color: "text-purple-600", bgColor: "bg-purple-100", borderColor: "border-purple-600" },
   { label: "Gán Voice", icon: Link2, color: "text-teal-600", bgColor: "bg-teal-100", borderColor: "border-teal-600" },
   { label: "Tải Video Nguồn", icon: UploadCloud, color: "text-orange-600", bgColor: "bg-orange-100", borderColor: "border-orange-600" },
+  { label: "Prompt Nội dung", icon: FileText, color: "text-cyan-600", bgColor: "bg-cyan-100", borderColor: "border-cyan-600" },
   { label: "Tạo Automation", icon: Bot, color: "text-indigo-600", bgColor: "bg-indigo-100", borderColor: "border-indigo-600" },
   { label: "Hoàn tất", icon: PartyPopper, color: "text-emerald-600", bgColor: "bg-emerald-100", borderColor: "border-emerald-600" },
 ];
