@@ -2,18 +2,68 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// --- START: Inlined Vertex AI Helper Functions ---
+async function importPrivateKey(pem: string): Promise<CryptoKey> {
+  const pemHeader = "-----BEGIN PRIVATE KEY-----";
+  const pemFooter = "-----END PRIVATE KEY-----";
+  const pemContents = pem.replace(pemHeader, "").replace(pemFooter, "").replace(/\s/g, "");
+  const binaryDer = atob(pemContents);
+  const arrayBuffer = new ArrayBuffer(binaryDer.length);
+  const uint8Array = new Uint8Array(arrayBuffer);
+  for (let i = 0; i < binaryDer.length; i++) {
+    uint8Array[i] = binaryDer.charCodeAt(i);
+  }
+  return await crypto.subtle.importKey(
+    "pkcs8",
+    uint8Array,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    true,
+    ["sign"]
+  );
+}
+
+function base64url(buffer: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+}
+
+async function getGcpAccessToken(credentials: any): Promise<string> {
+  const privateKey = await importPrivateKey(credentials.private_key);
+  const header = { alg: "RS256", typ: "JWT" };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: credentials.client_email,
+    scope: "https://www.googleapis.com/auth/cloud-platform",
+    aud: "https://oauth2.googleapis.com/token",
+    exp: now + 3600,
+    iat: now,
+  };
+  const encoder = new TextEncoder();
+  const encodedHeader = base64url(encoder.encode(JSON.stringify(header)));
+  const encodedPayload = base64url(encoder.encode(JSON.stringify(payload)));
+  const dataToSign = encoder.encode(`${encodedHeader}.${encodedPayload}`);
+  const signature = await crypto.subtle.sign({ name: "RSASSA-PKCS1-v1_5" }, privateKey, dataToSign);
+  const jwt = `${encodedHeader}.${encodedPayload}.${base64url(signature)}`;
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: jwt }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(`Google Auth Error: ${data.error_description || "Failed to fetch access token."}`);
+  return data.access_token;
+}
+// --- END: Inlined Vertex AI Helper Functions ---
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const API_URL = "https://chatbot.qcv.vn/api/chat-vision";
-
 serve(async (req) => {
-  console.log(`[${new Date().toISOString()}] generate-idea-content function invoked with method: ${req.method}`);
-
   if (req.method === "OPTIONS") {
-    console.log("Handling OPTIONS request.");
     return new Response("ok", { headers: corsHeaders });
   }
 
@@ -28,7 +78,6 @@ serve(async (req) => {
     let fetchError;
 
     if (ideaId) {
-      console.log(`Fetching specific idea ID: ${ideaId}`);
       const { data, error } = await supabaseAdmin
         .from('koc_content_ideas')
         .select('id, user_id, idea_content, koc_id, status')
@@ -37,100 +86,47 @@ serve(async (req) => {
       ideasToProcess = data;
       fetchError = error;
     } else {
-      console.log("Fetching ideas to process from queue...");
       const { data, error } = await supabaseAdmin
         .from('koc_content_ideas')
         .select('id, user_id, idea_content, koc_id, status')
-        .eq('status', 'Chưa sử dụng')
+        .in('status', ['Chưa sử dụng', 'Lỗi tạo content'])
         .limit(5);
       ideasToProcess = data;
       fetchError = error;
     }
 
     if (fetchError) {
-      console.error("Error fetching ideas:", fetchError.message);
       throw new Error(`Error fetching ideas: ${fetchError.message}`);
     }
 
     if (!ideasToProcess || ideasToProcess.length === 0) {
       const message = ideaId ? `Idea with ID ${ideaId} not found or not eligible for generation.` : "No new ideas to process. Exiting.";
-      console.log(message);
       return new Response(JSON.stringify({ message }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`Found ${ideasToProcess.length} ideas to process.`);
     let successCount = 0;
 
     for (const idea of ideasToProcess) {
       try {
-        if (idea.status !== 'Chưa sử dụng' && idea.status !== 'Lỗi tạo content') {
-          console.log(`Skipping idea ${idea.id} because its status is '${idea.status}'.`);
-          continue;
-        }
-
-        console.log(`Processing idea ID: ${idea.id}`);
         await supabaseAdmin.from('koc_content_ideas').update({ status: 'Đang xử lý' }).eq('id', idea.id);
 
-        console.log(`Fetching KOC data for ID: ${idea.koc_id}`);
         const { data: koc, error: kocError } = await supabaseAdmin
           .from('kocs')
-          .select('name, default_prompt_template_id')
+          .select('name')
           .eq('id', idea.koc_id)
           .single();
         if (kocError || !koc) throw new Error(`KOC with id ${idea.koc_id} not found.`);
-        console.log(`Found KOC name: "${koc.name}"`);
 
-        let template;
-        let templateError;
-
-        // 1. Ưu tiên template mặc định của KOC
-        if (koc.default_prompt_template_id) {
-          console.log(`Fetching KOC-specific default template ID: ${koc.default_prompt_template_id}`);
-          ({ data: template, error: templateError } = await supabaseAdmin
-            .from('ai_prompt_templates')
-            .select('*')
-            .eq('id', koc.default_prompt_template_id)
-            .single());
-        }
-
-        // 2. Nếu không có, tìm template mặc định của người dùng
-        if (!template) {
-          console.log("No KOC-specific template found, falling back to user default.");
-          ({ data: template, error: templateError } = await supabaseAdmin
-            .from('ai_prompt_templates')
-            .select('*')
-            .eq('user_id', idea.user_id)
-            .eq('is_default', true)
-            .single());
-        }
+        const { data: template, error: templateError } = await supabaseAdmin
+          .rpc('get_default_template_for_koc', { p_koc_id: idea.koc_id })
+          .single();
         
-        // 3. Nếu vẫn không có, tìm template mặc định của admin
-        if (!template) {
-            console.log("No user-specific default found, falling back to admin default.");
-            const { data: adminUser, error: adminError } = await supabaseAdmin
-                .from('profiles')
-                .select('id')
-                .eq('role', 'admin')
-                .limit(1)
-                .single();
-
-            if (adminUser && !adminError) {
-                ({ data: template, error: templateError } = await supabaseAdmin
-                    .from('ai_prompt_templates')
-                    .select('*')
-                    .eq('user_id', adminUser.id)
-                    .eq('is_default', true)
-                    .single());
-            }
-        }
-
         if (templateError || !template) {
           throw new Error("No default AI prompt template found for this KOC, user, or system-wide.");
         }
-        console.log(`Using template: "${template.name}"`);
 
         const fullPrompt = `
           Bạn là một chuyên gia sáng tạo nội dung cho KOC tên là "${koc.name}".
@@ -154,43 +150,53 @@ serve(async (req) => {
           **QUAN TRỌNG:** Chỉ trả về nội dung kịch bản hoàn chỉnh, không thêm bất kỳ lời giải thích, tiêu đề hay ghi chú nào khác.
         `;
 
-        console.log(`Calling Custom GPT API...`);
-        const externalApiFormData = new FormData();
-        externalApiFormData.append("prompt", fullPrompt);
+        const credentialsJson = Deno.env.get("GOOGLE_CREDENTIALS_JSON");
+        if (!credentialsJson) throw new Error("Secret GOOGLE_CREDENTIALS_JSON chưa được cấu hình trong Supabase Vault.");
+        const credentials = JSON.parse(credentialsJson);
+        const projectId = credentials.project_id;
+        if (!projectId) throw new Error("Tệp JSON trong secret không chứa 'project_id'.");
 
-        const response = await fetch(API_URL, {
-          method: "POST",
-          body: externalApiFormData,
+        const accessToken = await getGcpAccessToken(credentials);
+        const region = "us-central1";
+        const model = template.model || "gemini-2.5-pro";
+        const vertexUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent`;
+
+        const vertexResponse = await fetch(vertexUrl, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ "role": "user", "parts": [{ "text": fullPrompt }] }],
+            generationConfig: { temperature: 0.7, topK: 1, topP: 1, maxOutputTokens: 8192 },
+          }),
         });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Lỗi từ API GPT Custom: ${response.status} - ${errorText}`);
+        if (!vertexResponse.ok) {
+          const errorData = await vertexResponse.json();
+          const errorBody = errorData.error?.message || JSON.stringify(errorData);
+          throw new Error(`Lỗi từ Vertex AI (Status: ${vertexResponse.status}): ${errorBody}`);
         }
 
-        const responseData = await response.json();
-        if (!responseData.answer) {
-            throw new Error("API GPT Custom không trả về trường 'answer'.");
+        const vertexData = await vertexResponse.json();
+        if (!vertexData.candidates || vertexData.candidates.length === 0) {
+          if (vertexData?.promptFeedback?.blockReason) throw new Error(`Nội dung bị chặn vì lý do an toàn: ${vertexData.promptFeedback.blockReason}.`);
+          throw new Error("Lỗi từ Vertex AI: Phản hồi không chứa nội dung được tạo.");
         }
 
-        const generatedText = responseData.answer;
-        console.log("Successfully received response from Custom GPT API.");
+        const generatedText = vertexData.candidates[0].content.parts[0].text;
 
-        console.log(`Updating idea ${idea.id} with new content.`);
         const { error: updateError } = await supabaseAdmin
           .from('koc_content_ideas')
           .update({
             new_content: generatedText,
             status: 'Đã có content',
             ai_prompt_log: fullPrompt,
-            error_message: null, // Clear previous error
+            error_message: null,
           })
           .eq('id', idea.id);
         
         if (updateError) throw new Error(`Error updating idea in DB: ${updateError.message}`);
         
         successCount++;
-        console.log(`Successfully generated content for idea ${idea.id}.`);
 
       } catch (processingError) {
         console.error(`Failed to process idea ${idea.id}:`, processingError.message);
