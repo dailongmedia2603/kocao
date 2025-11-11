@@ -55,7 +55,31 @@ export const OnboardingWizard = () => {
     queryKey: ['onboarding_voices', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase.from('cloned_voices').select('voice_id').eq('user_id', user.id).not('sample_audio', 'is', null).limit(1);
+
+      // 1. Get all KOCs to find which voices are already assigned
+      const { data: allKocs, error: kocsError } = await supabase
+        .from('kocs')
+        .select('default_cloned_voice_id')
+        .eq('user_id', user.id)
+        .not('default_cloned_voice_id', 'is', null);
+
+      if (kocsError) throw kocsError;
+
+      const assignedVoiceIds = allKocs.map(koc => koc.default_cloned_voice_id);
+
+      // 2. Find a cloned voice that is ready AND not already assigned
+      const query = supabase
+        .from('cloned_voices')
+        .select('voice_id')
+        .eq('user_id', user.id)
+        .not('sample_audio', 'is', null);
+
+      if (assignedVoiceIds.length > 0) {
+        query.not('voice_id', 'in', `(${assignedVoiceIds.join(',')})`);
+      }
+      
+      const { data, error } = await query.limit(1);
+
       if (error) throw error;
       return data;
     },
