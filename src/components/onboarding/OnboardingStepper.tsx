@@ -1,53 +1,66 @@
 import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
+import { Check, UserPlus, Mic, Link2, UploadCloud, Bot, PartyPopper } from "lucide-react";
 
 type OnboardingStepperProps = {
   currentStep: number;
-  steps: string[];
+  steps: string[]; // The labels are now managed by stepsConfig
 };
 
-export const OnboardingStepper = ({ currentStep, steps }: OnboardingStepperProps) => {
+const stepsConfig = [
+  { label: "Tạo KOC", icon: UserPlus, color: "text-blue-600", bgColor: "bg-blue-100", borderColor: "border-blue-600" },
+  { label: "Clone Voice", icon: Mic, color: "text-purple-600", bgColor: "bg-purple-100", borderColor: "border-purple-600" },
+  { label: "Gán Voice", icon: Link2, color: "text-teal-600", bgColor: "bg-teal-100", borderColor: "border-teal-600" },
+  { label: "Tải Video Nguồn", icon: UploadCloud, color: "text-orange-600", bgColor: "bg-orange-100", borderColor: "border-orange-600" },
+  { label: "Tạo Automation", icon: Bot, color: "text-indigo-600", bgColor: "bg-indigo-100", borderColor: "border-indigo-600" },
+  { label: "Hoàn tất", icon: PartyPopper, color: "text-emerald-600", bgColor: "bg-emerald-100", borderColor: "border-emerald-600" },
+];
+
+export const OnboardingStepper = ({ currentStep }: OnboardingStepperProps) => {
   return (
     <nav aria-label="Progress">
-      <ol role="list" className="flex items-center">
-        {steps.map((step, stepIdx) => (
-          <li key={step} className={cn("relative", stepIdx !== steps.length - 1 ? "flex-1" : "")}>
-            <div className="relative z-10 flex items-center bg-gray-50/50 pr-2">
-              <span className="flex h-9 items-center">
-                {stepIdx < currentStep ? (
-                  // Completed Step
-                  <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-green-600 group-hover:bg-green-800">
-                    <Check className="h-5 w-5 text-white" aria-hidden="true" />
-                  </span>
-                ) : stepIdx === currentStep ? (
-                  // Current Step
-                  <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-red-600 bg-white">
-                    <span className="h-2.5 w-2.5 rounded-full bg-red-600" />
-                  </span>
-                ) : (
-                  // Upcoming Step
-                  <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-300 bg-white group-hover:border-gray-400">
-                    <span className="h-2.5 w-2.5 rounded-full bg-transparent group-hover:bg-gray-300" />
-                  </span>
-                )}
-              </span>
-              <span
-                className={cn(
-                  "ml-4 hidden text-sm font-medium md:inline-block",
-                  stepIdx === currentStep ? "text-red-600" : "text-gray-900",
-                  stepIdx > currentStep && "text-gray-500"
-                )}
-              >
-                {step}
-              </span>
-            </div>
+      <ol role="list" className="flex items-start">
+        {stepsConfig.map((step, stepIdx) => {
+          const isCompleted = stepIdx < currentStep;
+          const isCurrent = stepIdx === currentStep;
 
-            {/* Connector */}
-            {stepIdx < steps.length - 1 ? (
-              <div className="absolute inset-0 top-4 left-4 -ml-px mt-0.5 h-0.5 w-full bg-gray-300" aria-hidden="true" />
-            ) : null}
-          </li>
-        ))}
+          const lineColor = isCompleted ? 'bg-green-600' : 'bg-gray-200';
+
+          const circleClasses = cn(
+            'flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300',
+            isCompleted ? 'bg-green-600' : '',
+            isCurrent ? `${step.bgColor} border-2 ${step.borderColor}` : '',
+            !isCompleted && !isCurrent ? 'bg-gray-100 border-2 border-gray-300' : ''
+          );
+
+          const iconClasses = cn(
+            'h-5 w-5',
+            isCompleted ? 'text-white' : '',
+            isCurrent ? step.color : '',
+            !isCompleted && !isCurrent ? 'text-gray-400' : ''
+          );
+
+          const textClasses = cn(
+            'text-sm font-semibold text-center mt-2 w-24',
+            isCurrent ? step.color : 'text-gray-700',
+            !isCompleted && !isCurrent ? 'text-gray-500 font-medium' : ''
+          );
+
+          return (
+            <li key={step.label} className="relative flex-1 px-2">
+              {/* Line */}
+              {stepIdx > 0 && (
+                <div className={cn("absolute -left-1/2 top-5 h-0.5 w-full", lineColor)} aria-hidden="true" />
+              )}
+
+              <div className="relative flex flex-col items-center gap-1">
+                <div className={circleClasses}>
+                  {isCompleted ? <Check className={iconClasses} /> : <step.icon className={iconClasses} />}
+                </div>
+                <p className={textClasses}>{step.label}</p>
+              </div>
+            </li>
+          );
+        })}
       </ol>
     </nav>
   );
