@@ -71,10 +71,16 @@ const UserManagement = () => {
       .on('postgres_changes', { event: '*', schema: 'auth', table: 'users' }, invalidateUsers)
       .subscribe();
 
+    const plansChannel = supabase
+      .channel('admin-subscription-plans-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscription_plans' }, invalidateUsers)
+      .subscribe();
+
     return () => {
       supabase.removeChannel(profilesChannel);
       supabase.removeChannel(subscriptionsChannel);
       supabase.removeChannel(usersChannel);
+      supabase.removeChannel(plansChannel);
     };
   }, [queryClient]);
 

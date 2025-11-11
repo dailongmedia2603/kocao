@@ -135,10 +135,20 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
           () => fetchSubscription()
         )
         .subscribe();
+      
+      const plansChannel = supabase
+        .channel('public-subscription-plans-changes')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'subscription_plans' },
+          () => fetchSubscription()
+        )
+        .subscribe();
 
       return () => {
         supabase.removeChannel(profileChannel);
         supabase.removeChannel(subscriptionChannel);
+        supabase.removeChannel(plansChannel);
       };
     } else {
       setProfile(null);
