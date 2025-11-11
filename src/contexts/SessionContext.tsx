@@ -18,6 +18,8 @@ export type UserSubscriptionInfo = {
   plan_name: string;
   videos_used: number;
   video_limit: number;
+  voices_used: number;
+  voice_limit: number;
   price: number;
 } | null;
 
@@ -102,7 +104,7 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
       // Lấy subscription
       supabase
         .from("user_subscriptions")
-        .select("current_period_videos_used, subscription_plans(name, monthly_video_limit, price)")
+        .select("current_period_videos_used, current_period_voices_used, subscription_plans(name, monthly_video_limit, monthly_voice_limit, price)")
         .eq("user_id", session.user.id)
         .maybeSingle()
         .then(({ data, error }) => {
@@ -115,6 +117,8 @@ export const SessionContextProvider = ({ children, queryClient }: { children: Re
               plan_name: plan.name,
               videos_used: data.current_period_videos_used ?? 0,
               video_limit: plan.monthly_video_limit ?? 0,
+              voices_used: data.current_period_voices_used ?? 0,
+              voice_limit: plan.monthly_voice_limit ?? 0,
               price: plan.price ?? 0,
             });
           } else {

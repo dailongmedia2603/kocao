@@ -2,7 +2,7 @@ import { useSession } from "@/contexts/SessionContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Layers, Video, User, Tag } from "lucide-react";
+import { Layers, Video, User, Tag, Mic } from "lucide-react";
 
 const SubscriptionPage = () => {
   const { subscription, profile, loading } = useSession();
@@ -50,7 +50,7 @@ const SubscriptionPage = () => {
         </CardHeader>
         <CardContent className="pt-4">
           {subscription ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div>
                 <div className="flex justify-between items-center mb-2 text-sm font-medium">
                   <span className="flex items-center gap-2 text-muted-foreground">
@@ -61,8 +61,22 @@ const SubscriptionPage = () => {
                     {subscription.videos_used} / {subscription.video_limit}
                   </span>
                 </div>
-                <Progress value={(subscription.videos_used / subscription.video_limit) * 100} className="h-3" />
+                <Progress value={subscription.video_limit > 0 ? (subscription.videos_used / subscription.video_limit) * 100 : 0} className="h-3" />
               </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-2 text-sm font-medium">
+                  <span className="flex items-center gap-2 text-muted-foreground">
+                    <Mic className="h-4 w-4" />
+                    Số voice đã sử dụng
+                  </span>
+                  <span>
+                    {subscription.voices_used} / {subscription.voice_limit}
+                  </span>
+                </div>
+                <Progress value={subscription.voice_limit > 0 ? (subscription.voices_used / subscription.voice_limit) * 100 : 0} className="h-3" />
+              </div>
+
               <div className="border-t pt-4">
                 <div className="flex justify-between items-center text-sm">
                   <span className="flex items-center gap-2 text-muted-foreground">
@@ -75,7 +89,7 @@ const SubscriptionPage = () => {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground text-center pt-2">
-                Số lượt tạo video sẽ được làm mới vào đầu mỗi chu kỳ.
+                Số lượt sử dụng sẽ được làm mới vào đầu mỗi chu kỳ.
               </p>
             </div>
           ) : (
