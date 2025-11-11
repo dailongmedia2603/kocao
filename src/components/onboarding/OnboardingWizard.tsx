@@ -42,7 +42,7 @@ export const OnboardingWizard = () => {
     queryKey: ['onboarding_kocs', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase.from('kocs').select('*').eq('user_id', user.id).limit(1);
+      const { data, error } = await supabase.from('kocs').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1);
       if (error) throw error;
       return data;
     },
