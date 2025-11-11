@@ -124,7 +124,21 @@ export const OnboardingWizard = () => {
       case 5:
         return <CardContent><p className="text-muted-foreground mb-4">Gần xong rồi! Hãy tạo một chiến dịch tự động để kết nối KOC, giọng nói và các thiết lập AI lại với nhau.</p><Button onClick={() => setCreateCampaignOpen(true)}>Tạo Chiến Dịch</Button></CardContent>;
       case 6:
-        return <CardContent className="text-center"><CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" /><p className="text-lg font-semibold">Bạn đã hoàn tất thiết lập ban đầu!</p><p className="text-muted-foreground mb-6">Giờ đây bạn đã sẵn sàng để tự động hóa quy trình sáng tạo. Bước tiếp theo là xây dựng kế hoạch nội dung cho KOC của bạn.</p><Button asChild><Link to="/tao-ke-hoach">Bắt đầu xây dựng kế hoạch</Link></Button></CardContent>;
+        return (
+          <CardContent className="text-center">
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+            <p className="text-lg font-semibold">Bạn đã hoàn tất thiết lập ban đầu!</p>
+            <p className="text-muted-foreground mb-6">Giờ đây bạn đã sẵn sàng để tự động hóa quy trình sáng tạo. Bước tiếp theo là xây dựng kế hoạch nội dung cho KOC của bạn.</p>
+            <div className="flex flex-col sm:flex-row justify-center gap-4">
+              <Button asChild>
+                <Link to="/tao-ke-hoach">Bắt đầu xây dựng kế hoạch</Link>
+              </Button>
+              <Button variant="outline" onClick={() => setCreateKocOpen(true)}>
+                Tạo KOC mới
+              </Button>
+            </div>
+          </CardContent>
+        );
       default:
         return <CardContent><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></CardContent>;
     }
