@@ -25,6 +25,7 @@ import TaoKeHoachDetail from "./pages/TaoKeHoachDetail";
 import SubscriptionPlans from "./pages/admin/SubscriptionPlans";
 import SubscriptionPage from "./pages/Subscription";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ReloadPrompt } from "./components/ReloadPrompt";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +41,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <SessionContextProvider queryClient={queryClient}>
           <Toaster richColors position="top-right" />
+          <ReloadPrompt />
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
