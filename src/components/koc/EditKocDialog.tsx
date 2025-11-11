@@ -94,6 +94,7 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
       showSuccess("Cập nhật KOC thành công!");
       queryClient.invalidateQueries({ queryKey: ["kocs", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["koc", koc?.id] });
+      queryClient.invalidateQueries({ queryKey: ["onboarding_kocs", user?.id] });
       onOpenChange(false);
     },
     onError: (error: Error) => {

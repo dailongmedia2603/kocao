@@ -54,6 +54,7 @@ export const VoiceCloneForm = () => {
     onSuccess: () => {
       showSuccess("Gửi yêu cầu clone thành công! Giọng nói sẽ sớm xuất hiện trong danh sách.");
       queryClient.invalidateQueries({ queryKey: ["cloned_voices_db", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["onboarding_voices", user?.id] });
       form.reset();
     },
     onError: (error: Error) => {

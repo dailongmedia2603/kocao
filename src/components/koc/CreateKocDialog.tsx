@@ -108,6 +108,7 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
     onSuccess: () => {
       showSuccess("Tạo KOC và thư mục trên R2 thành công!");
       queryClient.invalidateQueries({ queryKey: ["kocs", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["onboarding_kocs", user?.id] });
       onOpenChange(false);
       form.reset();
     },

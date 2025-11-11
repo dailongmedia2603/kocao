@@ -97,6 +97,7 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
     onSuccess: () => {
       showSuccess("Tạo chiến dịch thành công!");
       queryClient.invalidateQueries({ queryKey: ["automation_campaigns", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["onboarding_campaigns", user?.id] });
       onOpenChange(false);
       form.reset();
     },

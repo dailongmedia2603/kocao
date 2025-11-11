@@ -43,6 +43,7 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocId, use
     onSuccess: (fileCount) => {
       showSuccess(`Đã tải lên thành công ${fileCount} tệp!`);
       queryClient.invalidateQueries({ queryKey: ["kocFiles", kocId] });
+      queryClient.invalidateQueries({ queryKey: ["onboarding_source_videos", kocId] });
       handleClose();
     },
     onError: (error: Error) => showError(`Lỗi tải lên: ${error.message}`),
