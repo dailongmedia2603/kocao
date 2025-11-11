@@ -32,6 +32,25 @@ serve(async (req) => {
       userId = authUser.id;
     }
 
+    // *** BƯỚC KIỂM SOÁT MỚI ĐƯỢC THÊM VÀO ĐÂY ***
+    // Chỉ kiểm tra và trừ credit cho yêu cầu tạo voice mới (text-to-speech)
+    if (path === "v1m/task/text-to-speech" && method === "POST") {
+      const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('check_and_deduct_voice_credit', {
+        p_user_id: userId,
+      });
+
+      if (rpcError) {
+        throw new Error(`Lỗi khi kiểm tra credit: ${rpcError.message}`);
+      }
+      
+      const result = rpcData[0];
+      if (!result.success) {
+        // Nếu không thành công (hết lượt), dừng lại và báo lỗi ngay lập tức
+        throw new Error(result.message);
+      }
+    }
+    // *** KẾT THÚC BƯỚC KIỂM SOÁT MỚI ***
+
     const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
       .select("api_key")
@@ -47,7 +66,6 @@ serve(async (req) => {
     const cloned_voice_id = body?.voice_setting?.voice_id;
     const cloned_voice_name = body?.cloned_voice_name;
 
-    // **IMPROVEMENT:** Pre-flight check for voice_id existence
     if (cloned_voice_id) {
       const { data: voiceCheck, error: voiceCheckError } = await supabaseAdmin
         .from('cloned_voices')
