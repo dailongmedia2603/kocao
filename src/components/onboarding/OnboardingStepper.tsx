@@ -68,7 +68,7 @@ export const OnboardingStepper = ({ currentStep }: OnboardingStepperProps) => {
                 style={{ minWidth: '120px' }}
               >
                 {stepIdx > 0 && (
-                  <div className={cn("absolute -left-1/2 top-7 h-0.5 w-full z-0", lineColor)} aria-hidden="true" />
+                  <div className={cn("absolute -left-1/2 top-5 h-0.5 w-full z-0", lineColor)} aria-hidden="true" />
                 )}
                 <div className="relative z-10 flex flex-col items-center gap-1">
                   <div className={circleClasses}>
