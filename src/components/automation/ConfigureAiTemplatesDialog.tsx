@@ -110,57 +110,58 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange, kocId, defaul
   const TemplateCard = ({ template, isUserTemplate }: { template: Template, isUserTemplate: boolean }) => {
     const isDefaultForKoc = template.id === defaultTemplateIdForKoc;
     return (
-      <Card className="relative group border-2 border-transparent hover:border-red-500 data-[default=true]:border-green-500 transition-colors" data-default={isDefaultForKoc}>
+      <Card className="border-2 border-transparent data-[default=true]:border-green-500 transition-colors" data-default={isDefaultForKoc}>
         <CardContent className="p-4">
-          <div className="flex justify-between items-start">
-            <div>
+          <div className="flex justify-between items-start gap-4">
+            <div className="flex-1">
               <h3 className="text-lg font-semibold">{template.name}</h3>
               <p className="text-sm text-muted-foreground mt-1">
                 Model: {template.model || 'N/A'} | Tối đa: {template.word_count || 'N/A'} từ
               </p>
             </div>
-            {isDefaultForKoc && (
-              <div className="bg-green-600 text-white rounded-full px-3 py-1 text-xs font-semibold flex items-center">
-                <Check className="h-3 w-3 mr-1" /> Mặc định
-              </div>
-            )}
+            
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {isDefaultForKoc ? (
+                <div className="bg-green-600 text-white rounded-md px-3 py-1 text-xs font-semibold flex items-center h-8">
+                  <Check className="h-3 w-3 mr-1" /> Mặc định
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setDefaultMutation.mutate(template.id)}
+                  disabled={setDefaultMutation.isPending && setDefaultMutation.variables === template.id}
+                >
+                  {setDefaultMutation.isPending && setDefaultMutation.variables === template.id ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Star className="mr-2 h-4 w-4" />
+                  )}
+                  Đặt làm mặc định
+                </Button>
+              )}
+              
+              {isUserTemplate && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleEdit(template)}>
+                      <Edit className="mr-2 h-4 w-4" /> Sửa
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(template)}>
+                      <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
         </CardContent>
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-          {!isDefaultForKoc && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={() => setDefaultMutation.mutate(template.id)}
-              disabled={setDefaultMutation.isPending && setDefaultMutation.variables === template.id}
-            >
-              {setDefaultMutation.isPending && setDefaultMutation.variables === template.id ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Star className="mr-2 h-4 w-4" />
-              )}
-              Mặc định
-            </Button>
-          )}
-          {isUserTemplate && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleEdit(template)}>
-                  <Edit className="mr-2 h-4 w-4" /> Sửa
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(template)}>
-                  <Trash2 className="mr-2 h-4 w-4" /> Xóa
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
       </Card>
     );
   };
