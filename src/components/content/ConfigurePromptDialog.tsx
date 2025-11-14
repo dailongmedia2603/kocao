@@ -96,14 +96,14 @@ type ConfigurePromptDialogProps = {
 };
 
 type PromptEditorProps = {
-  templateType: 'content_plan_gemini' | 'generate_more_ideas_gemini';
+  templateType: 'content_plan_gpt' | 'generate_more_ideas_gpt';
 };
 
 const PromptEditor = ({ templateType }: PromptEditorProps) => {
   const { user } = useSession();
   const queryClient = useQueryClient();
   
-  const isMoreIdeasPrompt = templateType === 'generate_more_ideas_gemini';
+  const isMoreIdeasPrompt = templateType === 'generate_more_ideas_gpt';
   const defaultPrompt = isMoreIdeasPrompt ? MORE_IDEAS_DEFAULT_PROMPT : DEFAULT_PROMPT;
   const dynamicVariables = isMoreIdeasPrompt ? MORE_IDEAS_DYNAMIC_VARIABLES : DYNAMIC_VARIABLES;
 
@@ -204,10 +204,10 @@ export const ConfigurePromptDialog = ({ isOpen, onOpenChange }: ConfigurePromptD
             <TabsTrigger value="more_ideas">Tạo thêm Idea</TabsTrigger>
           </TabsList>
           <TabsContent value="create_plan" className="pt-4">
-            <PromptEditor templateType="content_plan_gemini" />
+            <PromptEditor templateType="content_plan_gpt" />
           </TabsContent>
           <TabsContent value="more_ideas" className="pt-4">
-            <PromptEditor templateType="generate_more_ideas_gemini" />
+            <PromptEditor templateType="generate_more_ideas_gpt" />
           </TabsContent>
         </Tabs>
       </DialogContent>

@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
       .from('prompt_templates')
       .select('content')
       .eq('user_id', plan.user_id)
-      .eq('template_type', 'generate_more_ideas_gemini') // Use the shared prompt
+      .eq('template_type', 'generate_more_ideas_gpt') // Use the shared prompt
       .single();
 
     const promptTemplate = customPromptData?.content || MORE_IDEAS_DEFAULT_PROMPT;

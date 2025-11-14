@@ -73,7 +73,7 @@ serve(async (req) => {
       .from('prompt_templates')
       .select('content')
       .eq('user_id', user.id)
-      .eq('template_type', 'content_plan_gemini') // Use the shared Gemini template
+      .eq('template_type', 'content_plan_gpt') // Use the shared GPT template
       .single();
 
     let promptTemplate = customPromptData?.content || DEFAULT_PROMPT;
