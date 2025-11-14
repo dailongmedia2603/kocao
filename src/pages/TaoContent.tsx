@@ -126,7 +126,7 @@ const TaoContent = () => {
       const selectedKoc = kocs.find(koc => koc.id === values.kocId);
       if (!selectedKoc) throw new Error("Không tìm thấy KOC đã chọn.");
 
-      const detailedPrompt = `
+      const detailedPromptFromUser = `
 - Tông giọng: ${values.toneOfVoice || 'chuyên nghiệp, hấp dẫn'}
 - Văn phong: ${values.writingStyle || 'kể chuyện, sử dụng văn nói'}
 - Cách viết: ${values.writingMethod || 'sử dụng câu ngắn, đi thẳng vào vấn đề'}
@@ -135,21 +135,32 @@ const TaoContent = () => {
 ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn phong): ${values.exampleDialogue}` : ''}
       `.trim();
 
-      const functionName = "generate-script-vertex-ai";
-      const body = {
-        prompt: detailedPrompt,
-        newsContent: values.content,
-        kocName: selectedKoc.name,
-        maxWords: values.maxWords,
-        model: values.model,
-      };
+      const fullPrompt = `
+Bạn là một chuyên gia sáng tạo nội dung cho các video ngắn trên mạng xã hội.
+Dựa vào thông tin sau đây, hãy tạo một kịch bản video hấp dẫn.
+**Tên KOC (người dẫn chuyện):** ${selectedKoc.name}
+**Nội dung tin tức gốc:**
+---
+${values.content}
+---
+**Yêu cầu chi tiết từ người dùng:**
+---
+${detailedPromptFromUser}
+---
+**Yêu cầu hệ thống:**
+- ${values.maxWords ? `Độ dài kịch bản không được vượt quá ${values.maxWords} từ.` : 'Giữ kịch bản ngắn gọn, súc tích.'}
+- Chỉ trả về nội dung kịch bản, không thêm bất kỳ lời giải thích hay ghi chú nào khác.
+      `;
 
-      const { data, error } = await supabase.functions.invoke(functionName, { body });
+      const formData = new FormData();
+      formData.append("prompt", fullPrompt);
+
+      const { data, error } = await supabase.functions.invoke("gemini-custom-proxy", { body: formData });
 
       if (error) throw new Error(error.message);
-      if (!data.success) throw new Error(data.error);
+      if (data.error) throw new Error(data.error);
 
-      return { scriptContent: data.script, prompt: data.prompt, values };
+      return { scriptContent: data.answer, prompt: fullPrompt, values };
     },
     onSuccess: async ({ scriptContent, prompt, values }) => {
       setGeneratedScript(scriptContent);
