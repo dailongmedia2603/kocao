@@ -97,21 +97,19 @@ ${idea.idea_content}
 **QUAN TRỌNG:** Chỉ trả về nội dung kịch bản hoàn chỉnh, không thêm bất kỳ lời giải thích, tiêu đề hay ghi chú nào khác.
 `.trim();
 
-        // Create a new FormData for the external API call
         const externalApiFormData = new FormData();
         externalApiFormData.append("prompt", fullPrompt);
 
-        const response = await fetch("https://chatbot.qcv.vn/api/chat-vision", {
-          method: "POST",
+        const { data: responseData, error: functionError } = await supabaseAdmin.functions.invoke("gemini-custom-proxy", {
           body: externalApiFormData,
         });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Error from external API: ${response.status} - ${errorText}`);
+        if (functionError) {
+          throw new Error(`Error invoking gemini-custom-proxy: ${functionError.message}`);
         }
-
-        const responseData = await response.json();
+        if (responseData.error) {
+          throw new Error(`Error from gemini-custom-proxy: ${responseData.error}`);
+        }
         if (!responseData.answer) {
             throw new Error("API did not return an 'answer' field.");
         }
