@@ -5,7 +5,8 @@ import FacebookApiSettings from "@/components/settings/FacebookApiSettings";
 import VoiceApiSettings from "@/components/settings/VoiceApiSettings";
 import DreamfaceApiSettings from "@/components/settings/DreamfaceApiSettings";
 import VertexAiSettings from "@/components/settings/VertexAiSettings";
-import GptCustomApiSettings from "@/components/settings/GptCustomApiSettings"; // Import component mới
+import GptCustomApiSettings from "@/components/settings/GptCustomApiSettings";
+import GeminiCustomApiSettings from "@/components/settings/GeminiCustomApiSettings";
 import { Mic, Film, BrainCircuit } from "lucide-react";
 import { FaTiktok, FaFacebook } from "react-icons/fa";
 import { cn } from "@/lib/utils";
@@ -13,7 +14,8 @@ import { Button } from "@/components/ui/button";
 
 const TABS_CONFIG = [
   { value: "vertex-ai-api", label: "Gemini Vertex AI", icon: BrainCircuit, component: <VertexAiSettings /> },
-  { value: "gpt-custom-api", label: "API GPT Custom", icon: BrainCircuit, component: <GptCustomApiSettings /> }, // Thêm tab mới
+  { value: "gpt-custom-api", label: "API GPT Custom", icon: BrainCircuit, component: <GptCustomApiSettings /> },
+  { value: "gemini-custom-api", label: "API Gemini Custom", icon: BrainCircuit, component: <GeminiCustomApiSettings /> },
   { value: "tiktok-api", label: "API TikTok", icon: FaTiktok, component: <TiktokApiSettings /> },
   { value: "facebook-api", label: "API Facebook", icon: FaFacebook, component: <FacebookApiSettings /> },
   { value: "voice-api", label: "API Voice", icon: Mic, component: <VoiceApiSettings /> },
@@ -60,7 +62,7 @@ const Settings = () => {
         <Tabs defaultValue="vertex-ai-api" className="w-full">
           <TabsList className="flex flex-wrap justify-start bg-transparent p-0 gap-2 h-auto">
             {TABS_CONFIG.map(tab => (
-              <TabsTrigger key={tab.value} value={tab.value} className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-600 data-[state=active]:shadow-none transition-colors">
+              <TabsTrigger key={tab.value} value={tab.value} className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-700 data-[state=active]:shadow-none transition-colors">
                 <div className="flex h-8 w-8 items-center justify-center rounded-md transition-colors bg-transparent group-hover:bg-red-600 group-hover:text-white group-data-[state=active]:bg-red-600 group-data-[state=active]:text-white">
                   <tab.icon className="h-5 w-5" />
                 </div>
