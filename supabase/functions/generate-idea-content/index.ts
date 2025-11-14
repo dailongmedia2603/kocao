@@ -2,61 +2,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// --- START: Inlined Vertex AI Helper Functions ---
-async function importPrivateKey(pem: string): Promise<CryptoKey> {
-  const pemHeader = "-----BEGIN PRIVATE KEY-----";
-  const pemFooter = "-----END PRIVATE KEY-----";
-  const pemContents = pem.replace(pemHeader, "").replace(pemFooter, "").replace(/\s/g, "");
-  const binaryDer = atob(pemContents);
-  const arrayBuffer = new ArrayBuffer(binaryDer.length);
-  const uint8Array = new Uint8Array(arrayBuffer);
-  for (let i = 0; i < binaryDer.length; i++) {
-    uint8Array[i] = binaryDer.charCodeAt(i);
-  }
-  return await crypto.subtle.importKey(
-    "pkcs8",
-    uint8Array,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    true,
-    ["sign"]
-  );
-}
-
-function base64url(buffer: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-}
-
-async function getGcpAccessToken(credentials: any): Promise<string> {
-  const privateKey = await importPrivateKey(credentials.private_key);
-  const header = { alg: "RS256", typ: "JWT" };
-  const now = Math.floor(Date.now() / 1000);
-  const payload = {
-    iss: credentials.client_email,
-    scope: "https://www.googleapis.com/auth/cloud-platform",
-    aud: "https://oauth2.googleapis.com/token",
-    exp: now + 3600,
-    iat: now,
-  };
-  const encoder = new TextEncoder();
-  const encodedHeader = base64url(encoder.encode(JSON.stringify(header)));
-  const encodedPayload = base64url(encoder.encode(JSON.stringify(payload)));
-  const dataToSign = encoder.encode(`${encodedHeader}.${encodedPayload}`);
-  const signature = await crypto.subtle.sign({ name: "RSASSA-PKCS1-v1_5" }, privateKey, dataToSign);
-  const jwt = `${encodedHeader}.${encodedPayload}.${base64url(signature)}`;
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: jwt }),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(`Google Auth Error: ${data.error_description || "Failed to fetch access token."}`);
-  return data.access_token;
-}
-// --- END: Inlined Vertex AI Helper Functions ---
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -130,7 +75,6 @@ serve(async (req) => {
           throw new Error("No default AI prompt template found for this KOC, user, or system-wide.");
         }
 
-        // **FIX:** Rebuild the detailed prompt using all fields from the template
         const fullPrompt = `
 Bạn là một chuyên gia sáng tạo nội dung cho KOC tên là "${koc.name}".
 Hãy phát triển ý tưởng sau đây thành một kịch bản video hoàn chỉnh:
@@ -153,39 +97,32 @@ ${idea.idea_content}
 **QUAN TRỌNG:** Chỉ trả về nội dung kịch bản hoàn chỉnh, không thêm bất kỳ lời giải thích, tiêu đề hay ghi chú nào khác.
 `.trim();
 
-        const credentialsJson = Deno.env.get("GOOGLE_CREDENTIALS_JSON");
-        if (!credentialsJson) throw new Error("Secret GOOGLE_CREDENTIALS_JSON chưa được cấu hình trong Supabase Vault.");
-        const credentials = JSON.parse(credentialsJson);
-        const projectId = credentials.project_id;
-        if (!projectId) throw new Error("Tệp JSON trong secret không chứa 'project_id'.");
+        // Get the token from environment variables (Supabase secrets)
+        const apiToken = Deno.env.get("GEMINI_CUSTOM_TOKEN");
+        if (!apiToken) {
+          throw new Error("GEMINI_CUSTOM_TOKEN secret is not set in Supabase Vault.");
+        }
 
-        const accessToken = await getGcpAccessToken(credentials);
-        const region = "us-central1";
-        const model = templateData.model || "gemini-2.5-pro";
-        const vertexUrl = `https://${region}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${region}/publishers/google/models/${model}:generateContent`;
+        // Create a new FormData for the external API call
+        const externalApiFormData = new FormData();
+        externalApiFormData.append("prompt", fullPrompt);
+        externalApiFormData.append("token", apiToken);
 
-        const vertexResponse = await fetch(vertexUrl, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ "role": "user", "parts": [{ "text": fullPrompt }] }],
-            generationConfig: { temperature: 0.7, topK: 1, topP: 1, maxOutputTokens: 8192 },
-          }),
+        const response = await fetch("https://aquarius.qcv.vn/api/chat", {
+          method: "POST",
+          body: externalApiFormData,
         });
 
-        if (!vertexResponse.ok) {
-          const errorData = await vertexResponse.json();
-          const errorBody = errorData.error?.message || JSON.stringify(errorData);
-          throw new Error(`Lỗi từ Vertex AI (Status: ${vertexResponse.status}): ${errorBody}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Error from external API: ${response.status} - ${errorText}`);
         }
 
-        const vertexData = await vertexResponse.json();
-        if (!vertexData.candidates || vertexData.candidates.length === 0) {
-          if (vertexData?.promptFeedback?.blockReason) throw new Error(`Nội dung bị chặn vì lý do an toàn: ${vertexData.promptFeedback.blockReason}.`);
-          throw new Error("Lỗi từ Vertex AI: Phản hồi không chứa nội dung được tạo.");
+        const responseData = await response.json();
+        if (!responseData.answer) {
+            throw new Error("API did not return an 'answer' field.");
         }
-
-        const generatedText = vertexData.candidates[0].content.parts[0].text;
+        const generatedText = responseData.answer;
 
         const { error: updateError } = await supabaseAdmin
           .from('koc_content_ideas')
