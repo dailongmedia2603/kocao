@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const API_URL = "https://aquarius.qcv.vn/api/chat";
+const API_URL = "https://chatbot.qcv.vn/api/chat-vision";
 
 // --- START: Helper Functions ---
 const extractContentByTag = (text: string, tag: string): string => {
@@ -148,14 +148,8 @@ Deno.serve(async (req) => {
       .replace(/{{KOC_INFO}}/g, plan.inputs.koc_persona)
       .replace(/{{EXISTING_IDEAS}}/g, existingIdeasText || 'Không có');
 
-    const apiToken = Deno.env.get("GEMINI_CUSTOM_TOKEN");
-    if (!apiToken) {
-      throw new Error("GEMINI_CUSTOM_TOKEN secret is not set in Supabase Vault.");
-    }
-
     const externalApiFormData = new FormData();
     externalApiFormData.append("prompt", fullPrompt);
-    externalApiFormData.append("token", apiToken);
 
     const response = await fetch(API_URL, {
       method: "POST",
@@ -164,19 +158,19 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Lỗi từ API Gemini Custom: ${response.status} - ${errorText}`);
+      throw new Error(`Lỗi từ API GPT Custom: ${response.status} - ${errorText}`);
     }
 
     const responseData = await response.json();
     if (!responseData.answer) {
-        throw new Error("API Gemini Custom không trả về trường 'answer'.");
+        throw new Error("API GPT Custom không trả về trường 'answer'.");
     }
 
     const rawAnswer = responseData.answer;
     const newIdeas = parseAIResponse(rawAnswer);
 
     if (newIdeas.length === 0) {
-        console.error("Failed to parse any ideas from Gemini response:", rawAnswer);
+        console.error("Failed to parse any ideas from GPT response:", rawAnswer);
         throw new Error("Phản hồi từ AI không thể được phân tích cú pháp. Định dạng không mong đợi.");
     }
 
@@ -185,7 +179,7 @@ Deno.serve(async (req) => {
     const newLogEntry = {
       timestamp: new Date().toISOString(),
       action: 'generate_more_ideas',
-      model_used: 'gemini-custom',
+      model_used: 'gpt-custom',
       prompt: fullPrompt
     };
     const updatedLogs = [...existingLogs, newLogEntry];
