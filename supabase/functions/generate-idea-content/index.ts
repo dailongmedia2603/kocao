@@ -97,18 +97,11 @@ ${idea.idea_content}
 **QUAN TRỌNG:** Chỉ trả về nội dung kịch bản hoàn chỉnh, không thêm bất kỳ lời giải thích, tiêu đề hay ghi chú nào khác.
 `.trim();
 
-        // Get the token from environment variables (Supabase secrets)
-        const apiToken = Deno.env.get("GEMINI_CUSTOM_TOKEN");
-        if (!apiToken) {
-          throw new Error("GEMINI_CUSTOM_TOKEN secret is not set in Supabase Vault.");
-        }
-
         // Create a new FormData for the external API call
         const externalApiFormData = new FormData();
         externalApiFormData.append("prompt", fullPrompt);
-        externalApiFormData.append("token", apiToken);
 
-        const response = await fetch("https://aquarius.qcv.vn/api/chat", {
+        const response = await fetch("https://chatbot.qcv.vn/api/chat-vision", {
           method: "POST",
           body: externalApiFormData,
         });
