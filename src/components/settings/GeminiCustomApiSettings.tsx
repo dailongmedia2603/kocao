@@ -49,7 +49,7 @@ const GeminiCustomApiSettings = () => {
     setResult(null);
     callApiMutation.mutate(prompt, {
       onSuccess: (data) => {
-        setResult(data);
+        setResult(data.answer);
         showSuccess("Tạo nội dung thành công!");
       },
       onError: (error: Error) => {
