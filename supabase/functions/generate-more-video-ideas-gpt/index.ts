@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const API_URL = "https://chatbot.qcv.vn/api/chat-vision";
+const API_URL = "https://chatbot.qcv.vn//api/chat-vision"; // Updated with double slash
 
 // --- START: Helper Functions ---
 const extractContentByTag = (text: string, tag: string): string => {
@@ -65,7 +65,7 @@ function parseAIResponse(rawText: string): any[] {
 
   // 3. Fallback to parsing with custom tags
   const newIdeas = [];
-  const ideaRegex = /<IDEA>([\s\S]*?)<\/IDEA>/gi;
+  const ideaRegex = /<IDEA>([\s\\S]*?)<\/IDEA>/gi;
   let match;
   while ((match = ideaRegex.exec(cleanedText)) !== null) {
     const ideaContent = match[1];

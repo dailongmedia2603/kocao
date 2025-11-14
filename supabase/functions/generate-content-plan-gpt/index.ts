@@ -8,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const API_URL = "https://chatbot.qcv.vn/api/chat-vision";
+const API_URL = "https://chatbot.qcv.vn//api/chat-vision"; // Updated with double slash
 
 const DEFAULT_PROMPT = `
 **ROLE:** You are a top-tier content strategist for TikTok.
