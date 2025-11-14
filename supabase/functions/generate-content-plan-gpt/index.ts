@@ -95,6 +95,9 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errorText = await response.text();
+      if (errorText.includes("The model is overloaded") || errorText.includes("Service Unavailable")) {
+        throw new Error("Dịch vụ AI (GPT Custom) hiện đang quá tải. Vui lòng thử lại sau ít phút.");
+      }
       throw new Error(`Lỗi từ API GPT Custom: ${response.status} - ${errorText}`);
     }
 
