@@ -43,20 +43,51 @@ function parseContentPlan(text: string) {
   return result;
 }
 
+// New robust multi-layered parsing function
 function parseAIResponse(rawText: string): any[] {
-  const cleanedText = rawText.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, '$1').trim();
+  const text = rawText.trim();
+
+  // --- Layer 1: Clean JSON parsing ---
   try {
-    const ideas = JSON.parse(cleanedText);
-    if (Array.isArray(ideas) && ideas.length > 0 && ideas[0].topic && ideas[0].description) {
-      return ideas;
-    }
-  } catch (e) {
-    console.log("JSON parsing failed, falling back to tag parsing.");
+    const ideas = JSON.parse(text);
+    if (Array.isArray(ideas) && ideas.length > 0) return ideas;
+  } catch (e) { /* ignore and move to next layer */ }
+
+  // --- Layer 2: JSON in Markdown or with surrounding text ---
+  const markdownMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (markdownMatch && markdownMatch[1]) {
+    try {
+      const ideas = JSON.parse(markdownMatch[1].trim());
+      if (Array.isArray(ideas) && ideas.length > 0) return ideas;
+    } catch (e) { /* ignore */ }
   }
+
+  const firstBracket = text.indexOf('[');
+  const lastBracket = text.lastIndexOf(']');
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    try {
+      const potentialJson = text.substring(firstBracket, lastBracket + 1);
+      const ideas = JSON.parse(potentialJson);
+      if (Array.isArray(ideas) && ideas.length > 0) return ideas;
+    } catch (e) { /* ignore */ }
+  }
+  
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+     try {
+      const potentialJson = text.substring(firstBrace, lastBrace + 1);
+      const ideas = JSON.parse(potentialJson);
+      if (!Array.isArray(ideas) && typeof ideas === 'object') return [ideas];
+      if (Array.isArray(ideas) && ideas.length > 0) return ideas;
+    } catch (e) { /* ignore */ }
+  }
+
+  // --- Layer 3: Custom Tag Parsing ---
   const newIdeas = [];
-  const ideaRegex = /<IDEA>([\s\\S]*?)<\/IDEA>/gi;
+  const ideaRegex = /<IDEA>([\s\S]*?)<\/IDEA>/gi;
   let match;
-  while ((match = ideaRegex.exec(cleanedText)) !== null) {
+  while ((match = ideaRegex.exec(text)) !== null) {
     const ideaContent = match[1];
     const title = extractContentByTag(ideaContent, 'IDEA_TITLE');
     const script = extractContentByTag(ideaContent, 'IDEA_SCRIPT');
@@ -64,7 +95,14 @@ function parseAIResponse(rawText: string): any[] {
       newIdeas.push({ pillar: "Bổ sung", topic: title, description: script });
     }
   }
-  return newIdeas;
+
+  if (newIdeas.length > 0) {
+    return newIdeas;
+  }
+
+  // If all parsing layers fail, throw an error.
+  console.error("All parsing layers failed for AI response:", rawText);
+  throw new Error("Phản hồi từ AI không thể được phân tích cú pháp. Định dạng không mong đợi.");
 }
 // --- END: Helper Functions ---
 
@@ -81,13 +119,23 @@ Do not repeat any of the existing ideas provided below.
 **Existing Video Ideas (Do NOT repeat these):**
 {{EXISTING_IDEAS}}
 
-Your response must be a valid JSON array of 10 objects. Each object must have this exact structure:
-{
-  "pillar": "string",
-  "topic": "string",
-  "description": "string"
-}
-The "pillar" value must be one of the provided Content Pillars.
+**OUTPUT FORMATTING RULES (VERY IMPORTANT):**
+1.  Your primary response format MUST be a single, valid JSON array of 10 objects.
+2.  Each object in the array must have this exact structure:
+    {
+      "pillar": "string",
+      "topic": "string",
+      "description": "string"
+    }
+3.  The "pillar" value must be one of the provided Content Pillars.
+4.  Do NOT include any text, explanations, or markdown backticks (\`\`\`) outside of the JSON array.
+
+**FALLBACK FORMAT (ONLY if you cannot generate valid JSON):**
+If you are absolutely unable to generate a valid JSON array, you MUST use the following tag-based format for each idea:
+<IDEA>
+<IDEA_TITLE>Catchy Video Title Here</IDEA_TITLE>
+<IDEA_SCRIPT>Detailed script or description here.</IDEA_SCRIPT>
+</IDEA>
 `.trim();
 
 Deno.serve(async (req) => {
@@ -191,11 +239,6 @@ Deno.serve(async (req) => {
 
     const rawAnswer = responseData.answer;
     const newIdeas = parseAIResponse(rawAnswer);
-
-    if (newIdeas.length === 0) {
-        console.error("Failed to parse any ideas from AI response:", rawAnswer);
-        throw new Error("Phản hồi từ AI không thể được phân tích cú pháp. Định dạng không mong đợi.");
-    }
 
     const updatedIdeas = [...(plan.results.video_ideas || []), ...newIdeas];
     const existingLogs = plan.results.logs || [];
