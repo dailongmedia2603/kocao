@@ -45,10 +45,14 @@ function parseContentPlan(text: string) {
 
 function parseAIResponse(rawText: string): any[] {
   const text = rawText.trim();
+
+  // --- Layer 1: Clean JSON parsing ---
   try {
     const ideas = JSON.parse(text);
     if (Array.isArray(ideas) && ideas.length > 0) return ideas;
   } catch (e) { /* ignore */ }
+
+  // --- Layer 2: JSON in Markdown or with surrounding text ---
   const markdownMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (markdownMatch && markdownMatch[1]) {
     try {
@@ -56,6 +60,7 @@ function parseAIResponse(rawText: string): any[] {
       if (Array.isArray(ideas) && ideas.length > 0) return ideas;
     } catch (e) { /* ignore */ }
   }
+
   const firstBracket = text.indexOf('[');
   const lastBracket = text.lastIndexOf(']');
   if (firstBracket !== -1 && lastBracket > firstBracket) {
@@ -65,16 +70,34 @@ function parseAIResponse(rawText: string): any[] {
       if (Array.isArray(ideas) && ideas.length > 0) return ideas;
     } catch (e) { /* ignore */ }
   }
-  const firstBrace = text.indexOf('{');
-  const lastBrace = text.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace > firstBrace) {
-     try {
-      const potentialJson = text.substring(firstBrace, lastBrace + 1);
-      const ideas = JSON.parse(potentialJson);
-      if (!Array.isArray(ideas) && typeof ideas === 'object') return [ideas];
-      if (Array.isArray(ideas) && ideas.length > 0) return ideas;
-    } catch (e) { /* ignore */ }
+
+  // --- Layer 2.5: Aggressive JSON Object Recovery (Handles truncated arrays) ---
+  const recoveredObjects = [];
+  let braceCount = 0;
+  let currentObjectStartIndex = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') {
+      if (braceCount === 0) currentObjectStartIndex = i;
+      braceCount++;
+    } else if (text[i] === '}') {
+      braceCount--;
+      if (braceCount === 0 && currentObjectStartIndex !== -1) {
+        const objectStr = text.substring(currentObjectStartIndex, i + 1);
+        try {
+          const parsedObject = JSON.parse(objectStr);
+          if (parsedObject.topic && parsedObject.description) {
+            recoveredObjects.push(parsedObject);
+          }
+        } catch (e) { /* ignore malformed objects */ }
+        currentObjectStartIndex = -1;
+      }
+    }
   }
+  if (recoveredObjects.length > 0) {
+    return recoveredObjects;
+  }
+
+  // --- Layer 3: Custom Tag Parsing ---
   const newIdeas = [];
   const ideaRegex = /<IDEA>([\s\S]*?)<\/IDEA>/gi;
   let match;
@@ -86,7 +109,11 @@ function parseAIResponse(rawText: string): any[] {
       newIdeas.push({ pillar: "Bổ sung", topic: title, description: script });
     }
   }
-  if (newIdeas.length > 0) return newIdeas;
+  if (newIdeas.length > 0) {
+    return newIdeas;
+  }
+
+  // If all parsing layers fail, throw an error.
   console.error("All parsing layers failed for AI response:", rawText);
   throw new Error("Phản hồi từ AI không thể được phân tích cú pháp. Định dạng không mong đợi.");
 }
