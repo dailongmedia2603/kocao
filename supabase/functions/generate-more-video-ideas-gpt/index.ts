@@ -43,17 +43,12 @@ function parseContentPlan(text: string) {
   return result;
 }
 
-// New robust multi-layered parsing function
 function parseAIResponse(rawText: string): any[] {
   const text = rawText.trim();
-
-  // --- Layer 1: Clean JSON parsing ---
   try {
     const ideas = JSON.parse(text);
     if (Array.isArray(ideas) && ideas.length > 0) return ideas;
-  } catch (e) { /* ignore and move to next layer */ }
-
-  // --- Layer 2: JSON in Markdown or with surrounding text ---
+  } catch (e) { /* ignore */ }
   const markdownMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (markdownMatch && markdownMatch[1]) {
     try {
@@ -61,7 +56,6 @@ function parseAIResponse(rawText: string): any[] {
       if (Array.isArray(ideas) && ideas.length > 0) return ideas;
     } catch (e) { /* ignore */ }
   }
-
   const firstBracket = text.indexOf('[');
   const lastBracket = text.lastIndexOf(']');
   if (firstBracket !== -1 && lastBracket > firstBracket) {
@@ -71,7 +65,6 @@ function parseAIResponse(rawText: string): any[] {
       if (Array.isArray(ideas) && ideas.length > 0) return ideas;
     } catch (e) { /* ignore */ }
   }
-  
   const firstBrace = text.indexOf('{');
   const lastBrace = text.lastIndexOf('}');
   if (firstBrace !== -1 && lastBrace > firstBrace) {
@@ -82,8 +75,6 @@ function parseAIResponse(rawText: string): any[] {
       if (Array.isArray(ideas) && ideas.length > 0) return ideas;
     } catch (e) { /* ignore */ }
   }
-
-  // --- Layer 3: Custom Tag Parsing ---
   const newIdeas = [];
   const ideaRegex = /<IDEA>([\s\S]*?)<\/IDEA>/gi;
   let match;
@@ -95,19 +86,14 @@ function parseAIResponse(rawText: string): any[] {
       newIdeas.push({ pillar: "Bổ sung", topic: title, description: script });
     }
   }
-
-  if (newIdeas.length > 0) {
-    return newIdeas;
-  }
-
-  // If all parsing layers fail, throw an error.
+  if (newIdeas.length > 0) return newIdeas;
   console.error("All parsing layers failed for AI response:", rawText);
   throw new Error("Phản hồi từ AI không thể được phân tích cú pháp. Định dạng không mong đợi.");
 }
 // --- END: Helper Functions ---
 
 const MORE_IDEAS_DEFAULT_PROMPT = `
-Based on the following content strategy, generate 10 new, creative, and distinct video ideas.
+Based on the following content strategy, generate 5 new, creative, and distinct video ideas.
 Do not repeat any of the existing ideas provided below.
 
 **Content Strategy:**
@@ -120,7 +106,7 @@ Do not repeat any of the existing ideas provided below.
 {{EXISTING_IDEAS}}
 
 **OUTPUT FORMATTING RULES (VERY IMPORTANT):**
-1.  Your primary response format MUST be a single, valid JSON array of 10 objects.
+1.  Your primary response format MUST be a single, valid JSON array of 5 objects.
 2.  Each object in the array must have this exact structure:
     {
       "pillar": "string",
@@ -158,7 +144,6 @@ Deno.serve(async (req) => {
     if (planError) throw planError;
     if (!plan) throw new Error('Content plan not found');
 
-    // 1. Try to get user-specific prompt
     let { data: customPromptData, error: userPromptError } = await supabaseClient
       .from('prompt_templates')
       .select('content, api_provider')
@@ -166,93 +151,76 @@ Deno.serve(async (req) => {
       .eq('template_type', 'generate_more_ideas_gpt')
       .single();
 
-    // 2. If not found, try to get admin's default prompt
     if (userPromptError || !customPromptData) {
-      const { data: adminUser } = await supabaseClient
-        .from('profiles')
-        .select('id')
-        .eq('role', 'admin')
-        .limit(1)
-        .single();
-
+      const { data: adminUser } = await supabaseClient.from('profiles').select('id').eq('role', 'admin').limit(1).single();
       if (adminUser) {
-        const { data: adminPromptData } = await supabaseClient
-          .from('prompt_templates')
-          .select('content, api_provider')
-          .eq('user_id', adminUser.id)
-          .eq('template_type', 'generate_more_ideas_gpt')
-          .single();
-        
-        if (adminPromptData) {
-          customPromptData = adminPromptData;
-        }
+        const { data: adminPromptData } = await supabaseClient.from('prompt_templates').select('content, api_provider').eq('user_id', adminUser.id).eq('template_type', 'generate_more_ideas_gpt').single();
+        if (adminPromptData) customPromptData = adminPromptData;
       }
     }
 
     const promptTemplate = customPromptData?.content || MORE_IDEAS_DEFAULT_PROMPT;
     const apiProvider = customPromptData?.api_provider || 'gpt-custom';
-
     const parsedInitialPlan = parseContentPlan(plan.results?.content || '');
-    const existingIdeasText = (plan.results?.video_ideas || [])
-      .map((idea: any) => `- ${idea.topic}`)
-      .concat(parsedInitialPlan.ideas.map((idea: any) => `- ${idea.title}`))
-      .join('\n');
+    
+    const allNewIdeas = [];
+    const allLogs = plan.results.logs || [];
 
-    const fullPrompt = promptTemplate
-      .replace(/{{STRATEGY}}/g, parsedInitialPlan.strategy)
-      .replace(/{{PILLARS}}/g, parsedInitialPlan.pillars.map(p => p.title).join(', '))
-      .replace(/{{TARGET_AUDIENCE}}/g, plan.inputs.target_audience)
-      .replace(/{{KOC_INFO}}/g, plan.inputs.koc_persona)
-      .replace(/{{EXISTING_IDEAS}}/g, existingIdeasText || 'Không có');
+    for (let i = 0; i < 2; i++) {
+      const currentExistingIdeas = (plan.results?.video_ideas || []).concat(allNewIdeas);
+      const existingIdeasText = currentExistingIdeas
+        .map((idea: any) => `- ${idea.topic}`)
+        .concat(parsedInitialPlan.ideas.map((idea: any) => `- ${idea.title}`))
+        .join('\n');
 
-    let response;
-    const externalApiFormData = new FormData();
-    externalApiFormData.append("prompt", fullPrompt);
+      const fullPrompt = promptTemplate
+        .replace(/{{STRATEGY}}/g, parsedInitialPlan.strategy)
+        .replace(/{{PILLARS}}/g, parsedInitialPlan.pillars.map(p => p.title).join(', '))
+        .replace(/{{TARGET_AUDIENCE}}/g, plan.inputs.target_audience)
+        .replace(/{{KOC_INFO}}/g, plan.inputs.koc_persona)
+        .replace(/{{EXISTING_IDEAS}}/g, existingIdeasText || 'Không có');
 
-    if (apiProvider === 'gemini-custom') {
-        const apiToken = Deno.env.get("GEMINI_CUSTOM_TOKEN");
-        if (!apiToken) throw new Error("GEMINI_CUSTOM_TOKEN secret is not set.");
-        externalApiFormData.append("token", apiToken);
-        response = await fetch("https://aquarius.qcv.vn/api/chat", {
-            method: "POST",
-            body: externalApiFormData,
-        });
-    } else { // Default to gpt-custom
-        response = await fetch("https://chatbot.qcv.vn/api/chat-vision", {
-            method: "POST",
-            body: externalApiFormData,
-        });
-    }
+      let response;
+      const externalApiFormData = new FormData();
+      externalApiFormData.append("prompt", fullPrompt);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      if (errorText.includes("The model is overloaded") || errorText.includes("Service Unavailable")) {
-        throw new Error(`Dịch vụ AI (${apiProvider}) hiện đang quá tải. Vui lòng thử lại sau ít phút.`);
+      if (apiProvider === 'gemini-custom') {
+          const apiToken = Deno.env.get("GEMINI_CUSTOM_TOKEN");
+          if (!apiToken) throw new Error("GEMINI_CUSTOM_TOKEN secret is not set.");
+          externalApiFormData.append("token", apiToken);
+          response = await fetch("https://aquarius.qcv.vn/api/chat", { method: "POST", body: externalApiFormData });
+      } else {
+          response = await fetch("https://chatbot.qcv.vn/api/chat-vision", { method: "POST", body: externalApiFormData });
       }
-      throw new Error(`Lỗi từ API ${apiProvider}: ${response.status} - ${errorText}`);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        if (errorText.includes("The model is overloaded") || errorText.includes("Service Unavailable")) {
+          throw new Error(`Dịch vụ AI (${apiProvider}) hiện đang quá tải. Vui lòng thử lại sau ít phút.`);
+        }
+        throw new Error(`Lỗi từ API ${apiProvider}: ${response.status} - ${errorText}`);
+      }
+
+      const responseData = await response.json();
+      if (!responseData.answer) throw new Error(`API ${apiProvider} không trả về trường 'answer'.`);
+
+      const rawAnswer = responseData.answer;
+      const newIdeasBatch = parseAIResponse(rawAnswer);
+      allNewIdeas.push(...newIdeasBatch);
+
+      allLogs.push({
+        timestamp: new Date().toISOString(),
+        action: `generate_more_ideas_batch_${i + 1}`,
+        model_used: apiProvider,
+        prompt: fullPrompt
+      });
     }
 
-    const responseData = await response.json();
-    if (!responseData.answer) {
-        throw new Error(`API ${apiProvider} không trả về trường 'answer'.`);
-    }
-
-    const rawAnswer = responseData.answer;
-    const newIdeas = parseAIResponse(rawAnswer);
-
-    const updatedIdeas = [...(plan.results.video_ideas || []), ...newIdeas];
-    const existingLogs = plan.results.logs || [];
-    const newLogEntry = {
-      timestamp: new Date().toISOString(),
-      action: 'generate_more_ideas',
-      model_used: apiProvider,
-      prompt: fullPrompt
-    };
-    const updatedLogs = [...existingLogs, newLogEntry];
-
+    const updatedIdeas = [...(plan.results.video_ideas || []), ...allNewIdeas];
+    
     const { error: updateError } = await supabaseClient
       .from('content_plans')
-      .update({ results: { ...plan.results, video_ideas: updatedIdeas, logs: updatedLogs } })
+      .update({ results: { ...plan.results, video_ideas: updatedIdeas, logs: allLogs } })
       .eq('id', planId);
 
     if (updateError) throw updateError;
