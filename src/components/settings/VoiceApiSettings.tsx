@@ -25,8 +25,7 @@ const CreditUsage = () => {
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['voice_api_credit'],
     queryFn: async () => {
-      // SỬA LỖI: Gọi đúng endpoint /v1/credits theo tài liệu
-      const response = await callVoiceApi({ path: "v1/credits", method: "GET" });
+      const response = await callVoiceApi({ path: "v1m/credits", method: "GET" });
       if (response && response.credits !== undefined) {
         return response;
       }
@@ -97,7 +96,7 @@ const ApiKeyRow = ({ apiKey }: { apiKey: VoiceApiKey }) => {
 
   const checkConnectionMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("voice-api-proxy", { body: { path: "v1/health-check", method: "GET" } });
+      const { data, error } = await supabase.functions.invoke("voice-api-proxy", { body: { path: "v1m/health-check", method: "GET" } });
       if (error) throw new Error(error.message);
       if (!data.success) throw new Error("Phản hồi từ API không thành công.");
       return data;

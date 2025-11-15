@@ -32,8 +32,6 @@ serve(async (req) => {
       userId = authUser.id;
     }
 
-    // *** BƯỚC KIỂM SOÁT MỚI ĐƯỢC THÊM VÀO ĐÂY ***
-    // Chỉ kiểm tra và trừ credit cho yêu cầu tạo voice mới (text-to-speech)
     if (path === "v1m/task/text-to-speech" && method === "POST") {
       const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('check_and_deduct_voice_credit', {
         p_user_id: userId,
@@ -45,20 +43,19 @@ serve(async (req) => {
       
       const result = rpcData[0];
       if (!result.success) {
-        // Nếu không thành công (hết lượt), dừng lại và báo lỗi ngay lập tức
         throw new Error(result.message);
       }
     }
-    // *** KẾT THÚC BƯỚC KIỂM SOÁT MỚI ***
 
     const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
       .select("api_key")
+      .eq("user_id", userId)
       .limit(1)
       .single();
       
     if (apiKeyError || !apiKeyData) {
-      throw new Error("Chưa có bất kỳ API Key Voice nào được cấu hình trong toàn bộ hệ thống.");
+      throw new Error("Bạn chưa cấu hình API Key cho dịch vụ Voice. Vui lòng vào Cài đặt để thêm API Key.");
     }
     const apiKey = apiKeyData.api_key;
 
