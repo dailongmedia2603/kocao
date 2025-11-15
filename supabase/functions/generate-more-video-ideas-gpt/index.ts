@@ -110,21 +110,45 @@ Deno.serve(async (req) => {
     if (planError) throw planError;
     if (!plan) throw new Error('Content plan not found');
 
-    const parsedInitialPlan = parseContentPlan(plan.results?.content || '');
-    const existingIdeasText = (plan.results?.video_ideas || [])
-      .map((idea: any) => `- ${idea.topic}`)
-      .concat(parsedInitialPlan.ideas.map((idea: any) => `- ${idea.title}`))
-      .join('\n');
-
-    const { data: customPromptData } = await supabaseClient
+    // 1. Try to get user-specific prompt
+    let { data: customPromptData, error: userPromptError } = await supabaseClient
       .from('prompt_templates')
       .select('content, api_provider')
       .eq('user_id', plan.user_id)
       .eq('template_type', 'generate_more_ideas_gpt')
       .single();
 
+    // 2. If not found, try to get admin's default prompt
+    if (userPromptError || !customPromptData) {
+      const { data: adminUser } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin')
+        .limit(1)
+        .single();
+
+      if (adminUser) {
+        const { data: adminPromptData } = await supabaseClient
+          .from('prompt_templates')
+          .select('content, api_provider')
+          .eq('user_id', adminUser.id)
+          .eq('template_type', 'generate_more_ideas_gpt')
+          .single();
+        
+        if (adminPromptData) {
+          customPromptData = adminPromptData;
+        }
+      }
+    }
+
     const promptTemplate = customPromptData?.content || MORE_IDEAS_DEFAULT_PROMPT;
     const apiProvider = customPromptData?.api_provider || 'gpt-custom';
+
+    const parsedInitialPlan = parseContentPlan(plan.results?.content || '');
+    const existingIdeasText = (plan.results?.video_ideas || [])
+      .map((idea: any) => `- ${idea.topic}`)
+      .concat(parsedInitialPlan.ideas.map((idea: any) => `- ${idea.title}`))
+      .join('\n');
 
     const fullPrompt = promptTemplate
       .replace(/{{STRATEGY}}/g, parsedInitialPlan.strategy)

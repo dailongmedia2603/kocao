@@ -66,13 +66,38 @@ serve(async (req) => {
     const { inputs, kocName } = await req.json();
     if (!inputs || !kocName) throw new Error("Missing 'inputs' or 'kocName' in request body.");
 
-    // Fetch custom prompt and api_provider
-    const { data: customPromptData } = await supabaseClient
+    const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // 1. Try to get user-specific prompt
+    let { data: customPromptData, error: userPromptError } = await supabaseClient
       .from('prompt_templates')
       .select('content, api_provider')
       .eq('user_id', user.id)
       .eq('template_type', 'content_plan_gpt')
       .single();
+
+    // 2. If not found, try to get admin's default prompt
+    if (userPromptError || !customPromptData) {
+      const { data: adminUser } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin')
+        .limit(1)
+        .single();
+
+      if (adminUser) {
+        const { data: adminPromptData } = await supabaseAdmin
+          .from('prompt_templates')
+          .select('content, api_provider')
+          .eq('user_id', adminUser.id)
+          .eq('template_type', 'content_plan_gpt')
+          .single();
+        
+        if (adminPromptData) {
+          customPromptData = adminPromptData;
+        }
+      }
+    }
 
     let promptTemplate = customPromptData?.content || DEFAULT_PROMPT;
     const apiProvider = customPromptData?.api_provider || 'gpt-custom';
