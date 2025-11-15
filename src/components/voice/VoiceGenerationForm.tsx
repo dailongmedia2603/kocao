@@ -16,13 +16,11 @@ import { Skeleton } from "../ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSession } from "@/contexts/SessionContext";
-import { Slider } from "@/components/ui/slider";
 
 const formSchema = z.object({
   voice_name: z.string().min(1, "Tên voice không được để trống."),
   voice_id: z.string().min(1, "Vui lòng chọn một giọng nói."),
   model: z.string().min(1, "Vui lòng chọn một model."),
-  speed: z.number().min(0.01).max(10.0),
   contentType: z.enum(["text", "koc"]),
   text: z.string().optional(),
   koc_id: z.string().optional(),
@@ -58,15 +56,9 @@ const formSchema = z.object({
   }
 });
 
-const fetchClonedVoices = async (userId: string) => {
-  if (!userId) return [];
-  const { data, error } = await supabase
-    .from('cloned_voices')
-    .select('voice_id, voice_name')
-    .eq('user_id', userId)
-    .not('sample_audio', 'is', null); // Only ready voices
-  if (error) throw error;
-  return data;
+const fetchClonedVoices = async () => {
+  const data = await callVoiceApi({ path: "v1m/voice/clone", method: "GET" });
+  return data.data.filter((voice: any) => voice.voice_status === 2);
 };
 
 const fetchKocs = async () => {
@@ -99,7 +91,6 @@ export const VoiceGenerationForm = () => {
       text: "",
       voice_id: "",
       model: "speech-2.5-hd-preview",
-      speed: 1,
       contentType: "text",
       koc_id: undefined,
       idea_id: undefined,
@@ -109,9 +100,8 @@ export const VoiceGenerationForm = () => {
   const watchedKocId = form.watch("koc_id");
 
   const { data: voices, isLoading: isLoadingVoices } = useQuery({
-    queryKey: ["cloned_voices_ready", user?.id],
-    queryFn: () => fetchClonedVoices(user!.id),
-    enabled: !!user,
+    queryKey: ["cloned_voices"],
+    queryFn: fetchClonedVoices,
   });
 
   const { data: kocs, isLoading: isLoadingKocs } = useQuery({
@@ -174,10 +164,7 @@ export const VoiceGenerationForm = () => {
         voice_name: values.voice_name,
         text: textToGenerate,
         model: values.model,
-        speed: values.speed,
-        voice_setting: {
-          voice_id: values.voice_id,
-        },
+        voice_setting: { voice_id: values.voice_id },
         cloned_voice_name: clonedVoiceName,
       };
       return callVoiceApi({ path: "v1m/task/text-to-speech", method: "POST", body });
@@ -347,32 +334,6 @@ export const VoiceGenerationForm = () => {
                 <FormMessage />
               </FormItem>
             )} />
-            
-            <FormField
-              control={form.control}
-              name="speed"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex justify-between items-center">
-                    <FormLabel>Tốc độ</FormLabel>
-                    <span className="w-16 text-center font-mono text-sm bg-muted rounded-md p-1">
-                      {field.value.toFixed(2)}x
-                    </span>
-                  </div>
-                  <FormControl>
-                    <Slider
-                      min={0.01}
-                      max={10}
-                      step={0.01}
-                      value={[field.value]}
-                      onValueChange={(value) => field.onChange(value[0])}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <Button type="submit" className="w-full" disabled={createVoiceMutation.isPending || !voices || voices.length === 0}>
               {createVoiceMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
               Tạo Voice

@@ -25,17 +25,15 @@ serve(async (req) => {
     if (providedUserId) {
       userId = providedUserId;
     } else {
-      // Sửa lỗi: Tạo một client mới với token của người dùng để xác thực
-      const userSupabaseClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-      );
-      const { data: { user: authUser }, error: userError } = await userSupabaseClient.auth.getUser();
+      const authHeader = req.headers.get("Authorization");
+      if (!authHeader) throw new Error("Missing Authorization header");
+      const { data: { user: authUser }, error: userError } = await supabaseAdmin.auth.getUser(authHeader.replace("Bearer ", ""));
       if (userError || !authUser) throw new Error("Invalid or expired token.");
       userId = authUser.id;
     }
 
+    // *** BƯỚC KIỂM SOÁT MỚI ĐƯỢC THÊM VÀO ĐÂY ***
+    // Chỉ kiểm tra và trừ credit cho yêu cầu tạo voice mới (text-to-speech)
     if (path === "v1m/task/text-to-speech" && method === "POST") {
       const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('check_and_deduct_voice_credit', {
         p_user_id: userId,
@@ -47,19 +45,20 @@ serve(async (req) => {
       
       const result = rpcData[0];
       if (!result.success) {
+        // Nếu không thành công (hết lượt), dừng lại và báo lỗi ngay lập tức
         throw new Error(result.message);
       }
     }
+    // *** KẾT THÚC BƯỚC KIỂM SOÁT MỚI ***
 
     const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
       .select("api_key")
-      .eq("user_id", userId)
       .limit(1)
       .single();
       
     if (apiKeyError || !apiKeyData) {
-      throw new Error("Bạn chưa cấu hình API Key cho dịch vụ Voice. Vui lòng vào Cài đặt để thêm API Key.");
+      throw new Error("Chưa có bất kỳ API Key Voice nào được cấu hình trong toàn bộ hệ thống.");
     }
     const apiKey = apiKeyData.api_key;
 
