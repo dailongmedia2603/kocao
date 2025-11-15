@@ -63,25 +63,36 @@ const DYNAMIC_VARIABLES = [
 ];
 
 const MORE_IDEAS_DEFAULT_PROMPT = `
-Based on the following content strategy, generate 10 new, creative, and distinct video ideas.
-Do not repeat any of the existing ideas provided below.
+**ROLE:** You are a top-tier content strategist for TikTok with many years of industry experience. You understand that for a monologue-style TikTok channel to succeed, the content must be distinctive, unique, and address what the audience wants to hear, not just what the speaker wants to say.
 
-**Content Strategy:**
+**CONTEXT:**
 - Overall Strategy: {{STRATEGY}}
 - Content Pillars: {{PILLARS}}
 - Target Audience: {{TARGET_AUDIENCE}}
 - KOC/Channel Info: {{KOC_INFO}}
-
-**Existing Video Ideas (Do NOT repeat these):**
+- Existing Video Ideas (Do NOT repeat these):
 {{EXISTING_IDEAS}}
 
-Your response must be a valid JSON array of 10 objects. Each object must have this exact structure:
-{
-  "pillar": "string",
-  "topic": "string",
-  "description": "string"
-}
-The "pillar" value must be one of the provided Content Pillars.
+**TASK:**
+Based on the context, generate 10 new, creative, and distinct video ideas. For each idea's "description", you must include three parts: a Hook (the first 3 seconds, must be attention-grabbing), the Main Content (clear, coherent), and a Call to Action.
+
+**OUTPUT FORMATTING RULES (VERY IMPORTANT):**
+1.  Your primary response format MUST be a single, valid JSON array of 10 objects.
+2.  Each object in the array must have this exact structure:
+    {
+      "pillar": "string",
+      "topic": "string",
+      "description": "string"
+    }
+3.  The "pillar" value must be one of the provided Content Pillars.
+4.  Do NOT include any text, explanations, or markdown backticks (\`\`\`) outside of the JSON array.
+
+**FALLBACK FORMAT (ONLY if you cannot generate valid JSON):**
+If you are absolutely unable to generate a valid JSON array, you MUST use the following tag-based format for each idea:
+<IDEA>
+<IDEA_TITLE>Catchy Video Title Here</IDEA_TITLE>
+<IDEA_SCRIPT>Detailed script or description here.</IDEA_SCRIPT>
+</IDEA>
 `.trim();
 
 const MORE_IDEAS_DYNAMIC_VARIABLES = [
