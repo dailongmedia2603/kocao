@@ -6,8 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const API_URL = "https://chatbot.qcv.vn//api/chat-vision"; // Updated with double slash
-
 // --- START: Helper Functions ---
 const extractContentByTag = (text: string, tag: string): string => {
   const regex = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i');
@@ -46,24 +44,15 @@ function parseContentPlan(text: string) {
 }
 
 function parseAIResponse(rawText: string): any[] {
-  // 1. Clean the text: remove markdown code blocks and trim whitespace
   const cleanedText = rawText.replace(/```(?:json)?\s*([\s\S]*?)\s*```/, '$1').trim();
-
-  // 2. Try parsing as JSON first
   try {
     const ideas = JSON.parse(cleanedText);
-    if (Array.isArray(ideas) && ideas.length > 0) {
-      // Validate structure
-      if (ideas[0].topic && ideas[0].description) {
-        return ideas;
-      }
+    if (Array.isArray(ideas) && ideas.length > 0 && ideas[0].topic && ideas[0].description) {
+      return ideas;
     }
   } catch (e) {
-    // JSON parsing failed, proceed to tag parsing
     console.log("JSON parsing failed, falling back to tag parsing.");
   }
-
-  // 3. Fallback to parsing with custom tags
   const newIdeas = [];
   const ideaRegex = /<IDEA>([\s\\S]*?)<\/IDEA>/gi;
   let match;
@@ -72,14 +61,9 @@ function parseAIResponse(rawText: string): any[] {
     const title = extractContentByTag(ideaContent, 'IDEA_TITLE');
     const script = extractContentByTag(ideaContent, 'IDEA_SCRIPT');
     if (title && script) {
-      newIdeas.push({
-        pillar: "Bổ sung",
-        topic: title,
-        description: script,
-      });
+      newIdeas.push({ pillar: "Bổ sung", topic: title, description: script });
     }
   }
-  
   return newIdeas;
 }
 // --- END: Helper Functions ---
@@ -134,12 +118,13 @@ Deno.serve(async (req) => {
 
     const { data: customPromptData } = await supabaseClient
       .from('prompt_templates')
-      .select('content')
+      .select('content, api_provider')
       .eq('user_id', plan.user_id)
-      .eq('template_type', 'generate_more_ideas_gpt') // Use the shared prompt
+      .eq('template_type', 'generate_more_ideas_gpt')
       .single();
 
     const promptTemplate = customPromptData?.content || MORE_IDEAS_DEFAULT_PROMPT;
+    const apiProvider = customPromptData?.api_provider || 'gpt-custom';
 
     const fullPrompt = promptTemplate
       .replace(/{{STRATEGY}}/g, parsedInitialPlan.strategy)
@@ -148,32 +133,43 @@ Deno.serve(async (req) => {
       .replace(/{{KOC_INFO}}/g, plan.inputs.koc_persona)
       .replace(/{{EXISTING_IDEAS}}/g, existingIdeasText || 'Không có');
 
+    let response;
     const externalApiFormData = new FormData();
     externalApiFormData.append("prompt", fullPrompt);
 
-    const response = await fetch(API_URL, {
-      method: "POST",
-      body: externalApiFormData,
-    });
+    if (apiProvider === 'gemini-custom') {
+        const apiToken = Deno.env.get("GEMINI_CUSTOM_TOKEN");
+        if (!apiToken) throw new Error("GEMINI_CUSTOM_TOKEN secret is not set.");
+        externalApiFormData.append("token", apiToken);
+        response = await fetch("https://aquarius.qcv.vn/api/chat", {
+            method: "POST",
+            body: externalApiFormData,
+        });
+    } else { // Default to gpt-custom
+        response = await fetch("https://chatbot.qcv.vn/api/chat-vision", {
+            method: "POST",
+            body: externalApiFormData,
+        });
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
       if (errorText.includes("The model is overloaded") || errorText.includes("Service Unavailable")) {
-        throw new Error("Dịch vụ AI (GPT Custom) hiện đang quá tải. Vui lòng thử lại sau ít phút.");
+        throw new Error(`Dịch vụ AI (${apiProvider}) hiện đang quá tải. Vui lòng thử lại sau ít phút.`);
       }
-      throw new Error(`Lỗi từ API GPT Custom: ${response.status} - ${errorText}`);
+      throw new Error(`Lỗi từ API ${apiProvider}: ${response.status} - ${errorText}`);
     }
 
     const responseData = await response.json();
     if (!responseData.answer) {
-        throw new Error("API GPT Custom không trả về trường 'answer'.");
+        throw new Error(`API ${apiProvider} không trả về trường 'answer'.`);
     }
 
     const rawAnswer = responseData.answer;
     const newIdeas = parseAIResponse(rawAnswer);
 
     if (newIdeas.length === 0) {
-        console.error("Failed to parse any ideas from GPT response:", rawAnswer);
+        console.error("Failed to parse any ideas from AI response:", rawAnswer);
         throw new Error("Phản hồi từ AI không thể được phân tích cú pháp. Định dạng không mong đợi.");
     }
 
@@ -182,7 +178,7 @@ Deno.serve(async (req) => {
     const newLogEntry = {
       timestamp: new Date().toISOString(),
       action: 'generate_more_ideas',
-      model_used: 'gpt-custom',
+      model_used: apiProvider,
       prompt: fullPrompt
     };
     const updatedLogs = [...existingLogs, newLogEntry];

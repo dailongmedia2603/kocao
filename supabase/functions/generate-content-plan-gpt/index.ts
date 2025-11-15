@@ -8,8 +8,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const API_URL = "https://chatbot.qcv.vn//api/chat-vision"; // Updated with double slash
-
 const DEFAULT_PROMPT = `
 **ROLE:** You are a top-tier content strategist for TikTok.
 
@@ -68,15 +66,16 @@ serve(async (req) => {
     const { inputs, kocName } = await req.json();
     if (!inputs || !kocName) throw new Error("Missing 'inputs' or 'kocName' in request body.");
 
-    // Fetch custom prompt or use default
+    // Fetch custom prompt and api_provider
     const { data: customPromptData } = await supabaseClient
       .from('prompt_templates')
-      .select('content')
+      .select('content, api_provider')
       .eq('user_id', user.id)
-      .eq('template_type', 'content_plan_gpt') // Use the shared GPT template
+      .eq('template_type', 'content_plan_gpt')
       .single();
 
     let promptTemplate = customPromptData?.content || DEFAULT_PROMPT;
+    const apiProvider = customPromptData?.api_provider || 'gpt-custom';
 
     const fullPrompt = promptTemplate
       .replace(/{{KOC_NAME}}/g, kocName)
@@ -85,25 +84,19 @@ serve(async (req) => {
       .replace(/{{KOC_PERSONA}}/g, inputs.koc_persona)
       .replace(/{{GOALS}}/g, inputs.goals || 'Build brand awareness and increase follower count.');
 
+    const functionToInvoke = apiProvider === 'gemini-custom' ? 'gemini-custom-proxy' : 'gpt-custom-proxy';
+    
     const externalApiFormData = new FormData();
     externalApiFormData.append("prompt", fullPrompt);
 
-    const response = await fetch(API_URL, {
-      method: "POST",
+    const { data: responseData, error: functionError } = await supabaseClient.functions.invoke(functionToInvoke, {
       body: externalApiFormData,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      if (errorText.includes("The model is overloaded") || errorText.includes("Service Unavailable")) {
-        throw new Error("Dịch vụ AI (GPT Custom) hiện đang quá tải. Vui lòng thử lại sau ít phút.");
-      }
-      throw new Error(`Lỗi từ API GPT Custom: ${response.status} - ${errorText}`);
-    }
-
-    const responseData = await response.json();
+    if (functionError) throw new Error(`Error invoking ${functionToInvoke}: ${functionError.message}`);
+    if (responseData.error) throw new Error(`Error from ${functionToInvoke}: ${responseData.error}`);
     if (!responseData.answer) {
-        throw new Error("API GPT Custom không trả về trường 'answer'.");
+        throw new Error(`API ${functionToInvoke} did not return an 'answer' field.`);
     }
 
     const generatedText = responseData.answer;
@@ -113,7 +106,7 @@ serve(async (req) => {
       logs: [{
         timestamp: new Date().toISOString(),
         action: 'create',
-        model_used: 'gpt-custom',
+        model_used: apiProvider,
         prompt: fullPrompt
       }]
     };

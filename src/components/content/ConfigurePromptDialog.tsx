@@ -3,11 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Copy } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 const DEFAULT_PROMPT = `
 **ROLE:** You are a top-tier content strategist for TikTok.
@@ -108,6 +110,7 @@ const PromptEditor = ({ templateType }: PromptEditorProps) => {
   const dynamicVariables = isMoreIdeasPrompt ? MORE_IDEAS_DYNAMIC_VARIABLES : DYNAMIC_VARIABLES;
 
   const [prompt, setPrompt] = useState(defaultPrompt);
+  const [apiProvider, setApiProvider] = useState<'gpt-custom' | 'gemini-custom'>('gpt-custom');
 
   const { data, isLoading } = useQuery({
     queryKey: ['prompt_template', user?.id, templateType],
@@ -115,7 +118,7 @@ const PromptEditor = ({ templateType }: PromptEditorProps) => {
       if (!user) return null;
       const { data, error } = await supabase
         .from('prompt_templates')
-        .select('content')
+        .select('content, api_provider')
         .eq('user_id', user.id)
         .eq('template_type', templateType)
         .single();
@@ -126,20 +129,23 @@ const PromptEditor = ({ templateType }: PromptEditorProps) => {
   });
 
   useEffect(() => {
-    if (data?.content) {
-      setPrompt(data.content);
+    if (data) {
+      setPrompt(data.content || defaultPrompt);
+      setApiProvider(data.api_provider || 'gpt-custom');
     } else {
       setPrompt(defaultPrompt);
+      setApiProvider('gpt-custom');
     }
   }, [data, defaultPrompt]);
 
   const upsertMutation = useMutation({
-    mutationFn: async (newContent: string) => {
+    mutationFn: async ({ newContent, newApiProvider }: { newContent: string, newApiProvider: string }) => {
       if (!user) throw new Error("User not authenticated");
       const { error } = await supabase.from('prompt_templates').upsert({
         user_id: user.id,
         template_type: templateType,
         content: newContent,
+        api_provider: newApiProvider,
       }, { onConflict: 'user_id, template_type' });
       if (error) throw error;
     },
@@ -157,14 +163,32 @@ const PromptEditor = ({ templateType }: PromptEditorProps) => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="md:col-span-2">
+      <div className="md:col-span-2 space-y-4">
+        <div>
+          <Label className="font-semibold">API Provider</Label>
+          <RadioGroup
+            value={apiProvider}
+            onValueChange={(value) => setApiProvider(value as 'gpt-custom' | 'gemini-custom')}
+            className="flex gap-4 mt-2"
+            disabled={isLoading}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="gpt-custom" id={`gpt-${templateType}`} />
+              <Label htmlFor={`gpt-${templateType}`}>API GPT Custom</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="gemini-custom" id={`gemini-${templateType}`} />
+              <Label htmlFor={`gemini-${templateType}`}>API Gemini Custom</Label>
+            </div>
+          </RadioGroup>
+        </div>
         <Textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           className="h-[400px] font-mono text-xs"
           disabled={isLoading}
         />
-        <Button onClick={() => upsertMutation.mutate(prompt)} disabled={upsertMutation.isPending} className="mt-4 w-full">
+        <Button onClick={() => upsertMutation.mutate({ newContent: prompt, newApiProvider: apiProvider })} disabled={upsertMutation.isPending || isLoading} className="w-full">
           {upsertMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Lưu Prompt
         </Button>
