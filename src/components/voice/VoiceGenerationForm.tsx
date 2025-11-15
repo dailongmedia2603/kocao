@@ -59,14 +59,22 @@ const formSchema = z.object({
 });
 
 const fetchClonedVoices = async () => {
-  const data = await callVoiceApi({ path: "v1m/voice/clone", method: "GET" });
-  // The API response might have a `data` property.
-  const voicesList = data.data || data;
-  if (!Array.isArray(voicesList)) {
-    console.error("Unexpected response format for cloned voices:", voicesList);
-    return [];
+  const response = await callVoiceApi({ path: "v1m/voice/clone", method: "GET" });
+
+  // Check if the response or response.data exists and is an array
+  const voicesList = response?.data;
+
+  if (Array.isArray(voicesList)) {
+    return voicesList.filter((voice: any) => voice.voice_status === 2);
   }
-  return voicesList.filter((voice: any) => voice.voice_status === 2);
+  
+  // Handle cases where the response is the array itself
+  if (Array.isArray(response)) {
+    return response.filter((voice: any) => voice.voice_status === 2);
+  }
+
+  console.error("Unexpected response format for cloned voices:", response);
+  return []; // Return empty array if format is not as expected
 };
 
 const fetchKocs = async () => {
