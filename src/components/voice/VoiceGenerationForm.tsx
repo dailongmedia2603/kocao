@@ -60,7 +60,13 @@ const formSchema = z.object({
 
 const fetchClonedVoices = async () => {
   const data = await callVoiceApi({ path: "v1m/voice/clone", method: "GET" });
-  return data.data.filter((voice: any) => voice.voice_status === 2);
+  // The API response might have a `data` property.
+  const voicesList = data.data || data;
+  if (!Array.isArray(voicesList)) {
+    console.error("Unexpected response format for cloned voices:", voicesList);
+    return [];
+  }
+  return voicesList.filter((voice: any) => voice.voice_status === 2);
 };
 
 const fetchKocs = async () => {
