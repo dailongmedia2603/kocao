@@ -174,9 +174,9 @@ export const VoiceGenerationForm = () => {
         voice_name: values.voice_name,
         text: textToGenerate,
         model: values.model,
+        speed: values.speed,
         voice_setting: {
           voice_id: values.voice_id,
-          speed: values.speed,
         },
         cloned_voice_name: clonedVoiceName,
       };
