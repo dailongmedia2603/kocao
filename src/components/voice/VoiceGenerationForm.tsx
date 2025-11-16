@@ -16,11 +16,13 @@ import { Skeleton } from "../ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSession } from "@/contexts/SessionContext";
+import { Slider } from "@/components/ui/slider";
 
 const formSchema = z.object({
   voice_name: z.string().min(1, "Tên voice không được để trống."),
   voice_id: z.string().min(1, "Vui lòng chọn một giọng nói."),
   model: z.string().min(1, "Vui lòng chọn một model."),
+  speed: z.number().min(0.01).max(10.0).default(1),
   contentType: z.enum(["text", "koc"]),
   text: z.string().optional(),
   koc_id: z.string().optional(),
@@ -91,6 +93,7 @@ export const VoiceGenerationForm = () => {
       text: "",
       voice_id: "",
       model: "speech-2.5-hd-preview",
+      speed: 1,
       contentType: "text",
       koc_id: undefined,
       idea_id: undefined,
@@ -164,7 +167,10 @@ export const VoiceGenerationForm = () => {
         voice_name: values.voice_name,
         text: textToGenerate,
         model: values.model,
-        voice_setting: { voice_id: values.voice_id },
+        voice_setting: {
+          voice_id: values.voice_id,
+          speed: values.speed,
+        },
         cloned_voice_name: clonedVoiceName,
       };
       return callVoiceApi({ path: "v1m/task/text-to-speech", method: "POST", body });
@@ -334,6 +340,30 @@ export const VoiceGenerationForm = () => {
                 <FormMessage />
               </FormItem>
             )} />
+            
+            <FormField
+              control={form.control}
+              name="speed"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex justify-between">
+                    <span>Tốc độ</span>
+                    <span className="text-sm font-normal text-muted-foreground">{field.value.toFixed(2)}x</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Slider
+                      min={0.01}
+                      max={10}
+                      step={0.01}
+                      value={[field.value]}
+                      onValueChange={(value) => field.onChange(value[0])}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <Button type="submit" className="w-full" disabled={createVoiceMutation.isPending || !voices || voices.length === 0}>
               {createVoiceMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
               Tạo Voice
