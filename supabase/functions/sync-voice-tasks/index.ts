@@ -62,7 +62,7 @@ serve(async (req) => {
     for (const task of pendingTasks) {
       try {
         const apiTaskDetails = await callVoiceApi(supabaseAdmin, {
-          path: `v1/task/${task.id}`,
+          path: `v1m/task/${task.id}`,
           method: "GET",
           userId: task.user_id,
         });
