@@ -38,7 +38,6 @@ serve(async (req) => {
 
     console.log(`Found ${pendingTasks.length} tasks to sync in this batch.`);
 
-    // Lấy API key một lần để tái sử dụng
     const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
       .from("user_voice_api_keys")
       .select("api_key")
@@ -55,12 +54,18 @@ serve(async (req) => {
 
     for (const task of pendingTasks) {
       try {
-        // Gọi trực tiếp API, không qua proxy
         const apiUrl = `https://gateway.vivoo.work/v1m/task/${task.id}`;
         const apiResponse = await fetch(apiUrl, {
           method: "GET",
           headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
         });
+
+        // SỬA LỖI: Xử lý trường hợp 404 Not Found
+        if (apiResponse.status === 404) {
+          console.warn(`Task ${task.id} returned 404. It might be completed and purged. Skipping for now.`);
+          // Bỏ qua task này trong lần chạy này, không báo lỗi
+          continue;
+        }
 
         if (!apiResponse.ok) {
             const errorText = await apiResponse.text();
