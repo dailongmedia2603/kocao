@@ -7,6 +7,24 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Helper function to call the voice API proxy with improved error handling
+const callVoiceApi = async (supabaseAdmin, { path, method, body = {}, userId }) => {
+  const { data, error } = await supabaseAdmin.functions.invoke("voice-api-proxy", {
+    body: { path, method, body, userId },
+  });
+
+  if (error) {
+    const errorMessage = data?.error || error.message;
+    throw new Error(errorMessage);
+  }
+
+  if (data.success === false) {
+    throw new Error(data.error || "API báo lỗi nhưng không có thông báo chi tiết.");
+  }
+  
+  return data;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -38,41 +56,18 @@ serve(async (req) => {
 
     console.log(`Found ${pendingTasks.length} tasks to sync in this batch.`);
 
-    const { data: apiKeyData, error: apiKeyError } = await supabaseAdmin
-      .from("user_voice_api_keys")
-      .select("api_key")
-      .limit(1)
-      .single();
-      
-    if (apiKeyError || !apiKeyData) {
-      throw new Error("Chưa có bất kỳ API Key Voice nào được cấu hình trong toàn bộ hệ thống.");
-    }
-    const apiKey = apiKeyData.api_key;
-
     let successCount = 0;
     let errorCount = 0;
 
     for (const task of pendingTasks) {
       try {
-        const apiUrl = `https://gateway.vivoo.work/v1m/task/${task.id}`;
-        const apiResponse = await fetch(apiUrl, {
+        const apiTaskDetails = await callVoiceApi(supabaseAdmin, {
+          path: `v1/task/${task.id}`,
           method: "GET",
-          headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
+          userId: task.user_id,
         });
-
-        // SỬA LỖI: Xử lý trường hợp 404 Not Found
-        if (apiResponse.status === 404) {
-          console.warn(`Task ${task.id} returned 404. It might be completed and purged. Skipping for now.`);
-          // Bỏ qua task này trong lần chạy này, không báo lỗi
-          continue;
-        }
-
-        if (!apiResponse.ok) {
-            const errorText = await apiResponse.text();
-            throw new Error(`API Error (${apiResponse.status}): ${errorText}`);
-        }
         
-        const apiTaskDetails = await apiResponse.json();
+        // THE FIX IS HERE: Check for data at the top level OR nested in a 'data' property.
         const taskData = apiTaskDetails.data || apiTaskDetails;
 
         if (taskData && taskData.status) {
