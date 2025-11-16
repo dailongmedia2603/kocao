@@ -21,7 +21,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Icons
-import { Edit, ThumbsUp, Eye, ShoppingCart, TrendingUp, ArrowLeft, LayoutDashboard, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, CalendarDays, Bot, MoreHorizontal, Loader2, Mic, Lightbulb, FileText, Download } from "lucide-react";
+import { Edit, ArrowLeft, Clapperboard, FileArchive, Video, Music, AlertCircle, PlayCircle, UploadCloud, Trash2, Image, Film, Plus, Users, Heart, CalendarDays, Bot, MoreHorizontal, Loader2, Mic, Lightbulb, FileText, Download } from "lucide-react";
 
 // Custom Components
 import { VideoPlayerDialog } from "@/components/koc/VideoPlayerDialog";
@@ -130,19 +130,6 @@ const fetchIdeas = async (kocId: string) => {
   return data.data as Idea[];
 };
 
-// Mock data
-const performanceMetrics = [
-  { title: "Tỷ lệ tương tác", value: "4.5%", icon: ThumbsUp, color: "bg-blue-100 text-blue-600" },
-  { title: "Lượt tiếp cận", value: "15K", icon: Eye, color: "bg-green-100 text-green-600" },
-  { title: "Lượt chuyển đổi", value: "500", icon: ShoppingCart, color: "bg-orange-100 text-orange-600" },
-  { title: "ROI", value: "120%", icon: TrendingUp, color: "bg-purple-100 text-purple-600" },
-];
-const assignedCampaigns = [
-  { name: "Summer Style Showcase", status: "Active", startDate: "2024-07-01", endDate: "2024-07-31", budget: "$5,000" },
-  { name: "Autumn Beauty Launch", status: "Completed", startDate: "2024-06-15", endDate: "2024-06-30", budget: "$3,200" },
-  { name: "Winter Wellness", status: "Planned", startDate: "2024-08-01", endDate: "2024-08-15", budget: "$4,500" },
-];
-
 // Helper functions
 const getInitials = (name: string) => name.split(" ").map((n) => n[0]).join("").toUpperCase();
 const getFileTypeDetails = (fileName: string) => {
@@ -173,7 +160,6 @@ const formatStatNumber = (num: number | null | undefined): string => {
 };
 
 const mobileTabs = [
-    { value: "overview", label: "Tổng quan", icon: LayoutDashboard },
     { value: "content", label: "Video đã tạo", icon: Clapperboard },
     { value: "sources", label: "Nguồn Video", icon: FileArchive },
     { value: "auto-scripts", label: "Automation", icon: Bot },
@@ -447,7 +433,7 @@ const KocDetail = () => {
             </CardContent>
           </Card>
 
-          <Tabs defaultValue="overview" className="w-full">
+          <Tabs defaultValue="content" className="w-full">
             <div className="overflow-x-auto pb-2 -mb-2 no-scrollbar">
               <TabsList className="bg-transparent p-0 gap-x-2">
                 {mobileTabs.map(tab => (
@@ -458,29 +444,6 @@ const KocDetail = () => {
                 ))}
               </TabsList>
             </div>
-            <TabsContent value="overview" className="mt-4 space-y-6">
-              <Card>
-                <CardHeader><CardTitle className="text-lg">Chỉ số hiệu suất</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-2 gap-4">
-                  {performanceMetrics.map((metric) => (<div key={metric.title} className="flex flex-col items-center justify-center p-3 rounded-lg border bg-gray-50"><div className={`flex h-10 w-10 items-center justify-center rounded-full ${metric.color}`}><metric.icon className="h-5 w-5" /></div><p className="mt-2 text-xl font-bold">{metric.value}</p><p className="text-xs text-muted-foreground text-center">{metric.title}</p></div>))}
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader><CardTitle className="text-lg">Thông tin kênh TikTok</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                  {koc.channel_unique_id ? (
-                    <>
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="flex flex-col items-center p-2 rounded-lg"><Users className="h-6 w-6 mb-1 text-blue-500" /><p className="font-bold text-base">{formatStatNumber(koc.follower_count)}</p><p className="text-xs text-muted-foreground">Followers</p></div>
-                        <div className="flex flex-col items-center p-2 rounded-lg"><Heart className="h-6 w-6 mb-1 text-red-500" /><p className="font-bold text-base">{formatStatNumber(koc.like_count)}</p><p className="text-xs text-muted-foreground">Likes</p></div>
-                        <div className="flex flex-col items-center p-2 rounded-lg"><Video className="h-6 w-6 mb-1 text-green-500" /><p className="font-bold text-base">{formatStatNumber(koc.video_count)}</p><p className="text-xs text-muted-foreground">Videos</p></div>
-                      </div>
-                      <div className="flex items-center text-sm text-muted-foreground pt-4 border-t"><CalendarDays className="mr-2 h-4 w-4" /><span>Tuổi tài khoản: <span className="font-medium text-foreground">{formatDetailedDistanceToNow(koc.channel_created_at)}</span></span></div>
-                    </>
-                  ) : (<div className="text-center text-muted-foreground py-8"><p>Chưa có dữ liệu kênh.</p></div>)}
-                </CardContent>
-              </Card>
-            </TabsContent>
             <TabsContent value="content" className="mt-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Video đã tạo</h3>
@@ -549,9 +512,6 @@ const KocDetail = () => {
               </Card>
               <Tabs defaultValue="content" className="w-full">
                 <TabsList className="bg-transparent w-full justify-start rounded-none border-b p-0 gap-x-2">
-                  <TabsTrigger value="overview" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
-                    <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><LayoutDashboard className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Tổng quan</span></div>
-                  </TabsTrigger>
                   <TabsTrigger value="content" className="group bg-transparent px-3 py-2 rounded-t-md shadow-none border-b-2 border-transparent data-[state=active]:bg-red-50 data-[state=active]:border-red-600 text-muted-foreground data-[state=active]:text-red-700 font-medium transition-colors hover:bg-gray-50">
                     <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Clapperboard className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Video đã tạo</span></div>
                   </TabsTrigger>
@@ -565,12 +525,6 @@ const KocDetail = () => {
                     <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-gray-100 group-data-[state=active]:bg-red-600 transition-colors"><Lightbulb className="h-4 w-4 text-gray-500 group-data-[state=active]:text-white transition-colors" /></div><span>Idea Content</span></div>
                   </TabsTrigger>
                 </TabsList>
-                <TabsContent value="overview" className="mt-6">
-                  <div className="space-y-8">
-                    <div><h3 className="text-xl font-semibold mb-4">Chỉ số hiệu suất</h3><div className="grid grid-cols-2 md:grid-cols-4 gap-4">{performanceMetrics.map((metric) => (<Card key={metric.title}><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4"><CardTitle className="text-sm font-medium text-muted-foreground">{metric.title}</CardTitle><div className={`flex h-8 w-8 items-center justify-center rounded-full ${metric.color}`}><metric.icon className="h-4 w-4" /></div></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{metric.value}</p></CardContent></Card>))}</div></div>
-                    <div><h3 className="text-xl font-semibold mb-4">Chiến dịch đã tham gia</h3><Card><Table><TableHeader><TableRow><TableHead>Tên chiến dịch</TableHead><TableHead>Trạng thái</TableHead><TableHead>Ngày bắt đầu</TableHead><TableHead>Ngày kết thúc</TableHead><TableHead>Ngân sách</TableHead></TableRow></TableHeader><TableBody>{assignedCampaigns.map((campaign) => (<TableRow key={campaign.name}><TableCell className="font-medium">{campaign.name}</TableCell><TableCell><Badge variant={campaign.status === "Active" ? "default" : "outline"} className={campaign.status === "Active" ? "bg-green-100 text-green-800" : campaign.status === "Completed" ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-800"}>{campaign.status}</Badge></TableCell><TableCell>{campaign.startDate}</TableCell><TableCell>{campaign.endDate}</TableCell><TableCell>{campaign.budget}</TableCell></TableRow>))}</TableBody></Table></Card></div>
-                  </div>
-                </TabsContent>
                 <TabsContent value="content" className="mt-6">
                   <div className="flex justify-between items-center mb-6">
                     <div>
