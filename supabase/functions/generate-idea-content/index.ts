@@ -142,15 +142,27 @@ ${idea.idea_content}
           console.warn(`Gemini Custom failed for idea ${idea.id}: ${geminiError.message}. Attempting fallback to Vertex AI...`);
           modelUsed = "vertex-ai";
 
+          // Find an admin user to get shared credentials
+          const { data: adminUser, error: adminError } = await supabaseAdmin
+            .from('profiles')
+            .select('id')
+            .eq('role', 'admin')
+            .limit(1)
+            .single();
+
+          if (adminError || !adminUser) {
+            throw new Error("Gemini Custom failed and no admin account is configured for Vertex AI fallback.");
+          }
+
           const { data: credData, error: credError } = await supabaseAdmin
             .from('user_vertex_ai_credentials')
             .select('credentials')
-            .eq('user_id', idea.user_id)
+            .eq('user_id', adminUser.id) // Use admin's user_id
             .limit(1)
             .single();
 
           if (credError || !credData) {
-            throw new Error("Gemini Custom failed and no Vertex AI credential is configured for fallback.");
+            throw new Error("Gemini Custom failed and no Vertex AI credential is configured for the admin account.");
           }
 
           const credentials = credData.credentials;
