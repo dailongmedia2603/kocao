@@ -29,14 +29,17 @@ serve(async (req) => {
       throw new Error("Prompt is required.");
     }
 
-    // Create a new FormData for the external API call
-    const externalApiFormData = new FormData();
-    externalApiFormData.append("prompt", prompt);
-    externalApiFormData.append("token", apiToken);
+    // Create a new URLSearchParams for the external API call to send as x-www-form-urlencoded
+    const body = new URLSearchParams();
+    body.append('prompt', prompt);
+    body.append('token', apiToken);
 
     const response = await fetch(API_URL, {
       method: "POST",
-      body: externalApiFormData,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body,
     });
 
     if (!response.ok) {
