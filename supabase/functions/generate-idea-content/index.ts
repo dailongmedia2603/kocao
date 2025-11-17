@@ -1,11 +1,34 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import * as jose from 'npm:jose@^5.2.4';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+async function getGoogleAccessToken(credentials) {
+  const privateKey = await jose.importPKCS8(credentials.private_key, 'RS256');
+  const jwt = await new jose.SignJWT({ scope: 'https://www.googleapis.com/auth/cloud-platform' })
+    .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
+    .setIssuedAt()
+    .setIssuer(credentials.client_email)
+    .setAudience('https://oauth2.googleapis.com/token')
+    .setExpirationTime('1h')
+    .sign(privateKey);
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }),
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Google Auth Error: ${response.status} ${errorText}`);
+  }
+  const { access_token } = await response.json();
+  return access_token;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -101,7 +124,6 @@ ${idea.idea_content}
         let modelUsed = "gemini-custom";
 
         try {
-          // --- Primary API: Gemini Custom ---
           console.log(`Attempting to generate content for idea ${idea.id} using Gemini Custom...`);
           const externalApiFormData = new FormData();
           externalApiFormData.append("prompt", fullPrompt);
@@ -120,10 +142,9 @@ ${idea.idea_content}
           console.warn(`Gemini Custom failed for idea ${idea.id}: ${geminiError.message}. Attempting fallback to Vertex AI...`);
           modelUsed = "vertex-ai";
 
-          // --- Fallback API: Vertex AI ---
           const { data: credData, error: credError } = await supabaseAdmin
             .from('user_vertex_ai_credentials')
-            .select('id')
+            .select('credentials')
             .eq('user_id', idea.user_id)
             .limit(1)
             .single();
@@ -132,15 +153,26 @@ ${idea.idea_content}
             throw new Error("Gemini Custom failed and no Vertex AI credential is configured for fallback.");
           }
 
-          const { data: vertexData, error: vertexError } = await supabaseAdmin.functions.invoke("vertex-ai-proxy", {
-            body: { prompt: fullPrompt, credentialId: credData.id }
+          const credentials = credData.credentials;
+          const projectId = credentials.project_id;
+          if (!projectId) throw new Error("The provided credentials JSON is missing the 'project_id' field.");
+
+          const accessToken = await getGoogleAccessToken(credentials);
+          const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/gemini-2.5-pro:generateContent`;
+          
+          const vertexResponse = await fetch(vertexUrl, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: fullPrompt }] }] }),
           });
 
-          if (vertexError) throw new Error(`Vertex AI fallback error: ${vertexError.message}`);
-          if (vertexData.error) throw new Error(`Vertex AI fallback error: ${vertexData.error}`);
-          if (!vertexData.text) throw new Error("Vertex AI API did not return a 'text' field.");
+          if (!vertexResponse.ok) {
+            const errorText = await vertexResponse.text();
+            throw new Error(`Vertex AI API Error: ${vertexResponse.status} ${errorText}`);
+          }
 
-          generatedText = vertexData.text;
+          const vertexData = await vertexResponse.json();
+          generatedText = vertexData?.candidates?.[0]?.content?.parts?.[0]?.text || "No content generated.";
           console.log(`Successfully generated content for idea ${idea.id} using Vertex AI fallback.`);
         }
 
