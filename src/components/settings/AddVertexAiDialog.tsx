@@ -14,15 +14,14 @@ import { Loader2 } from "lucide-react";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên không được để trống"),
-  project_id: z.string().min(1, "Project ID không được để trống"),
   credentials: z.string().refine((val) => {
     try {
-      JSON.parse(val);
-      return true;
+      const parsed = JSON.parse(val);
+      return typeof parsed === 'object' && parsed !== null && 'project_id' in parsed;
     } catch (e) {
       return false;
     }
-  }, { message: "Nội dung credentials phải là một chuỗi JSON hợp lệ." }),
+  }, { message: "Nội dung credentials phải là một chuỗi JSON hợp lệ và chứa 'project_id'." }),
 });
 
 type AddVertexAiDialogProps = {
@@ -36,7 +35,7 @@ export const AddVertexAiDialog = ({ isOpen, onOpenChange }: AddVertexAiDialogPro
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", project_id: "", credentials: "" },
+    defaultValues: { name: "", credentials: "" },
   });
 
   const addKeyMutation = useMutation({
@@ -47,7 +46,6 @@ export const AddVertexAiDialog = ({ isOpen, onOpenChange }: AddVertexAiDialogPro
         .insert({ 
             user_id: user.id, 
             name: values.name, 
-            project_id: values.project_id,
             credentials: JSON.parse(values.credentials),
         });
       if (error) throw error;
@@ -75,11 +73,8 @@ export const AddVertexAiDialog = ({ isOpen, onOpenChange }: AddVertexAiDialogPro
             <FormField control={form.control} name="name" render={({ field }) => (
               <FormItem><FormLabel>Tên gợi nhớ</FormLabel><FormControl><Input placeholder="Ví dụ: Key dự án KOC" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <FormField control={form.control} name="project_id" render={({ field }) => (
-              <FormItem><FormLabel>Google Cloud Project ID</FormLabel><FormControl><Input placeholder="my-gcp-project-id" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
             <FormField control={form.control} name="credentials" render={({ field }) => (
-              <FormItem><FormLabel>Nội dung file JSON</FormLabel><FormControl><Textarea placeholder='{ "type": "service_account", ... }' className="h-48 font-mono text-xs" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormItem><FormLabel>Nội dung file JSON</FormLabel><FormControl><Textarea placeholder='{ "type": "service_account", "project_id": "...", ... }' className="h-48 font-mono text-xs" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>

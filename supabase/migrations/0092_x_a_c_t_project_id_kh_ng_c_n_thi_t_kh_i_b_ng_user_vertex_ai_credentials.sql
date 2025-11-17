@@ -1,0 +1,2 @@
+ALTER TABLE public.user_vertex_ai_credentials
+DROP COLUMN project_id;

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Trash2, Plus, KeyRound, Bot, Wand2, Loader2, CheckCircle } from "lucide-react";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { AddVertexAiDialog } from "./AddVertexAiDialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,11 +15,10 @@ import { Textarea } from "@/components/ui/textarea";
 type VertexAiCredential = { 
     id: string; 
     name: string; 
-    project_id: string;
 };
 
 const fetchCredentials = async (userId: string): Promise<VertexAiCredential[]> => {
-  const { data, error } = await supabase.from("user_vertex_ai_credentials").select("id, name, project_id").eq("user_id", userId).order("created_at", { ascending: true });
+  const { data, error } = await supabase.from("user_vertex_ai_credentials").select("id, name").eq("user_id", userId).order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return data;
 };
@@ -45,7 +44,7 @@ const CredentialRow = ({ credential }: { credential: VertexAiCredential }) => {
     <div className="flex items-center justify-between gap-4 p-4 border rounded-lg bg-background/50">
       <div className="flex-1 min-w-0">
         <p className="font-medium truncate">{credential.name}</p>
-        <p className="text-sm text-muted-foreground">Project ID: {credential.project_id}</p>
+        <p className="text-sm text-muted-foreground">Thông tin xác thực đã được lưu.</p>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <AlertDialog>

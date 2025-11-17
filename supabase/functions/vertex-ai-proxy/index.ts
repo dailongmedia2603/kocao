@@ -58,7 +58,7 @@ serve(async (req) => {
 
     const { data: credData, error: credError } = await supabaseAdmin
       .from('user_vertex_ai_credentials')
-      .select('project_id, credentials')
+      .select('credentials')
       .eq('id', credentialId)
       .eq('user_id', user.id)
       .single();
@@ -67,9 +67,15 @@ serve(async (req) => {
       throw new Error("Could not find valid credentials for this user.");
     }
 
-    const accessToken = await getGoogleAccessToken(credData.credentials);
+    const credentials = credData.credentials;
+    const projectId = credentials.project_id;
+    if (!projectId) {
+      throw new Error("The provided credentials JSON is missing the 'project_id' field.");
+    }
 
-    const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${credData.project_id}/locations/us-central1/publishers/google/models/gemini-1.5-pro:generateContent`;
+    const accessToken = await getGoogleAccessToken(credentials);
+
+    const vertexUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/gemini-1.5-pro:generateContent`;
     
     const vertexResponse = await fetch(vertexUrl, {
       method: 'POST',
