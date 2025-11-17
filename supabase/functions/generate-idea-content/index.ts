@@ -97,30 +97,59 @@ ${idea.idea_content}
 **QUAN TRỌNG:** Chỉ trả về nội dung kịch bản hoàn chỉnh, không thêm bất kỳ lời giải thích, tiêu đề hay ghi chú nào khác.
 `.trim();
 
-        const externalApiFormData = new FormData();
-        externalApiFormData.append("prompt", fullPrompt);
+        let generatedText = "";
+        let modelUsed = "gemini-custom";
 
-        const { data: responseData, error: functionError } = await supabaseAdmin.functions.invoke("gemini-custom-proxy", {
-          body: externalApiFormData,
-        });
+        try {
+          // --- Primary API: Gemini Custom ---
+          console.log(`Attempting to generate content for idea ${idea.id} using Gemini Custom...`);
+          const externalApiFormData = new FormData();
+          externalApiFormData.append("prompt", fullPrompt);
+          const { data: responseData, error: functionError } = await supabaseAdmin.functions.invoke("gemini-custom-proxy", {
+            body: externalApiFormData,
+          });
 
-        if (functionError) {
-          throw new Error(`Error invoking gemini-custom-proxy: ${functionError.message}`);
+          if (functionError) throw new Error(`Error invoking gemini-custom-proxy: ${functionError.message}`);
+          if (responseData.error) throw new Error(`Error from gemini-custom-proxy: ${responseData.error}`);
+          if (!responseData.answer) throw new Error("Gemini Custom API did not return an 'answer' field.");
+          
+          generatedText = responseData.answer;
+          console.log(`Successfully generated content for idea ${idea.id} using Gemini Custom.`);
+
+        } catch (geminiError) {
+          console.warn(`Gemini Custom failed for idea ${idea.id}: ${geminiError.message}. Attempting fallback to Vertex AI...`);
+          modelUsed = "vertex-ai";
+
+          // --- Fallback API: Vertex AI ---
+          const { data: credData, error: credError } = await supabaseAdmin
+            .from('user_vertex_ai_credentials')
+            .select('id')
+            .eq('user_id', idea.user_id)
+            .limit(1)
+            .single();
+
+          if (credError || !credData) {
+            throw new Error("Gemini Custom failed and no Vertex AI credential is configured for fallback.");
+          }
+
+          const { data: vertexData, error: vertexError } = await supabaseAdmin.functions.invoke("vertex-ai-proxy", {
+            body: { prompt: fullPrompt, credentialId: credData.id }
+          });
+
+          if (vertexError) throw new Error(`Vertex AI fallback error: ${vertexError.message}`);
+          if (vertexData.error) throw new Error(`Vertex AI fallback error: ${vertexData.error}`);
+          if (!vertexData.text) throw new Error("Vertex AI API did not return a 'text' field.");
+
+          generatedText = vertexData.text;
+          console.log(`Successfully generated content for idea ${idea.id} using Vertex AI fallback.`);
         }
-        if (responseData.error) {
-          throw new Error(`Error from gemini-custom-proxy: ${responseData.error}`);
-        }
-        if (!responseData.answer) {
-            throw new Error("API did not return an 'answer' field.");
-        }
-        const generatedText = responseData.answer;
 
         const { error: updateError } = await supabaseAdmin
           .from('koc_content_ideas')
           .update({
             new_content: generatedText,
             status: 'Đã có content',
-            ai_prompt_log: fullPrompt,
+            ai_prompt_log: `[Model Used: ${modelUsed}]\n\n${fullPrompt}`,
             error_message: null,
           })
           .eq('id', idea.id);

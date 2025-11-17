@@ -68,39 +68,22 @@ serve(async (req) => {
 
     const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // 1. Try to get user-specific prompt
-    let { data: customPromptData, error: userPromptError } = await supabaseClient
+    let { data: customPromptData } = await supabaseClient
       .from('prompt_templates')
-      .select('content, api_provider')
+      .select('content')
       .eq('user_id', user.id)
       .eq('template_type', 'content_plan_gpt')
       .single();
 
-    // 2. If not found, try to get admin's default prompt
-    if (userPromptError || !customPromptData) {
-      const { data: adminUser } = await supabaseAdmin
-        .from('profiles')
-        .select('id')
-        .eq('role', 'admin')
-        .limit(1)
-        .single();
-
+    if (!customPromptData) {
+      const { data: adminUser } = await supabaseAdmin.from('profiles').select('id').eq('role', 'admin').limit(1).single();
       if (adminUser) {
-        const { data: adminPromptData } = await supabaseAdmin
-          .from('prompt_templates')
-          .select('content, api_provider')
-          .eq('user_id', adminUser.id)
-          .eq('template_type', 'content_plan_gpt')
-          .single();
-        
-        if (adminPromptData) {
-          customPromptData = adminPromptData;
-        }
+        const { data: adminPromptData } = await supabaseAdmin.from('prompt_templates').select('content').eq('user_id', adminUser.id).eq('template_type', 'content_plan_gpt').single();
+        if (adminPromptData) customPromptData = adminPromptData;
       }
     }
 
-    let promptTemplate = customPromptData?.content || DEFAULT_PROMPT;
-    const apiProvider = customPromptData?.api_provider || 'gpt-custom';
+    const promptTemplate = customPromptData?.content || DEFAULT_PROMPT;
 
     const fullPrompt = promptTemplate
       .replace(/{{KOC_NAME}}/g, kocName)
@@ -109,29 +92,60 @@ serve(async (req) => {
       .replace(/{{KOC_PERSONA}}/g, inputs.koc_persona)
       .replace(/{{GOALS}}/g, inputs.goals || 'Build brand awareness and increase follower count.');
 
-    const functionToInvoke = apiProvider === 'gemini-custom' ? 'gemini-custom-proxy' : 'gpt-custom-proxy';
-    
-    const externalApiFormData = new FormData();
-    externalApiFormData.append("prompt", fullPrompt);
+    let generatedText = "";
+    let modelUsed = "";
 
-    const { data: responseData, error: functionError } = await supabaseClient.functions.invoke(functionToInvoke, {
-      body: externalApiFormData,
-    });
+    try {
+      // --- Primary API: Gemini Custom ---
+      console.log(`Attempting to generate content plan for "${inputs.name}" using Gemini Custom...`);
+      modelUsed = "gemini-custom";
+      const externalApiFormData = new FormData();
+      externalApiFormData.append("prompt", fullPrompt);
+      const { data: responseData, error: functionError } = await supabaseClient.functions.invoke("gemini-custom-proxy", {
+        body: externalApiFormData,
+      });
 
-    if (functionError) throw new Error(`Error invoking ${functionToInvoke}: ${functionError.message}`);
-    if (responseData.error) throw new Error(`Error from ${functionToInvoke}: ${responseData.error}`);
-    if (!responseData.answer) {
-        throw new Error(`API ${functionToInvoke} did not return an 'answer' field.`);
+      if (functionError) throw new Error(`Error invoking gemini-custom-proxy: ${functionError.message}`);
+      if (responseData.error) throw new Error(`Error from gemini-custom-proxy: ${responseData.error}`);
+      if (!responseData.answer) throw new Error("Gemini Custom API did not return an 'answer' field.");
+      
+      generatedText = responseData.answer;
+      console.log(`Successfully generated content plan using Gemini Custom.`);
+
+    } catch (geminiError) {
+      console.warn(`Gemini Custom failed for plan "${inputs.name}": ${geminiError.message}. Attempting fallback to Vertex AI...`);
+      modelUsed = "vertex-ai";
+
+      // --- Fallback API: Vertex AI ---
+      const { data: credData, error: credError } = await supabaseClient
+        .from('user_vertex_ai_credentials')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .single();
+
+      if (credError || !credData) {
+        throw new Error("Gemini Custom failed and no Vertex AI credential is configured for fallback.");
+      }
+
+      const { data: vertexData, error: vertexError } = await supabaseClient.functions.invoke("vertex-ai-proxy", {
+        body: { prompt: fullPrompt, credentialId: credData.id }
+      });
+
+      if (vertexError) throw new Error(`Vertex AI fallback error: ${vertexError.message}`);
+      if (vertexData.error) throw new Error(`Vertex AI fallback error: ${vertexData.error}`);
+      if (!vertexData.text) throw new Error("Vertex AI API did not return a 'text' field.");
+
+      generatedText = vertexData.text;
+      console.log(`Successfully generated content plan using Vertex AI fallback.`);
     }
-
-    const generatedText = responseData.answer;
 
     const results = {
       content: generatedText,
       logs: [{
         timestamp: new Date().toISOString(),
         action: 'create',
-        model_used: apiProvider,
+        model_used: modelUsed,
         prompt: fullPrompt
       }]
     };
