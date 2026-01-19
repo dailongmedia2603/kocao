@@ -3,10 +3,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useSession } from "@/contexts/SessionContext";
 import { useNavigate } from "react-router-dom";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
+import { api, ContentPlan } from "@/lib/apiClient";
 
 // UI Components
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -16,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Wand2, Loader2, User, ClipboardList, Hash, Users as UsersIcon, Smile, TrendingUp } from "lucide-react";
-import { ContentPlan } from "@/types/contentPlan";
 
 const formSchema = z.object({
   koc_id: z.string().min(1, "Vui lòng chọn KOC."),
@@ -39,25 +39,25 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
 
   const { data: kocs, isLoading: isLoadingKocs } = useQuery({
     queryKey: ['kocs_for_plan', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase.from('kocs').select('id, name').eq('user_id', user.id);
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => api.kocs.list(),
     enabled: !!user,
   });
 
   const { data: plan, isLoading: isLoadingPlan } = useQuery<ContentPlan | null>({
     queryKey: ['content_plan_detail', planId],
     queryFn: async () => {
+      // If planId provided, we assume it's already fetched or fetch it now
+      // Note: This component is usually used inside TaoKeHoachDetail which passes inputs?
+      // Actually TaoKeHoachDetail passes planId.
+      // We should use api.contentPlan.get(planId)
       if (!planId) return null;
-      const { data, error } = await supabase.from('content_plans').select('*').eq('id', planId).single();
-      if (error) throw error;
-      return data;
+      return api.contentPlan.get(planId);
     },
-    enabled: !isNew,
+    enabled: !isNew && !!user,
   });
+
+  // Since api.ContentPlan.content has inputs, we map it back
+  const planInputs = plan?.content?.inputs;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -72,10 +72,22 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
   });
 
   useEffect(() => {
-    if (plan && plan.inputs) {
-      form.reset(plan.inputs as z.infer<typeof formSchema>);
+    if (planInputs) {
+      form.reset(planInputs as z.infer<typeof formSchema>);
     }
-  }, [plan, form]);
+  }, [planInputs, form]);
+
+  const { data: template } = useQuery({
+    queryKey: ['prompt_template', 'content_plan_gpt'],
+    queryFn: async () => {
+      try {
+        return await api.aiTemplates.get('content_plan_gpt');
+      } catch (e) {
+        return null; // Fallback to default
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const createPlanMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
@@ -86,29 +98,83 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
       const toastId = showLoading("AI đang phân tích và tạo kế hoạch...");
 
       try {
-        const functionName = 'generate-content-plan-gpt';
+        // Construct Prompt from Template or Default
+        let promptTemplate = template?.content;
 
-        const { data: functionData, error: functionError } = await supabase.functions.invoke(functionName, {
-          body: { inputs: values, kocName: selectedKoc.name }
+        if (!promptTemplate) {
+          promptTemplate = `
+**ROLE:** You are a top-tier content strategist for TikTok.
+
+**CONTEXT:** You are creating a content plan for a KOC named "{{KOC_NAME}}". Here is the provided information:
+- **Main Topic:** {{TOPIC}}
+- **Target Audience:** {{TARGET_AUDIENCE}}
+- **KOC Persona (Personality & Style):** {{KOC_PERSONA}}
+- **Channel Goals:** {{GOALS}}
+
+**TASK:** Based on the context above, create a comprehensive, detailed, and easy-to-read content plan.
+
+**OUTPUT REQUIREMENTS:**
+You MUST format the output to be a valid JSON object.
+Do NOT use Markdown.
+Structure:
+{
+  "analysis": "string",
+  "strategy": { "direction": "string", "tone_mood": "string" },
+  "content_pillars": [ { "name": "string", "ratio": "string", "description": "string" } ],
+  "schedule": "string",
+  "ideas": [ { "title": "string", "format": "string", "description": "string" } ]
+}
+`.trim();
+        }
+
+        const prompt = promptTemplate
+          .replace('{{KOC_NAME}}', selectedKoc.name)
+          .replace('{{TOPIC}}', values.topic)
+          .replace('{{TARGET_AUDIENCE}}', values.target_audience)
+          .replace('{{KOC_PERSONA}}', values.koc_persona)
+          .replace('{{GOALS}}', values.goals || 'Xây dựng thương hiệu');
+
+        // Call AI API with provider
+        const aiResponse = await api.ai.generateText(prompt, {
+          provider: (template as any)?.api_provider || 'troll-llm'
         });
 
-        if (functionError) throw functionError;
-        if (!functionData.success) throw new Error(functionData.error);
+        if (!aiResponse.text) throw new Error("AI không trả về kết quả.");
 
-        const { data: newPlan, error: insertError } = await supabase
-          .from('content_plans')
-          .insert({
-            user_id: user.id,
-            koc_id: values.koc_id,
-            name: values.name,
-            status: 'completed',
+        // Parse JSON
+        let aiResults;
+        try {
+          // Cleanup markdown code blocks if present
+          const cleanText = aiResponse.text.replace(/```json/g, '').replace(/```/g, '').trim();
+          aiResults = JSON.parse(cleanText);
+        } catch (e) {
+          console.error("JSON Parse Error:", e, aiResponse.text);
+          throw new Error("Lỗi xử lý dữ liệu từ AI.");
+        }
+
+        // Format results as expected structure
+        const results = {
+          success: true,
+          content: aiResults,
+          logs: [{
+            action: 'generate_plan',
+            timestamp: new Date().toISOString(),
+            prompt,
+            model_used: (template as any)?.api_provider || 'troll-llm'
+          }]
+        };
+
+        // Create Plan via API
+        const newPlan = await api.contentPlan.create({
+          name: values.name,
+          content: {
+            type: 'plan',
+            kocId: values.koc_id,
             inputs: values,
-            results: functionData.results,
-          })
-          .select('id')
-          .single();
-
-        if (insertError) throw insertError;
+            results: results,
+            ...values
+          }
+        });
 
         dismissToast(toastId);
         showSuccess("Tạo kế hoạch thành công!");
@@ -159,7 +225,7 @@ export const PlanInputForm = ({ planId }: PlanInputFormProps) => {
         </div>
         <FormField control={form.control} name="target_audience" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><UsersIcon className="h-5 w-5 text-green-500" /> Đối tượng mục tiêu</FormLabel><FormControl><Textarea placeholder="Mô tả độ tuổi, giới tính, sở thích, vấn đề họ gặp phải..." {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
         <FormField control={form.control} name="koc_persona" render={({ field }) => (<FormItem><FormLabel className="flex items-center gap-2"><Smile className="h-5 w-5 text-orange-500" /> Chân dung KOC</FormLabel><FormControl><Textarea placeholder="Mô tả tính cách, phong cách nói chuyện (hài hước, chuyên gia, gần gũi...)" {...field} disabled={!isNew} /></FormControl><FormMessage /></FormItem>)} />
-        
+
         {isNew && (
           <Button type="submit" className="w-full" disabled={createPlanMutation.isPending}>
             {createPlanMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang tạo...</> : <><Wand2 className="mr-2 h-4 w-4" /> Tạo kế hoạch bằng AI</>}

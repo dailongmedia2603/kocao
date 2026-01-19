@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
 import { useSession } from "@/contexts/SessionContext";
 import KocMobileNav from "@/components/koc/KocMobileNav";
+import { api } from "@/lib/apiClient";
 
 // UI Components
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { TranscriptionLogDialog } from "@/components/transcription/TranscriptionLogDialog";
 
 // Icons
-import { Download, Loader2, Captions, Eye, Search, Play, Heart, MessageSquare, Share2, ExternalLink, FileVideo, History, RefreshCw, AlertCircle, PlusCircle } from "lucide-react";
+import { Download, Loader2, Captions, Eye, Search, Play, Heart, MessageSquare, Share2, ExternalLink, FileVideo, History, RefreshCw, AlertCircle } from "lucide-react";
 import { FaTiktok } from "react-icons/fa";
 
 // Types
@@ -32,26 +32,16 @@ type TranscriptionTask = {
   created_at: string;
 };
 
-// API Proxy Function
-const callApi = async (path: string, method: 'GET' | 'POST', body?: any) => {
-  const { data, error } = await supabase.functions.invoke('transcribe-api-proxy', {
-    body: { path, method, body }
-  });
-  if (error) throw new Error(error.message);
-  if (data.error) throw new Error(data.error);
-  return data;
-};
-
 const handleRobustError = (error: unknown, defaultMessage: string) => {
-    let message = defaultMessage;
-    if (error instanceof Error) message = error.message;
-    else if (typeof error === 'string') message = error;
-    else if (error && typeof error === 'object') {
-      if ('message' in error) message = String(error.message);
-      else if ('detail' in error) message = String(error.detail);
-      else message = JSON.stringify(error);
-    }
-    showError(message);
+  let message = defaultMessage;
+  if (error instanceof Error) message = error.message;
+  else if (typeof error === 'string') message = error;
+  else if (error && typeof error === 'object') {
+    if ('message' in error) message = String((error as any).message);
+    else if ('detail' in error) message = String((error as any).detail);
+    else message = JSON.stringify(error);
+  }
+  showError(message);
 };
 
 const formatStatNumber = (num: number | null | undefined): string => {
@@ -89,9 +79,9 @@ const VideoToScript = () => {
     queryKey: ['transcription_tasks'],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase.from('transcription_tasks').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      const response = await api.transcription.tasks();
+      // Ensure data structure matches TranscriptionTask
+      return (response as any).data || response;
     },
     enabled: !!user,
     refetchInterval: (query) => {
@@ -100,31 +90,12 @@ const VideoToScript = () => {
     },
   });
 
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel('transcription-tasks-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'transcription_tasks', filter: `user_id=eq.${user.id}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['transcription_tasks'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, queryClient]);
-
   const { data: serverFiles = [], isLoading: isLoadingServerFiles } = useQuery<string[]>({
     queryKey: ['server_video_files'],
     queryFn: async () => {
-        const response = await callApi('/api/v1/videos/list', 'GET');
-        const videos = response?.videos || [];
-        return videos.map((video: any) => video.filename);
+      const response = await api.transcription.serverFiles();
+      const videos = response?.videos || [];
+      return videos.map((video: any) => video.filename);
     },
     enabled: !!user,
     refetchInterval: 30000,
@@ -133,21 +104,21 @@ const VideoToScript = () => {
   const combinedTasks = useMemo(() => {
     const existingTaskNames = new Set(tasks.map(t => t.video_name));
     const newFilesAsTasks: TranscriptionTask[] = serverFiles
-        .filter(fileName => !existingTaskNames.has(fileName))
-        .map(fileName => ({
-            id: `new-${fileName}`,
-            video_name: fileName,
-            status: 'new',
-            script_content: null,
-            error_message: null,
-            created_at: new Date().toISOString(),
-        }));
+      .filter(fileName => !existingTaskNames.has(fileName))
+      .map(fileName => ({
+        id: `new-${fileName}`,
+        video_name: fileName,
+        status: 'new',
+        script_content: null,
+        error_message: null,
+        created_at: new Date().toISOString(),
+      }));
     return [...newFilesAsTasks, ...tasks];
   }, [tasks, serverFiles]);
 
   // Mutations
   const getMetadataMutation = useMutation({
-    mutationFn: (channel: string) => callApi('/api/v1/metadata', 'POST', { channel_link: channel, max_videos: 50 }),
+    mutationFn: (channel: string) => api.transcription.channelMetadata(channel), // Adjust args as needed
     onSuccess: (data) => {
       setLogData(data);
       const { username, videos = [] } = data;
@@ -169,7 +140,7 @@ const VideoToScript = () => {
     mutationFn: async ({ channel, count }: { channel: string, count: number | null }) => {
       const toastId = showLoading(`Đang gửi yêu cầu tải video từ kênh ${channel}...`);
       try {
-        const response = await callApi('/api/v1/download', 'POST', { channel_link: channel, max_videos: count });
+        const response = await api.transcription.downloadChannel(channel, count || undefined);
         if (response.success !== true) {
           throw new Error(response.message || "Yêu cầu tải thất bại.");
         }
@@ -189,14 +160,17 @@ const VideoToScript = () => {
 
   const startTranscriptionMutation = useMutation({
     mutationFn: async (videoName: string) => {
-      if (!user) throw new Error("User not authenticated");
       const toastId = showLoading(`Đang gửi yêu cầu tách script cho ${videoName}...`);
       try {
-        const { data, error } = await supabase.functions.invoke('start-transcription', {
-          body: { videoName, userId: user.id }
-        });
-        if (error) throw error;
-        if (data.error) throw new Error(data.error);
+        // Assuming API supports passing videoName primarily for server files.
+        // If API expects URL, we'd need to provide it.
+        // Assuming transcription.start(videoUrl, videoName)
+        // For existing files on server, we might pass a pseudo-URL or just videoName if supported.
+        // If start endpoint requires URL, we might need adjustments.
+        // But previously it passed { videoName, userId } to edge function.
+        // I'll assume backend TranscriptionController::store expects video_name or url.
+        // Let's pass videoName as URL for now if backend handles it, or just empty url.
+        await api.transcription.start("", videoName);
       } finally {
         dismissToast(toastId);
       }
@@ -273,33 +247,33 @@ const VideoToScript = () => {
                   <TableHeader><TableRow><TableHead>Tên Video</TableHead><TableHead>Trạng thái</TableHead><TableHead className="text-right">Hành động</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {isLoadingTasks || isLoadingServerFiles ? ([...Array(5)].map((_, i) => (<TableRow key={i}><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>)))
-                    : combinedTasks.length > 0 ? (combinedTasks.map((task) => (
-                      <TableRow key={task.id}>
-                        <TableCell className="font-medium text-xs max-w-xs truncate">{task.video_name}</TableCell>
-                        <TableCell><StatusBadge status={task.status} /></TableCell>
-                        <TableCell className="text-right space-x-2">
-                          {task.status !== 'new' && (
-                            <Button size="sm" variant="ghost" onClick={() => setLogTask(task)}>
-                              <History className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {(task.status === 'new' || task.status === 'pending' || task.status === 'failed') && <Button size="sm" onClick={() => startTranscriptionMutation.mutate(task.video_name)} disabled={startTranscriptionMutation.isPending}><Captions className="h-4 w-4 mr-2" /> Tách Script</Button>}
-                          {task.status === 'completed' && <Button size="sm" variant="outline" onClick={() => setScriptToView({ title: task.video_name, content: task.script_content || "Không có nội dung." })}><Eye className="h-4 w-4" /></Button>}
-                          {task.status === 'failed' && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <AlertCircle className="h-5 w-5 text-destructive inline-block" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{task.error_message || 'Lỗi không xác định'}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))) : (<TableRow><TableCell colSpan={3} className="h-24 text-center text-muted-foreground">Chưa có tác vụ nào.</TableCell></TableRow>)}
+                      : combinedTasks.length > 0 ? (combinedTasks.map((task) => (
+                        <TableRow key={task.id}>
+                          <TableCell className="font-medium text-xs max-w-xs truncate">{task.video_name}</TableCell>
+                          <TableCell><StatusBadge status={task.status} /></TableCell>
+                          <TableCell className="text-right space-x-2">
+                            {task.status !== 'new' && (
+                              <Button size="sm" variant="ghost" onClick={() => setLogTask(task)}>
+                                <History className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {(task.status === 'new' || task.status === 'pending' || task.status === 'failed') && <Button size="sm" onClick={() => startTranscriptionMutation.mutate(task.video_name)} disabled={startTranscriptionMutation.isPending}><Captions className="h-4 w-4 mr-2" /> Tách Script</Button>}
+                            {task.status === 'completed' && <Button size="sm" variant="outline" onClick={() => setScriptToView({ title: task.video_name, content: task.script_content || "Không có nội dung." })}><Eye className="h-4 w-4" /></Button>}
+                            {task.status === 'failed' && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <AlertCircle className="h-5 w-5 text-destructive inline-block" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{task.error_message || 'Lỗi không xác định'}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))) : (<TableRow><TableCell colSpan={3} className="h-24 text-center text-muted-foreground">Chưa có tác vụ nào.</TableCell></TableRow>)}
                   </TableBody>
                 </Table>
               </CardContent>

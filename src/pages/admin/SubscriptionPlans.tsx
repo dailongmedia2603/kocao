@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { api, SubscriptionPlan } from "@/lib/apiClient";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -19,18 +20,6 @@ import { Plus, MoreHorizontal, Trash2, Edit, Loader2 } from "lucide-react";
 // Utils
 import { showSuccess, showError } from "@/utils/toast";
 
-// Type
-export type SubscriptionPlan = {
-  id: string;
-  name: string;
-  description: string | null;
-  monthly_video_limit: number;
-  monthly_voice_limit: number;
-  price: number;
-  is_active: boolean;
-  created_at: string;
-};
-
 const SubscriptionPlans = () => {
   const [isAddEditOpen, setAddEditOpen] = useState(false);
   const [planToEdit, setPlanToEdit] = useState<SubscriptionPlan | null>(null);
@@ -40,33 +29,14 @@ const SubscriptionPlans = () => {
   const { data: plans = [], isLoading } = useQuery<SubscriptionPlan[]>({
     queryKey: ["subscription_plans"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("subscription_plans").select("*").order("created_at", { ascending: false });
-      if (error) throw new Error(error.message);
-      return data;
+      // Use api.admin.plans.list()
+      return api.admin.plans.list();
     },
   });
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('subscription-plans-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'subscription_plans' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['subscription_plans'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-
   const deletePlanMutation = useMutation({
     mutationFn: async (planId: string) => {
-      const { error } = await supabase.from("subscription_plans").delete().eq("id", planId);
-      if (error) throw error;
+      await api.admin.plans.delete(planId);
     },
     onSuccess: () => {
       showSuccess("Xóa gói cước thành công!");
@@ -131,7 +101,7 @@ const SubscriptionPlans = () => {
                         {plan.is_active ? "Hoạt động" : "Không hoạt động"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{format(new Date(plan.created_at), 'dd/MM/yyyy', { locale: vi })}</TableCell>
+                    <TableCell>{plan.created_at ? format(new Date(plan.created_at), 'dd/MM/yyyy', { locale: vi }) : 'N/A'}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

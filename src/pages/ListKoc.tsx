@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api, Koc } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import KocMobileNav from "@/components/koc/KocMobileNav";
 
@@ -19,24 +19,11 @@ import { EditKocDialog } from "@/components/koc/EditKocDialog";
 import { DeleteKocDialog } from "@/components/koc/DeleteKocDialog";
 import { KocCard } from "@/components/koc/KocCard";
 
-type Koc = {
-  id: string;
-  name: string;
-  field: string | null;
-  avatar_url: string | null;
-  created_at: string;
-  channel_url: string | null;
-  folder_path: string | null;
-  video_count: number;
-  default_cloned_voice_id?: string | null;
-};
-
-const fetchKocs = async (userId: string) => {
-  const { data, error } = await supabase
-    .rpc('get_kocs_with_video_count', { p_user_id: userId });
-
-  if (error) throw new Error(error.message);
-  return data as Koc[];
+// Extended Koc type with video count from stats
+type KocWithStats = Koc & {
+  video_count?: number;
+  files_count?: number;
+  ideas_count?: number;
 };
 
 const ListKoc = () => {
@@ -45,39 +32,28 @@ const ListKoc = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedKoc, setSelectedKoc] = useState<Koc | null>(null);
+  const [selectedKoc, setSelectedKoc] = useState<KocWithStats | null>(null);
 
-  const { data: kocs, isLoading, isError, error } = useQuery<Koc[]>({
+  const { data: kocs, isLoading, isError, error } = useQuery<KocWithStats[]>({
     queryKey: ["kocs", user?.id],
-    queryFn: () => fetchKocs(user!.id),
+    queryFn: async () => {
+      const data = await api.kocs.listWithStats();
+      // Map files_count to video_count for backward compatibility
+      return data.map(koc => ({
+        ...koc,
+        video_count: koc.files_count || 0,
+      }));
+    },
     enabled: !!user,
+    refetchInterval: 30000, // Poll every 30s instead of realtime
   });
 
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel('kocs-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'kocs', filter: `user_id=eq.${user.id}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['kocs', user.id] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, queryClient]);
-
-  const handleEdit = (koc: Koc) => {
+  const handleEdit = (koc: KocWithStats) => {
     setSelectedKoc(koc);
     setIsEditDialogOpen(true);
   };
 
-  const handleDelete = (koc: Koc) => {
+  const handleDelete = (koc: KocWithStats) => {
     setSelectedKoc(koc);
     setIsDeleteDialogOpen(true);
   };
@@ -124,7 +100,7 @@ const ListKoc = () => {
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Lỗi</AlertTitle>
-            <AlertDescription>{error.message}</AlertDescription>
+            <AlertDescription>{(error as Error).message}</AlertDescription>
           </Alert>
         )}
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { api, VoiceTask } from '@/lib/apiClient';
 import { useSession } from '@/contexts/SessionContext';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -9,16 +9,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Library, CheckCircle, Loader2, AlertCircle, Music, Mic, Check } from 'lucide-react';
 import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-
-type VoiceTask = {
-  id: string;
-  voice_name: string;
-  audio_url: string;
-  created_at: string;
-};
 
 type VoiceTaskGroup = {
   voice_name: string;
@@ -40,9 +32,24 @@ export const VoiceTaskSelector = ({ onAudioUrlSelect, selectedAudioUrl }: VoiceT
     queryKey: ['completed_voice_tasks_grouped', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase.rpc('get_completed_voice_tasks_grouped', { p_user_id: user.id });
-      if (error) throw error;
-      return data || [];
+      const tasks = await api.voice.tasks();
+
+      // Filter for completed tasks and group by voice_name
+      const completedTasks = tasks.filter(t => t.status === 'success' || t.status === 'completed' || t.audio_url);
+
+      const groups: Record<string, VoiceTask[]> = {};
+      completedTasks.forEach(task => {
+        const name = task.voice_name || 'Unknown Voice';
+        if (!groups[name]) {
+          groups[name] = [];
+        }
+        groups[name].push(task);
+      });
+
+      return Object.entries(groups).map(([voice_name, tasks]) => ({
+        voice_name,
+        tasks: tasks.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) // Sort tasks by date desc
+      }));
     },
     enabled: isOpen && !!user,
   });
@@ -110,7 +117,7 @@ export const VoiceTaskSelector = ({ onAudioUrlSelect, selectedAudioUrl }: VoiceT
                                 {tempSelectedUrl === task.audio_url && <Check className="h-4 w-4 text-red-600" />}
                                 <p className="font-medium text-sm">{task.voice_name}</p>
                               </div>
-                              <audio controls src={task.audio_url} className="h-8 w-full" onClick={(e) => e.stopPropagation()} />
+                              <audio controls src={task.audio_url || ''} className="h-8 w-full" onClick={(e) => e.stopPropagation()} />
                             </div>
                             <p className="text-xs text-muted-foreground flex-shrink-0 ml-4">{format(new Date(task.created_at), 'dd/MM/yyyy')}</p>
                           </div>

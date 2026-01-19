@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api, AiTemplate } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -27,24 +27,10 @@ const formSchema = z.object({
   example_dialogue: z.string().optional(),
 });
 
-type PromptTemplate = {
-  id: string;
-  name: string;
-  general_prompt?: string | null;
-  model?: string | null;
-  word_count?: number | null;
-  tone_of_voice?: string | null;
-  writing_style?: string | null;
-  writing_method?: string | null;
-  ai_role?: string | null;
-  mandatory_requirements?: string | null;
-  example_dialogue?: string | null;
-};
-
 type AddEditPromptTemplateDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  template: PromptTemplate | null;
+  template: AiTemplate | null;
 };
 
 export const AddEditPromptTemplateDialog = ({ isOpen, onOpenChange, template }: AddEditPromptTemplateDialogProps) => {
@@ -73,7 +59,7 @@ export const AddEditPromptTemplateDialog = ({ isOpen, onOpenChange, template }: 
         form.reset({
           name: template.name,
           general_prompt: template.general_prompt || "",
-          model: template.model || "gemini-2.5-pro",
+          model: (template as any).model || "gemini-2.5-pro", // Cast if model missing in interface but present in DB/api response
           word_count: template.word_count || 300,
           tone_of_voice: template.tone_of_voice || "",
           writing_style: template.writing_style || "",
@@ -101,18 +87,18 @@ export const AddEditPromptTemplateDialog = ({ isOpen, onOpenChange, template }: 
 
   const upsertMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      if (!user) throw new Error("User not authenticated");
-      const payload = {
-        ...values,
-        id: template?.id,
-        user_id: user.id,
-      };
-      const { error } = await supabase.from("ai_prompt_templates").upsert(payload);
-      if (error) throw error;
+      // Logic split: Create or Update
+      if (template && template.id) {
+        // Update
+        await api.aiTemplates.update(template.id, values);
+      } else {
+        // Create
+        await api.aiTemplates.create(values);
+      }
     },
     onSuccess: () => {
       showSuccess(template ? "Cập nhật template thành công!" : "Thêm template thành công!");
-      queryClient.invalidateQueries({ queryKey: ["ai_prompt_templates", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["ai_prompt_templates"] }); // Removed user?.id dependency for key as it might be general list
       onOpenChange(false);
     },
     onError: (error: Error) => showError(`Lỗi: ${error.message}`),

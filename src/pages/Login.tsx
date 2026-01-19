@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { api, setAuthToken } from "@/lib/apiClient";
 import { useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useSession } from "@/contexts/SessionContext";
@@ -9,18 +9,19 @@ import { Mail, Eye, EyeOff } from "lucide-react";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { session } = useSession();
+  const { user, refreshUser } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
-    if (session) {
+    if (user) {
       navigate("/");
     }
-  }, [session, navigate]);
+  }, [user, navigate]);
 
   useEffect(() => {
     const rememberedEmail = localStorage.getItem('rememberedEmail');
@@ -30,22 +31,32 @@ const Login = () => {
     }
   }, []);
 
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      setError("Invalid login credentials. Please try again.");
-    } else {
+    setLoading(true);
+
+    try {
+      const response = await api.auth.login({ email, password });
+
+      // Save token
+      setAuthToken(response.token);
+
+      // Remember email if checked
       if (rememberMe) {
         localStorage.setItem('rememberedEmail', email);
       } else {
         localStorage.removeItem('rememberedEmail');
       }
+
+      // Refresh user data in context
+      await refreshUser();
+
       navigate("/");
+    } catch (err: any) {
+      setError(err.message || "Invalid login credentials. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -53,9 +64,9 @@ const Login = () => {
     <div className="flex h-screen overflow-hidden bg-white font-sans">
       <div className="w-full lg:w-1/2 flex flex-col p-8 sm:p-12">
         <div className="flex-shrink-0">
-            <img src="/logokocao.png" alt="Logo" className="h-20 w-auto mx-auto lg:mx-0" />
+          <img src="/logokocao.png" alt="Logo" className="h-20 w-auto mx-auto lg:mx-0" />
         </div>
-        
+
         <div className="flex-grow flex items-center justify-center">
           <div className="w-full max-w-sm">
             <div className="text-center lg:text-left mb-8">
@@ -93,8 +104,8 @@ const Login = () => {
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
-                  <Checkbox 
-                    id="remember-me" 
+                  <Checkbox
+                    id="remember-me"
                     className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500"
                     checked={rememberMe}
                     onCheckedChange={(checked) => setRememberMe(Boolean(checked))}
@@ -107,7 +118,13 @@ const Login = () => {
               </div>
               {error && <p className="text-red-500 text-sm text-center">{error}</p>}
               <div>
-                <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base font-bold rounded-lg">Đăng nhập</Button>
+                <Button
+                  type="submit"
+                  className="w-full bg-red-600 hover:bg-red-700 text-white h-12 text-base font-bold rounded-lg"
+                  disabled={loading}
+                >
+                  {loading ? "Đang đăng nhập..." : "Đăng nhập"}
+                </Button>
               </div>
             </form>
             <div className="mt-6">

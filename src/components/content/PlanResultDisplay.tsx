@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { ContentPlan } from "@/types/contentPlan";
+import { ContentPlan, ContentIdea, api } from "@/lib/apiClient";
 import ReactMarkdown from "react-markdown";
 import { parseContentPlan } from "@/lib/contentPlanParser";
 import { useSession } from "@/contexts/SessionContext";
@@ -33,25 +32,20 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
     queryKey: ['content_plan_detail', planId],
     queryFn: async () => {
       if (!planId) return null;
-      const { data, error } = await supabase.from('content_plans').select('*').eq('id', planId).single();
-      if (error) throw error;
-      return data;
+      return api.contentPlan.get(planId);
     },
     enabled: !isNew,
   });
 
-  const { data: existingKocIdeas } = useQuery<{ idea_content: string }[]>({
-    queryKey: ['koc_content_ideas', plan?.koc_id],
+  const kocId = plan?.content?.type === 'plan' ? plan.content.kocId || plan.content.koc_id : null;
+
+  const { data: existingKocIdeas } = useQuery<ContentIdea[]>({
+    queryKey: ['koc_content_ideas', kocId],
     queryFn: async () => {
-      if (!plan?.koc_id) return [];
-      const { data, error } = await supabase
-        .from('koc_content_ideas')
-        .select('idea_content')
-        .eq('koc_id', plan.koc_id);
-      if (error) throw error;
-      return data;
+      if (!kocId) return [];
+      return api.ideas.list(kocId);
     },
-    enabled: !!plan?.koc_id,
+    enabled: !!kocId,
   });
 
   const existingIdeaContents = useMemo(() => {
@@ -62,17 +56,14 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
   const addIdeaToKocMutation = useMutation({
     mutationFn: async ({ kocId, ideaTitle, ideaScript }: { kocId: string, ideaTitle: string, ideaScript: string }) => {
       if (!user) throw new Error("User not authenticated.");
-      
+
       const combinedContent = `**${ideaTitle}**\n\n${ideaScript}`;
 
-      const { error } = await supabase.from('koc_content_ideas').insert({
+
+      await api.ideas.create({
         koc_id: kocId,
-        user_id: user.id,
-        idea_content: combinedContent,
-        new_content: null,
-        status: 'Chưa sử dụng',
+        idea_content: combinedContent
       });
-      if (error) throw error;
     },
     onSuccess: (_, variables) => {
       showSuccess(`Đã thêm idea "${variables.ideaTitle}" vào kênh KOC!`);
@@ -89,10 +80,10 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
   const handleAddIdeaToKoc = (e: React.MouseEvent, idea: { title: string; script: string }) => {
     e.stopPropagation();
     e.preventDefault();
-    if (plan?.koc_id) {
+    if (kocId) {
       setAddingIdeaTitle(idea.title);
       addIdeaToKocMutation.mutate({
-        kocId: plan.koc_id,
+        kocId: kocId,
         ideaTitle: idea.title,
         ideaScript: idea.script,
       });
@@ -102,16 +93,21 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
   };
 
   const parsedContent = useMemo(() => {
-    if (plan?.results?.content) {
+    // Check if content exists in the 'content' JSON field (mapped from backend)
+    // The backend stores everything in 'content' column.
+    // Our refactored TaoKeHoach stores { results: ... } inside 'content'.
+    // So access plan.content.results.content
+    const resultJson = plan?.content?.results;
+    if (resultJson?.content) {
       try {
-        return parseContentPlan(plan.results.content);
+        return parseContentPlan(resultJson.content);
       } catch (e) {
         console.error("Failed to parse content plan:", e);
         return null;
       }
     }
     return null;
-  }, [plan?.results?.content]);
+  }, [plan]);
 
   const allIdeas = useMemo(() => {
     const initialIdeas = parsedContent?.ideas.map(idea => ({
@@ -119,13 +115,14 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
       script: idea.script,
     })) || [];
 
-    const additionalIdeas = (plan?.results?.video_ideas || []).map((idea: any) => ({
+    // Additional ideas also stored in results
+    const additionalIdeas = (plan?.content?.results?.video_ideas || []).map((idea: any) => ({
       title: idea.topic,
       script: idea.description,
     }));
 
     return [...initialIdeas, ...additionalIdeas];
-  }, [parsedContent, plan?.results?.video_ideas]);
+  }, [parsedContent, plan]);
 
   const renderContent = () => {
     if (isLoading) {
@@ -140,7 +137,12 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
       return <div className="flex flex-col items-center justify-center text-center text-muted-foreground h-96 border-2 border-dashed rounded-lg"><Bot className="h-12 w-12 mb-4" /><p className="font-semibold">Chờ bạn nhập thông tin</p><p className="text-sm">Hãy điền vào biểu mẫu và bấm "Tạo kế hoạch" để xem kết quả.</p></div>;
     }
 
+    // Status is top-level in ContentPlan
     if (plan && (plan.status === 'generating' || !parsedContent)) {
+      // If status is completed but parse failed, might show error or empty
+      if (plan.status === 'completed' && !parsedContent) {
+        return <div className="p-4 text-center text-red-500">Dữ liệu kế hoạch bị lỗi hoặc không thể phân tích.</div>
+      }
       return <div className="flex flex-col items-center justify-center text-center text-muted-foreground h-96 border-2 border-dashed rounded-lg"><Loader2 className="h-12 w-12 mb-4 animate-spin" /><p className="font-semibold">Kế hoạch đang được xử lý...</p><p className="text-sm">Kết quả sẽ sớm được hiển thị ở đây.</p></div>;
     }
 
@@ -148,7 +150,7 @@ export const PlanResultDisplay = ({ planId, onGenerateMore, isGeneratingMore }: 
       return (
         <div className="space-y-6">
           <h2 className="text-2xl font-bold text-center">{parsedContent.title}</h2>
-          
+
           <Card><CardHeader><CardTitle className="flex items-center gap-3"><Target className="h-6 w-6 text-blue-500" />Chiến lược tổng thể</CardTitle></CardHeader><CardContent><article className="prose prose-sm max-w-none"><ReactMarkdown>{parsedContent.strategy}</ReactMarkdown></article></CardContent></Card>
 
           <Card><CardHeader><CardTitle className="flex items-center gap-3"><Columns className="h-6 w-6 text-green-500" />Các trụ cột nội dung chính</CardTitle></CardHeader><CardContent><Accordion type="single" collapsible className="w-full space-y-2">{parsedContent.pillars.map((pillar, index) => (<AccordionItem value={`pillar-${index}`} key={index} className="border rounded-lg"><AccordionTrigger className="p-4 font-semibold hover:no-underline">{pillar.title}</AccordionTrigger><AccordionContent className="p-4 border-t"><article className="prose prose-sm max-w-none"><ReactMarkdown>{pillar.content}</ReactMarkdown></article></AccordionContent></AccordionItem>))}</Accordion></CardContent></Card>

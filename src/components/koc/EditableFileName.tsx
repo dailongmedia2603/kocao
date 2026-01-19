@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/lib/apiClient';
 import { Input } from '@/components/ui/input';
 import { showSuccess, showError } from '@/utils/toast';
 
@@ -18,11 +18,7 @@ export const EditableFileName = ({ fileId, initialName, queryKey }: EditableFile
 
   const renameMutation = useMutation({
     mutationFn: async (newName: string) => {
-      const { error } = await supabase.rpc('update_koc_file_name', {
-        file_id: fileId,
-        new_name: newName,
-      });
-      if (error) throw error;
+      await api.kocFiles.rename(fileId, newName);
       return newName;
     },
     onSuccess: (newName) => {

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import {
@@ -35,19 +35,13 @@ export const DeleteKocDialog = ({ isOpen, onOpenChange, koc }: DeleteKocDialogPr
         throw new Error("Không có KOC nào được chọn để xóa.");
       }
 
-      // Gọi edge function để xử lý việc xóa KOC và thư mục R2
-      const { error } = await supabase.functions.invoke("delete-koc", {
-        body: { kocId: kocToDelete.id },
-      });
-
-      if (error) {
-        throw new Error(`Lỗi xóa KOC: ${error.message}`);
-      }
+      // Call API to delete KOC - backend handles R2 cleanup
+      return api.kocs.delete(kocToDelete.id);
     },
     onSuccess: () => {
-      showSuccess("Xóa KOC và thư mục trên R2 thành công!");
+      showSuccess("Xóa KOC thành công!");
       queryClient.invalidateQueries({ queryKey: ["kocs", user?.id] });
-      onOpenChange(false); // Chỉ đóng popup khi thành công
+      onOpenChange(false);
     },
     onError: (error: Error) => {
       showError(error.message);
@@ -55,7 +49,6 @@ export const DeleteKocDialog = ({ isOpen, onOpenChange, koc }: DeleteKocDialogPr
   });
 
   const handleDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
-    // Ngăn hành vi mặc định của AlertDialogAction (là tự động đóng popup)
     event.preventDefault();
     if (koc) {
       deleteKocMutation.mutate(koc);
@@ -68,7 +61,7 @@ export const DeleteKocDialog = ({ isOpen, onOpenChange, koc }: DeleteKocDialogPr
         <AlertDialogHeader>
           <AlertDialogTitle>Bạn có chắc chắn muốn xóa KOC?</AlertDialogTitle>
           <AlertDialogDescription>
-            Hành động này không thể hoàn tác. Thao tác này sẽ xóa vĩnh viễn KOC "{koc?.name}", ảnh đại diện và tất cả các tệp trong thư mục R2 liên quan.
+            Hành động này không thể hoàn tác. Thao tác này sẽ xóa vĩnh viễn KOC "{koc?.name}" và tất cả các tệp liên quan.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

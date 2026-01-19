@@ -1,10 +1,10 @@
-import { useMemo, useEffect } from "react";
+import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { vi } from "date-fns/locale";
 import { useSession } from "@/contexts/SessionContext";
 import { formatInTimeZone } from 'date-fns-tz';
+import { api, ContentIdea } from "@/lib/apiClient";
 
 // UI Components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,24 +16,13 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Calendar, FileText, Mic, Video, CheckCircle, Loader2, AlertCircle, Clock } from "lucide-react";
 
 // Types
-type ActivityLog = {
-    activity_date: string;
-    idea_id: string;
-    idea_content: string;
-    idea_status: string;
-    idea_created_at: string;
-    voice_task_id: string | null;
-    voice_status: string | null;
-    voice_audio_url: string | null;
-    dreamface_task_id: string | null;
-    dreamface_status: string | null;
-    video_file_id: string | null;
-    video_display_name: string | null;
-    video_thumbnail_url: string | null;
-    video_url: string | null;
-};
+// ActivityLog matches ContentIdea from API but with specific structure logic
+// api.automation.activityLog returns ContentIdea[]
+// We need to map ContentIdea to the UI usage.
+// ContentIdea has: id, idea_content, status, voice_task (obj), dreamface_task (obj), final_video_file (obj), created_at
+// UI expects: activity_date, idea_id, idea_content, idea_status, idea_created_at, voice_task_id, voice_status, voice_audio_url, etc.
 
-const TimelineStep = ({ icon: Icon, title, status, children, statusColor }) => (
+const TimelineStep = ({ icon: Icon, title, status, children, statusColor }: any) => (
     <div className="flex gap-4">
         <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${statusColor.bg}`}>
             <Icon className={`h-5 w-5 ${statusColor.text}`} />
@@ -52,68 +41,39 @@ const TimelineStep = ({ icon: Icon, title, status, children, statusColor }) => (
 
 const AutomationDetail = () => {
     const { campaignId } = useParams<{ campaignId: string }>();
-    const queryClient = useQueryClient();
     const { user } = useSession();
 
-    const queryKey = ['campaign_activity_log', campaignId];
-
-    useEffect(() => {
-        if (!user || !campaignId) return;
-
-        const channel = supabase
-            .channel(`campaign-activity:${campaignId}`)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'automation_campaigns', filter: `id=eq.${campaignId}` }, () => {
-                queryClient.invalidateQueries({ queryKey: ['automation_campaign', campaignId] });
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'koc_content_ideas' }, () => {
-                queryClient.invalidateQueries({ queryKey });
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'voice_tasks' }, () => {
-                queryClient.invalidateQueries({ queryKey });
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'dreamface_tasks' }, () => {
-                queryClient.invalidateQueries({ queryKey });
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [queryClient, campaignId, user, queryKey]);
-
+    // Queries
     const { data: campaign, isLoading: isLoadingCampaign } = useQuery({
         queryKey: ['automation_campaign', campaignId],
         queryFn: async () => {
-            const { data, error } = await supabase.from('automation_campaigns').select('name').eq('id', campaignId!).single();
-            if (error) throw error;
-            return data;
+            if (!campaignId) return null;
+            return api.automation.get(campaignId);
         },
         enabled: !!campaignId,
     });
 
-    const { data: activities, isLoading: isLoadingActivities } = useQuery<ActivityLog[]>({
-        queryKey,
+    const { data: activities, isLoading: isLoadingActivities } = useQuery<ContentIdea[]>({
+        queryKey: ['campaign_activity_log', campaignId],
         queryFn: async () => {
-            const { data, error } = await supabase.functions.invoke('get-campaign-activity-log-edge', {
-                body: { campaignId }
-            });
-            if (error) throw error;
-            if (data.error) throw new Error(data.error);
-            return data || [];
+            if (!campaignId) return [];
+            return api.automation.activityLog(campaignId);
         },
         enabled: !!campaignId,
+        refetchInterval: 10000,
     });
 
     const groupedActivities = useMemo(() => {
         if (!activities) return {};
+        // Use ContentIdea fields
         return activities.reduce((acc, activity) => {
-            const date = formatInTimeZone(new Date(activity.idea_created_at), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy', { locale: vi });
+            const date = formatInTimeZone(new Date(activity.created_at), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy', { locale: vi });
             if (!acc[date]) {
                 acc[date] = [];
             }
             acc[date].push(activity);
             return acc;
-        }, {} as Record<string, ActivityLog[]>);
+        }, {} as Record<string, ContentIdea[]>);
     }, [activities]);
 
     const getStatusInfo = (status: string | null) => {
@@ -168,44 +128,54 @@ const AutomationDetail = () => {
                                     </AccordionTrigger>
                                     <AccordionContent className="p-4 border-t bg-white">
                                         <Accordion type="multiple" defaultValue={['run-0']} className="w-full space-y-4">
-                                            {activitiesForDate.map((activity, index) => (
-                                                <AccordionItem key={activity.idea_id} value={`run-${index}`} className="border rounded-lg">
-                                                    <AccordionTrigger className="p-4 hover:no-underline">
-                                                        <div className="flex items-center justify-between w-full gap-2">
-                                                            <div className="flex items-center gap-2 text-left overflow-hidden min-w-0">
-                                                                <span className="font-semibold text-primary flex-shrink-0">Lần {index + 1}</span>
-                                                                <p className="text-sm text-muted-foreground truncate min-w-0">
-                                                                    {activity.idea_content}
-                                                                </p>
-                                                            </div>
-                                                            <Badge variant="outline" className="flex-shrink-0">{formatInTimeZone(new Date(activity.idea_created_at), 'Asia/Ho_Chi_Minh', 'HH:mm')}</Badge>
-                                                        </div>
-                                                    </AccordionTrigger>
-                                                    <AccordionContent className="p-4 border-t space-y-6">
-                                                        <TimelineStep icon={FileText} title="Ý tưởng" status="Đã xử lý" statusColor={getStatusInfo('completed').color}>
-                                                            <p>{activity.idea_content}</p>
-                                                        </TimelineStep>
-                                                        <TimelineStep icon={Mic} title="Tạo Voice" status={getStatusInfo(activity.voice_status).text} statusColor={getStatusInfo(activity.voice_status).color}>
-                                                            {activity.voice_audio_url && <audio controls src={activity.voice_audio_url} className="h-8 w-full" />}
-                                                        </TimelineStep>
-                                                        <TimelineStep icon={Video} title="Tạo Video" status={getStatusInfo(activity.dreamface_status).text} statusColor={getStatusInfo(activity.dreamface_status).color}>
-                                                            {activity.video_url ? (
-                                                                <video
-                                                                    controls
-                                                                    src={activity.video_url}
-                                                                    poster={activity.video_thumbnail_url || undefined}
-                                                                    className="w-full max-w-xs rounded-lg"
-                                                                />
-                                                            ) : activity.video_thumbnail_url && (
-                                                                <div className="flex items-center gap-2">
-                                                                    <img src={activity.video_thumbnail_url} alt="thumbnail" className="h-12 w-12 rounded-md object-cover" />
-                                                                    <p className="font-medium">{activity.video_display_name}</p>
+                                            {activitiesForDate.map((activity, index) => {
+                                                // Extract details from nested objects if available
+                                                const voiceStatus = activity.voice_task?.status || 'pending';
+                                                const voiceAudioUrl = activity.voice_audio_url || activity.voice_task?.audio_url;
+                                                const dreamfaceStatus = activity.dreamface_task?.status || 'pending';
+                                                const videoUrl = activity.final_video_file?.url || activity.dreamface_task?.result_video_url;
+                                                const videoThumbnail = activity.final_video_file?.thumbnail_url;
+                                                const videoName = activity.final_video_file?.display_name || 'Video';
+
+                                                return (
+                                                    <AccordionItem key={activity.id} value={`run-${index}`} className="border rounded-lg">
+                                                        <AccordionTrigger className="p-4 hover:no-underline">
+                                                            <div className="flex items-center justify-between w-full gap-2">
+                                                                <div className="flex items-center gap-2 text-left overflow-hidden min-w-0">
+                                                                    <span className="font-semibold text-primary flex-shrink-0">Lần {index + 1}</span>
+                                                                    <p className="text-sm text-muted-foreground truncate min-w-0">
+                                                                        {activity.idea_content}
+                                                                    </p>
                                                                 </div>
-                                                            )}
-                                                        </TimelineStep>
-                                                    </AccordionContent>
-                                                </AccordionItem>
-                                            ))}
+                                                                <Badge variant="outline" className="flex-shrink-0">{formatInTimeZone(new Date(activity.created_at), 'Asia/Ho_Chi_Minh', 'HH:mm')}</Badge>
+                                                            </div>
+                                                        </AccordionTrigger>
+                                                        <AccordionContent className="p-4 border-t space-y-6">
+                                                            <TimelineStep icon={FileText} title="Ý tưởng" status="Đã xử lý" statusColor={getStatusInfo(activity.status === 'completed' ? 'completed' : 'processing').color}>
+                                                                <p>{activity.idea_content}</p>
+                                                            </TimelineStep>
+                                                            <TimelineStep icon={Mic} title="Tạo Voice" status={getStatusInfo(voiceStatus).text} statusColor={getStatusInfo(voiceStatus).color}>
+                                                                {voiceAudioUrl && <audio controls src={voiceAudioUrl} className="h-8 w-full" />}
+                                                            </TimelineStep>
+                                                            <TimelineStep icon={Video} title="Tạo Video" status={getStatusInfo(dreamfaceStatus).text} statusColor={getStatusInfo(dreamfaceStatus).color}>
+                                                                {videoUrl ? (
+                                                                    <video
+                                                                        controls
+                                                                        src={videoUrl}
+                                                                        poster={videoThumbnail || undefined}
+                                                                        className="w-full max-w-xs rounded-lg"
+                                                                    />
+                                                                ) : videoThumbnail && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <img src={videoThumbnail} alt="thumbnail" className="h-12 w-12 rounded-md object-cover" />
+                                                                        <p className="font-medium">{videoName}</p>
+                                                                    </div>
+                                                                )}
+                                                            </TimelineStep>
+                                                        </AccordionContent>
+                                                    </AccordionItem>
+                                                );
+                                            })}
                                         </Accordion>
                                     </AccordionContent>
                                 </AccordionItem>

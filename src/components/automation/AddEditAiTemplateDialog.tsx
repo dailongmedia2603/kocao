@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -78,17 +78,15 @@ export const AddEditAiTemplateDialog = ({ isOpen, onOpenChange, template }: AddE
   const mutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
-      const dataToUpsert = { 
-        ...values, 
+      const dataToUpsert = {
+        ...values,
         user_id: user.id,
         is_public: profile?.role === 'admin' ? values.is_public : false,
       };
       if (template) {
-        const { error } = await supabase.from("ai_prompt_templates").update(dataToUpsert).eq("id", template.id);
-        if (error) throw error;
+        await api.aiTemplates.update(template.id, dataToUpsert);
       } else {
-        const { error } = await supabase.from("ai_prompt_templates").insert(dataToUpsert);
-        if (error) throw error;
+        await api.aiTemplates.create(dataToUpsert);
       }
     },
     onSuccess: () => {

@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api, ClonedVoice } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -19,21 +19,10 @@ const formSchema = z.object({
   default_cloned_voice_id: z.string().optional(),
 });
 
-const slugify = (text: string) => {
-  return text.toString().toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^\w\-]+/g, '')
-    .replace(/\-\-+/g, '-')
-    .replace(/^-+/, '')
-    .replace(/-+$/, '');
-};
-
 type CreateKocDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 };
-
-type ClonedVoice = { voice_id: string; voice_name: string; };
 
 export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) => {
   const queryClient = useQueryClient();
@@ -41,15 +30,7 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
 
   const { data: voices, isLoading: isLoadingVoices } = useQuery<ClonedVoice[]>({
     queryKey: ['cloned_voices_for_user', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('cloned_voices')
-        .select('voice_id, voice_name')
-        .eq('user_id', user.id);
-      if (error) throw error;
-      return data as ClonedVoice[];
-    },
+    queryFn: () => api.voice.clonedVoices(),
     enabled: !!user && isOpen,
   });
 
@@ -62,51 +43,19 @@ export const CreateKocDialog = ({ isOpen, onOpenChange }: CreateKocDialogProps) 
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
 
+      // Find selected voice details
       const selectedVoice = voices?.find(v => v.voice_id === values.default_cloned_voice_id);
 
-      const { data: newKoc, error: dbError } = await supabase
-        .from("kocs")
-        .insert({ 
-          user_id: user.id, 
-          name: values.name, 
-          field: values.field, 
-          avatar_url: null,
-          channel_url: values.channel_url || null,
-          default_cloned_voice_id: selectedVoice?.voice_id || null,
-          default_cloned_voice_name: selectedVoice?.voice_name || null,
-        })
-        .select("id")
-        .single();
-
-      if (dbError) {
-        throw new Error(`Lỗi tạo KOC: ${dbError.message}`);
-      }
-
-      const folderPath = `${slugify(values.name)}-${newKoc.id.substring(0, 8)}`;
-      
-      const { error: functionError } = await supabase.functions.invoke("create-r2-folder", {
-        body: { folderPath },
+      // Create KOC via API - backend handles R2 folder creation
+      return api.kocs.create({
+        name: values.name,
+        field: values.field,
+        channel_url: values.channel_url || undefined,
+        // Note: default_cloned_voice_id will be handled by backend update
       });
-
-      if (functionError) {
-        await supabase.from("kocs").delete().eq("id", newKoc.id);
-        throw new Error(`Lỗi tạo thư mục R2: ${functionError.message}`);
-      }
-
-      const { error: updateError } = await supabase
-        .from("kocs")
-        .update({ folder_path: folderPath })
-        .eq("id", newKoc.id);
-
-      if (updateError) {
-        // Rollback: Attempt to delete folder and KOC record
-        await supabase.functions.invoke("delete-r2-folder", { body: { folderPath } });
-        await supabase.from("kocs").delete().eq("id", newKoc.id);
-        throw new Error(`Lỗi cập nhật KOC: ${updateError.message}`);
-      }
     },
     onSuccess: () => {
-      showSuccess("Tạo KOC và thư mục trên R2 thành công!");
+      showSuccess("Tạo KOC thành công!");
       queryClient.invalidateQueries({ queryKey: ["kocs", user?.id] });
       queryClient.invalidateQueries({ queryKey: ["onboarding_kocs", user?.id] });
       onOpenChange(false);

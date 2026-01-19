@@ -12,7 +12,7 @@ import { MoreHorizontal, Edit, Trash2, Tag, Link as LinkIcon, Video, ScanLine, L
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
 import { useRef } from "react";
@@ -23,7 +23,7 @@ type Koc = {
   field: string | null;
   avatar_url: string | null;
   channel_url: string | null;
-  video_count: number;
+  video_count?: number;
   follower_count?: number | null;
   like_count?: number | null;
   generated_video_count?: number;
@@ -61,21 +61,16 @@ export const KocCard = ({ koc, onEdit, onDelete }: KocCardProps) => {
       if (!koc.channel_url) {
         throw new Error("KOC không có link kênh để quét.");
       }
-      const { data, error } = await supabase.functions.invoke("scan-single-koc", {
-        body: { kocId },
-      });
-      if (error) throw new Error(error.message);
-      if (data.error) throw new Error(data.error);
-      return data;
+      return api.kocs.scanStats(kocId);
     },
     onMutate: () => {
       loadingToastId.current = showLoading("Đang quét kênh, vui lòng chờ...");
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       if (loadingToastId.current) {
         dismissToast(loadingToastId.current);
       }
-      showSuccess("Quét kênh thành công! Dữ liệu đã được cập nhật.");
+      showSuccess(data.message || "Quét kênh thành công! Dữ liệu đã được cập nhật.");
       queryClient.invalidateQueries({ queryKey: ["kocs", user?.id] });
     },
     onError: (error: Error) => {

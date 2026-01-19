@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { api, KocFile } from '@/lib/apiClient';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -10,12 +10,8 @@ interface Koc {
   name: string;
 }
 
-interface KocVideo {
-  id: string;
-  url: string;
-  display_name: string;
-  thumbnail_url: string | null;
-}
+// Reuse KocFile type from apiClient but ensure it matches component expectations
+// Component expects KocVideo interface which matches KocFile structure for relevant fields
 
 interface KocVideoSelectorProps {
   kocs: Koc[];
@@ -31,12 +27,15 @@ export const KocVideoSelector = ({ kocs, isLoadingKocs, selectedKocId, onKocChan
     queryKey: ['koc_videos', selectedKocId],
     queryFn: async () => {
       if (!selectedKocId) return [];
-      const { data, error } = await supabase.functions.invoke('get-koc-videos', {
-        body: { kocId: selectedKocId }
+      const files = await api.kocFiles.list(selectedKocId);
+      // Filter for video files (assuming mime type checking or extension checking if available, otherwise assume all files or filter by URL extension)
+      // Since API doesn't guarantee mime type, checking URL extension is a safer bet on frontend if backend doesn't filter.
+      // However, usually KocFiles might contain images too.
+      // Let's filter by extensions commonly used for video.
+      return files.filter(file => {
+        const url = file.url?.toLowerCase() || '';
+        return url.endsWith('.mp4') || url.endsWith('.mov') || url.endsWith('.avi') || url.endsWith('.webm');
       });
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-      return data.data as KocVideo[];
     },
     enabled: !!selectedKocId,
   });
@@ -71,10 +70,10 @@ export const KocVideoSelector = ({ kocs, isLoadingKocs, selectedKocId, onKocChan
           ) : videos && videos.length > 0 ? (
             <div className="mt-2 max-h-64 overflow-y-auto rounded-md border">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 p-2">
-                {videos.map((video: KocVideo) => (
+                {videos.map((video: KocFile) => (
                   <div
                     key={video.id}
-                    onClick={() => onVideoChange(video.url)}
+                    onClick={() => video.url && onVideoChange(video.url)}
                     className={`relative aspect-video rounded-md overflow-hidden cursor-pointer border-2 group ${selectedVideoUrl === video.url ? 'border-red-500' : 'border-transparent'}`}
                   >
                     {video.thumbnail_url ? (

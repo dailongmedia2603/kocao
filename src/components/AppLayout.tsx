@@ -12,18 +12,18 @@ const AppLayout = () => {
   return (
     <>
       {/* Giao diện Desktop: Ẩn trên mobile (md:flex) */}
-      <div className="hidden md:flex h-screen bg-background">
+      <div className="hidden md:flex h-screen bg-gradient-to-br from-white to-primary/5">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header />
-          <main className="flex-1 overflow-y-auto bg-gray-50/50">
+          <main className="flex-1 overflow-y-auto bg-transparent">
             {loading ? <LoadingSpinner /> : <Outlet />}
           </main>
         </div>
       </div>
 
       {/* Giao diện Mobile: Chỉ hiển thị trên mobile (md:hidden) */}
-      <div className="md:hidden flex flex-col h-screen bg-gray-50/50">
+      <div className="md:hidden flex flex-col h-screen bg-gradient-to-br from-white to-primary/5">
         <MobileHeader />
         <main className="flex-1 overflow-y-auto pb-20">
           {loading ? <LoadingSpinner /> : <Outlet />}

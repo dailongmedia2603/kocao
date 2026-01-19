@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { api, User, Profile } from "@/lib/apiClient";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ import { Plus, MoreHorizontal, Trash2, Edit, UserCog, ShieldCheck, ToggleLeft, T
 import { showSuccess, showError } from "@/utils/toast";
 import { useSession } from "@/contexts/SessionContext";
 
-// Type
+// Type definition matching the UI needs
 type UserProfile = {
   id: string;
   email: string;
@@ -30,7 +31,7 @@ type UserProfile = {
   first_name: string | null;
   last_name: string | null;
   role: 'admin' | 'user';
-  status: 'active' | 'pending';
+  status: 'active' | 'pending' | 'banned'; // aligned with apiClient Profile status
   subscription_plan_name: string | null;
   subscription_plan_id: string | null;
 };
@@ -47,36 +48,28 @@ const UserManagement = () => {
   const { data: users = [], isLoading } = useQuery<UserProfile[]>({
     queryKey: ["all_users"],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("get-all-users");
-      if (error) throw new Error(error.message);
-      if (data.error) throw new Error(data.error);
-      return data;
+      // api.admin.users.list returns { data: (User & { profile?: Profile })[] }
+      const response = await api.admin.users.list();
+
+      // Map to UserProfile local type
+      return response.data.map(u => ({
+        id: u.id,
+        email: u.email,
+        created_at: u.created_at,
+        first_name: u.profile?.first_name || null,
+        last_name: u.profile?.last_name || null,
+        role: u.profile?.role || 'user',
+        status: u.profile?.status || 'pending',
+        subscription_plan_name: (u as any).subscription_plan_name || null, // Assuming backend joins this
+        subscription_plan_id: (u as any).subscription_plan_id || null
+      }));
     },
   });
 
-  // Realtime subscription
-  useEffect(() => {
-    const channel = supabase
-      .channel('user-management-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['all_users'] });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_subscriptions' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['all_users'] });
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
-
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, field, value }: { userId: string, field: 'role' | 'status', value: string }) => {
-      const functionName = field === 'role' ? 'update_user_role' : 'update_user_status';
-      const params = field === 'role' ? { user_id_to_update: userId, new_role: value } : { user_id_to_update: userId, new_status: value };
-      const { error } = await supabase.rpc(functionName, params);
-      if (error) throw error;
+      // Backend expects profile fields nested under 'profile' key
+      await api.admin.users.update(userId, { profile: { [field]: value } });
     },
     onSuccess: (_, variables) => {
       showSuccess(`Đã cập nhật ${variables.field === 'role' ? 'vai trò' : 'trạng thái'} người dùng.`);
@@ -87,11 +80,7 @@ const UserManagement = () => {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const { data, error } = await supabase.functions.invoke("delete-user", {
-        body: { userIdToDelete: userId },
-      });
-      if (error) throw new Error(error.message);
-      if (data.error) throw new Error(data.error);
+      await api.admin.users.delete(userId);
     },
     onSuccess: () => {
       showSuccess("Xóa người dùng thành công!");
@@ -204,7 +193,7 @@ const UserManagement = () => {
 
       <AddUserDialog isOpen={isAddUserOpen} onOpenChange={setAddUserOpen} />
       <AssignPlanDialog isOpen={isAssignPlanOpen} onOpenChange={setAssignPlanOpen} user={userToManage} />
-      
+
       <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -11,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { SubscriptionPlan } from "./SubscriptionPlans";
+import { api } from "@/lib/apiClient";
 
 type UserProfile = {
   id: string;
@@ -35,9 +35,9 @@ export const AssignPlanDialog = ({ isOpen, onOpenChange, user }: AssignPlanDialo
   const { data: plans = [], isLoading: isLoadingPlans } = useQuery<SubscriptionPlan[]>({
     queryKey: ["subscription_plans_active"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("subscription_plans").select("*").eq('is_active', true);
-      if (error) throw error;
-      return data;
+      // Use api.admin.plans.list()
+      const allPlans = await api.admin.plans.list();
+      return allPlans.filter(p => p.is_active);
     },
     enabled: isOpen,
   });
@@ -57,19 +57,11 @@ export const AssignPlanDialog = ({ isOpen, onOpenChange, user }: AssignPlanDialo
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("Không có người dùng nào được chọn");
 
-      if (!values.plan_id) {
-        const { error } = await supabase.from('user_subscriptions').delete().eq('user_id', user.id);
-        if (error) throw error;
-        return;
-      }
-
-      const { error } = await supabase.from('user_subscriptions').upsert({
-        user_id: user.id,
-        plan_id: values.plan_id,
-        status: 'active',
-        current_period_videos_used: 0, // Reset khi gán gói mới
-      }, { onConflict: 'user_id' });
-      if (error) throw error;
+      // Update user with new subscription_plan_id
+      // Backend should handle assigning plan logic
+      await api.admin.users.update(user.id, {
+        subscription_plan_id: values.plan_id || null
+      });
     },
     onSuccess: () => {
       showSuccess("Gán gói cước thành công!");

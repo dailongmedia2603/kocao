@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api, ContentIdea } from "@/lib/apiClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,22 +17,12 @@ import { IdeaLogDialog } from "./IdeaLogDialog";
 import { useSession } from "@/contexts/SessionContext";
 import { cn } from "@/lib/utils";
 
-type Idea = {
-  id: string;
-  idea_content: string;
-  new_content: string | null;
-  status: string;
-  created_at: string;
-  voice_audio_url: string | null;
-  koc_files: {
-    display_name: string;
-    url: string;
-  } | null;
-};
+// Reuse ContentIdea from apiClient, but add UI-specific checks if needed.
+// The component uses `Idea` type definition locally. It matches API ContentIdea mostly.
 
 type IdeaContentTabProps = {
   kocId: string;
-  ideas: Idea[] | undefined;
+  ideas: ContentIdea[] | undefined;
   isLoading: boolean;
   isMobile?: boolean;
   defaultTemplateId: string | null;
@@ -65,57 +55,57 @@ const StatusBadge = ({ status }: { status: string }) => {
   }
 };
 
-const IdeaCardMobile = ({ idea, onGenerateScript, onEdit, onDelete, onViewContent, isGeneratingScript, onCreateVoice, isCreatingVoice, onCreateVideo, isCreatingVideo }: { idea: Idea, onGenerateScript: (idea: Idea) => void, onEdit: (idea: Idea) => void, onDelete: (idea: Idea) => void, onViewContent: (content: string | null) => void, isGeneratingScript: boolean, onCreateVoice: (ideaId: string) => void, isCreatingVoice: boolean, onCreateVideo: (idea: Idea) => void, isCreatingVideo: boolean }) => {
-    return (
-        <Card>
-            <CardContent className="p-3">
-                <div className="flex justify-between items-start">
-                    <p className="font-semibold text-sm flex-1 pr-2 line-clamp-2">{idea.idea_content}</p>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" className="h-7 w-7 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            {(idea.status === 'Chưa sử dụng' || !idea.new_content || idea.status === 'Lỗi tạo content') && (
-                                <DropdownMenuItem onClick={() => onGenerateScript(idea)} disabled={isGeneratingScript}>
-                                    <Wand2 className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo content' ? 'Tạo lại kịch bản' : 'Tạo kịch bản'}
-                                </DropdownMenuItem>
-                            )}
-                            {(idea.status === 'Đã có content' || idea.status === 'Lỗi tạo voice') && (
-                                <DropdownMenuItem onClick={() => onCreateVoice(idea.id)} disabled={isCreatingVoice}>
-                                    <Mic className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo voice' ? 'Tạo lại voice' : 'Tạo voice'}
-                                </DropdownMenuItem>
-                            )}
-                            {(idea.status === 'Đã tạo voice' || idea.status === 'Lỗi tạo video') && (
-                                <DropdownMenuItem onClick={() => onCreateVideo(idea)} disabled={isCreatingVideo}>
-                                    <Video className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo video' ? 'Tạo lại video' : 'Tạo video'}
-                                </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={() => onEdit(idea)}>
-                                <Edit className="mr-2 h-4 w-4" /> Sửa
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => onDelete(idea)} className="text-destructive">
-                                <Trash2 className="mr-2 h-4 w-4" /> Xóa
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-                <div className="mt-2 flex items-center justify-between">
-                    <StatusBadge status={idea.status} />
-                    {idea.new_content && (
-                        <Button variant="link" className="p-0 h-auto text-xs" onClick={() => onViewContent(idea.new_content)}>Xem kịch bản</Button>
-                    )}
-                </div>
-                {idea.voice_audio_url && (
-                    <audio controls src={idea.voice_audio_url} className="h-8 w-full mt-2" />
-                )}
-                {idea.koc_files && (
-                     <a href={idea.koc_files.url} target="_blank" rel="noopener noreferrer" className="flex items-center text-blue-600 hover:underline text-xs mt-2">
-                        <Video className="mr-1 h-3 w-3" />
-                        <span className="truncate max-w-[150px]">{idea.koc_files.display_name}</span>
-                    </a>
-                )}
-            </CardContent>
-        </Card>
-    );
+const IdeaCardMobile = ({ idea, onGenerateScript, onEdit, onDelete, onViewContent, isGeneratingScript, onCreateVoice, isCreatingVoice, onCreateVideo, isCreatingVideo }: { idea: ContentIdea, onGenerateScript: (idea: ContentIdea) => void, onEdit: (idea: ContentIdea) => void, onDelete: (idea: ContentIdea) => void, onViewContent: (content: string | null) => void, isGeneratingScript: boolean, onCreateVoice: (ideaId: string) => void, isCreatingVoice: boolean, onCreateVideo: (idea: ContentIdea) => void, isCreatingVideo: boolean }) => {
+  return (
+    <Card>
+      <CardContent className="p-3">
+        <div className="flex justify-between items-start">
+          <p className="font-semibold text-sm flex-1 pr-2 line-clamp-2">{idea.idea_content}</p>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="ghost" className="h-7 w-7 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {(idea.status === 'Chưa sử dụng' || !idea.new_content || idea.status === 'Lỗi tạo content') && (
+                <DropdownMenuItem onClick={() => onGenerateScript(idea)} disabled={isGeneratingScript}>
+                  <Wand2 className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo content' ? 'Tạo lại kịch bản' : 'Tạo kịch bản'}
+                </DropdownMenuItem>
+              )}
+              {(idea.status === 'Đã có content' || idea.status === 'Lỗi tạo voice') && (
+                <DropdownMenuItem onClick={() => onCreateVoice(idea.id)} disabled={isCreatingVoice}>
+                  <Mic className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo voice' ? 'Tạo lại voice' : 'Tạo voice'}
+                </DropdownMenuItem>
+              )}
+              {(idea.status === 'Đã tạo voice' || idea.status === 'Lỗi tạo video') && (
+                <DropdownMenuItem onClick={() => onCreateVideo(idea)} disabled={isCreatingVideo}>
+                  <Video className="mr-2 h-4 w-4" /> {idea.status === 'Lỗi tạo video' ? 'Tạo lại video' : 'Tạo video'}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => onEdit(idea)}>
+                <Edit className="mr-2 h-4 w-4" /> Sửa
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDelete(idea)} className="text-destructive">
+                <Trash2 className="mr-2 h-4 w-4" /> Xóa
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div className="mt-2 flex items-center justify-between">
+          <StatusBadge status={idea.status} />
+          {idea.new_content && (
+            <Button variant="link" className="p-0 h-auto text-xs" onClick={() => onViewContent(idea.new_content)}>Xem kịch bản</Button>
+          )}
+        </div>
+        {idea.voice_audio_url && (
+          <audio controls src={idea.voice_audio_url} className="h-8 w-full mt-2" />
+        )}
+        {idea.final_video_file && (
+          <a href={idea.final_video_file.url!} target="_blank" rel="noopener noreferrer" className="flex items-center text-blue-600 hover:underline text-xs mt-2">
+            <Video className="mr-1 h-3 w-3" />
+            <span className="truncate max-w-[150px]">{idea.final_video_file.display_name}</span>
+          </a>
+        )}
+      </CardContent>
+    </Card>
+  );
 };
 
 export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTemplateId }: IdeaContentTabProps) => {
@@ -124,25 +114,29 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
   const [isAddEditOpen, setAddEditOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [isViewContentOpen, setViewContentOpen] = useState(false);
-  const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
+  const [selectedIdea, setSelectedIdea] = useState<ContentIdea | null>(null);
   const [contentToView, setContentToView] = useState<string | null>(null);
   const [isConfigureOpen, setConfigureOpen] = useState(false);
   const [isLogOpen, setIsLogOpen] = useState(false);
 
   const queryKey = ["koc_content_ideas", kocId];
 
+  // Replaced realtime subscription with poll or manual refresh.
+  // Assuming parent component or hook manages data fetching.
+  // But if we want local polling when status is "processing":
   useEffect(() => {
-    if (!user || !kocId) return;
-    const channel = supabase.channel(`koc_content_ideas_changes_${kocId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'koc_content_ideas', filter: `koc_id=eq.${kocId}` }, () => {
-      queryClient.invalidateQueries({ queryKey });
-    }).subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user, kocId, queryClient, queryKey]);
+    // Optional: Poll if any idea is in processing state
+    if (ideas && ideas.some(i => ['Đang xử lý', 'Đang tạo voice', 'Đang tạo video'].includes(i.status))) {
+      const interval = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey });
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [ideas, queryClient, queryKey]);
 
   const deleteMutation = useMutation({
     mutationFn: async (ideaId: string) => {
-      const { error } = await supabase.from("koc_content_ideas").delete().eq("id", ideaId);
-      if (error) throw error;
+      await api.ideas.delete(ideaId);
     },
     onSuccess: () => {
       showSuccess("Xóa idea thành công!");
@@ -155,13 +149,12 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
 
   const generateContentMutation = useMutation({
     mutationFn: async (ideaId: string) => {
-      const { error } = await supabase.functions.invoke("generate-idea-content", { body: { ideaId } });
-      if (error) throw new Error(error.message);
+      await api.ideas.generateContent(ideaId);
     },
     onMutate: async (ideaId: string) => {
       await queryClient.cancelQueries({ queryKey });
-      const previousIdeas = queryClient.getQueryData<Idea[]>(queryKey);
-      queryClient.setQueryData<Idea[]>(queryKey, (old) => old ? old.map(idea => idea.id === ideaId ? { ...idea, status: 'Đang xử lý' } : idea) : []);
+      const previousIdeas = queryClient.getQueryData<ContentIdea[]>(queryKey);
+      queryClient.setQueryData<ContentIdea[]>(queryKey, (old) => old ? old.map(idea => idea.id === ideaId ? { ...idea, status: 'Đang xử lý' } : idea) : []);
       showSuccess("Đã gửi yêu cầu tạo kịch bản. Vui lòng chờ trong giây lát.");
       return { previousIdeas };
     },
@@ -174,13 +167,12 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
 
   const createVoiceMutation = useMutation({
     mutationFn: async (ideaId: string) => {
-      const { error } = await supabase.functions.invoke("manual-create-voice-from-idea", { body: { ideaId } });
-      if (error) throw new Error(error.message);
+      await api.ideas.createVoice(ideaId);
     },
     onMutate: async (ideaId: string) => {
       await queryClient.cancelQueries({ queryKey });
-      const previousIdeas = queryClient.getQueryData<Idea[]>(queryKey);
-      queryClient.setQueryData<Idea[]>(queryKey, (old) => old ? old.map(idea => idea.id === ideaId ? { ...idea, status: 'Đang tạo voice' } : idea) : []);
+      const previousIdeas = queryClient.getQueryData<ContentIdea[]>(queryKey);
+      queryClient.setQueryData<ContentIdea[]>(queryKey, (old) => old ? old.map(idea => idea.id === ideaId ? { ...idea, status: 'Đang tạo voice' } : idea) : []);
       showSuccess("Đã gửi yêu cầu tạo voice. Vui lòng chờ trong giây lát.");
       return { previousIdeas };
     },
@@ -192,19 +184,14 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
   });
 
   const createVideoMutation = useMutation({
-    mutationFn: async (idea: Idea) => {
+    mutationFn: async (idea: ContentIdea) => {
       if (!user) throw new Error("User not authenticated.");
-      const { data, error } = await supabase.rpc('check_and_deduct_credit', {
-        p_user_id: user.id,
-        p_koc_id: kocId,
-        p_idea_id: idea.id,
-      });
-      if (error) throw error;
-      if (!data[0].success) throw new Error(data[0].message);
-      return data[0];
+      // API handles credit check internally
+      const result = await api.ideas.createVideo(idea.id);
+      return result;
     },
     onSuccess: (data) => {
-      showSuccess(data.message);
+      showSuccess(data.message || "Yêu cầu tạo video đã được gửi!");
       queryClient.invalidateQueries({ queryKey });
     },
     onError: (error: Error) => {
@@ -214,74 +201,74 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
   });
 
   const handleAddNew = () => { setSelectedIdea(null); setAddEditOpen(true); };
-  const handleEdit = (idea: Idea) => { setSelectedIdea(idea); setAddEditOpen(true); };
-  const handleDelete = (idea: Idea) => { setSelectedIdea(idea); setDeleteOpen(true); };
+  const handleEdit = (idea: ContentIdea) => { setSelectedIdea(idea); setAddEditOpen(true); };
+  const handleDelete = (idea: ContentIdea) => { setSelectedIdea(idea); setDeleteOpen(true); };
   const handleViewContent = (content: string | null) => { setContentToView(content); setViewContentOpen(true); };
-  const handleGenerateNow = (idea: Idea) => generateContentMutation.mutate(idea.id);
-  const handleRefresh = () => queryClient.invalidateQueries({ queryKey });
+  const handleGenerateNow = (idea: ContentIdea) => generateContentMutation.mutate(idea.id);
+  const handleRefresh = () => queryClient.invalidateQueries({ queryKey: ["koc_content_ideas"] });
 
   const renderMobile = () => (
     <Card>
-        <CardHeader>
-            <div className="flex justify-between items-center">
-                <CardTitle>Idea Content</CardTitle>
-                <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isLoading}><RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => setIsLogOpen(true)}><History className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => setConfigureOpen(true)}><Settings className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={handleAddNew} className="text-red-600"><Plus className="h-5 w-5" /></Button>
-                </div>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <CardTitle>Idea Content</CardTitle>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isLoading}><RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} /></Button>
+            <Button variant="ghost" size="icon" onClick={() => setIsLogOpen(true)}><History className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" onClick={() => setConfigureOpen(true)}><Settings className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" onClick={handleAddNew} className="text-red-600"><Plus className="h-5 w-5" /></Button>
+          </div>
+        </div>
+        <CardDescription>Quản lý các ý tưởng và nội dung đã phát triển.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (<div className="space-y-3"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>)
+          : ideas && ideas.length > 0 ? (
+            <div className="space-y-3">
+              {ideas.map(idea => (
+                <IdeaCardMobile
+                  key={idea.id}
+                  idea={idea}
+                  onGenerateScript={handleGenerateNow}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onViewContent={handleViewContent}
+                  isGeneratingScript={generateContentMutation.isPending}
+                  onCreateVoice={createVoiceMutation.mutate}
+                  isCreatingVoice={createVoiceMutation.isPending}
+                  onCreateVideo={createVideoMutation.mutate}
+                  isCreatingVideo={createVideoMutation.isPending}
+                />
+              ))}
             </div>
-            <CardDescription>Quản lý các ý tưởng và nội dung đã phát triển.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            {isLoading ? (<div className="space-y-3"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>)
-            : ideas && ideas.length > 0 ? (
-                <div className="space-y-3">
-                    {ideas.map(idea => (
-                        <IdeaCardMobile 
-                            key={idea.id}
-                            idea={idea}
-                            onGenerateScript={handleGenerateNow}
-                            onEdit={handleEdit}
-                            onDelete={handleDelete}
-                            onViewContent={handleViewContent}
-                            isGeneratingScript={generateContentMutation.isPending}
-                            onCreateVoice={createVoiceMutation.mutate}
-                            isCreatingVoice={createVoiceMutation.isPending}
-                            onCreateVideo={createVideoMutation.mutate}
-                            isCreatingVideo={createVideoMutation.isPending}
-                        />
-                    ))}
-                </div>
-            ) : (<div className="text-center py-12 text-muted-foreground"><Lightbulb className="mx-auto h-8 w-8" /><p className="mt-2 text-sm">Chưa có idea content nào.</p></div>)}
-        </CardContent>
+          ) : (<div className="text-center py-12 text-muted-foreground"><Lightbulb className="mx-auto h-8 w-8" /><p className="mt-2 text-sm">Chưa có idea content nào.</p></div>)}
+      </CardContent>
     </Card>
   );
 
   const renderDesktop = () => (
     <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div><CardTitle>Danh sách Idea Content</CardTitle><CardDescription>Quản lý các ý tưởng và nội dung đã phát triển cho KOC.</CardDescription></div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isLoading}><RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} /></Button>
-            <Button variant="outline" size="icon" onClick={() => setIsLogOpen(true)}><History className="h-4 w-4" /></Button>
-            <Button variant="outline" onClick={() => setConfigureOpen(true)}><Settings className="mr-2 h-4 w-4" /> Cấu hình AI</Button>
-            <Button onClick={handleAddNew}><Plus className="mr-2 h-4 w-4" /> Thêm mới</Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader><TableRow><TableHead>Idea Content</TableHead><TableHead>Kịch bản</TableHead><TableHead>Trạng thái</TableHead><TableHead>Video đã tạo</TableHead><TableHead className="text-right">Thao tác</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {isLoading ? ([...Array(3)].map((_, i) => (<TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell></TableRow>)))
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div><CardTitle>Danh sách Idea Content</CardTitle><CardDescription>Quản lý các ý tưởng và nội dung đã phát triển cho KOC.</CardDescription></div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isLoading}><RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} /></Button>
+          <Button variant="outline" size="icon" onClick={() => setIsLogOpen(true)}><History className="h-4 w-4" /></Button>
+          <Button variant="outline" onClick={() => setConfigureOpen(true)}><Settings className="mr-2 h-4 w-4" /> Cấu hình AI</Button>
+          <Button onClick={handleAddNew}><Plus className="mr-2 h-4 w-4" /> Thêm mới</Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader><TableRow><TableHead>Idea Content</TableHead><TableHead>Kịch bản</TableHead><TableHead>Trạng thái</TableHead><TableHead>Video đã tạo</TableHead><TableHead className="text-right">Thao tác</TableHead></TableRow></TableHeader>
+          <TableBody>
+            {isLoading ? ([...Array(3)].map((_, i) => (<TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-8 w-full" /></TableCell></TableRow>)))
               : ideas && ideas.length > 0 ? (
                 ideas.map((idea) => (
                   <TableRow key={idea.id}>
                     <TableCell className="font-medium max-w-xs truncate">{idea.idea_content}</TableCell>
                     <TableCell>{idea.new_content ? (<Button variant="link" className="p-0 h-auto" onClick={() => handleViewContent(idea.new_content)}>Xem</Button>) : (<span className="text-muted-foreground text-xs">Chưa có</span>)}</TableCell>
                     <TableCell><div className="flex flex-col gap-2"><StatusBadge status={idea.status} />{idea.voice_audio_url && (<audio controls src={idea.voice_audio_url} className="h-8 w-full max-w-[200px]" />)}</div></TableCell>
-                    <TableCell>{idea.koc_files ? (<a href={idea.koc_files.url} target="_blank" rel="noopener noreferrer" className="flex items-center text-blue-600 hover:underline"><Video className="mr-2 h-4 w-4" /><span className="truncate max-w-[150px]">{idea.koc_files.display_name}</span></a>) : (<span className="text-muted-foreground text-xs">Chưa có</span>)}</TableCell>
+                    <TableCell>{idea.final_video_file ? (<a href={idea.final_video_file.url!} target="_blank" rel="noopener noreferrer" className="flex items-center text-blue-600 hover:underline"><Video className="mr-2 h-4 w-4" /><span className="truncate max-w-[150px]">{idea.final_video_file.display_name}</span></a>) : (<span className="text-muted-foreground text-xs">Chưa có</span>)}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -297,10 +284,10 @@ export const IdeaContentTab = ({ kocId, ideas, isLoading, isMobile, defaultTempl
                   </TableRow>
                 ))
               ) : (<TableRow><TableCell colSpan={5} className="h-24 text-center"><Lightbulb className="mx-auto h-8 w-8 text-muted-foreground" /><p className="mt-2">Chưa có idea content nào.</p></TableCell></TableRow>)}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 
   return (

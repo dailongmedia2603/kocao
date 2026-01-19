@@ -1,9 +1,8 @@
 import { useSession } from "@/contexts/SessionContext";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { LoadingSpinner } from "./LoadingSpinner";
 
 const ProtectedRoute = () => {
-  const { session, profile, loading } = useSession();
+  const { user, profile, loading } = useSession();
   const location = useLocation();
 
   if (loading) {
@@ -12,26 +11,20 @@ const ProtectedRoute = () => {
     return <Outlet />;
   }
 
-  if (!session) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  const isRecoverySession = (session.user as any).amr?.some(
-    (method: { method: string }) => method.method === 'recovery'
-  );
+  // Assuming password recovery flow uses specific routes and doesn't rely on 'recovery' session state anymore
+  // If we have a 'reset-password' page with token, it's public.
+  // Protected routes are only for logged in users.
 
-  if (isRecoverySession && location.pathname !== "/forgot-password") {
-    return <Navigate to="/forgot-password" replace />;
+  if (profile && profile.status === 'pending' && location.pathname !== '/pending-approval') {
+    return <Navigate to="/pending-approval" replace />;
   }
-  
-  if (!isRecoverySession) {
-    if (profile && profile.status === 'pending' && location.pathname !== '/pending-approval') {
-      return <Navigate to="/pending-approval" replace />;
-    }
 
-    if (profile && profile.status !== 'pending' && location.pathname === '/pending-approval') {
-      return <Navigate to="/" replace />;
-    }
+  if (profile && profile.status !== 'pending' && location.pathname === '/pending-approval') {
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,18 +11,9 @@ import { Trash2, Mic } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Link } from "react-router-dom";
 
-export type Campaign = {
-  id: string;
-  name: string;
-  description: string | null;
-  status: string;
-  created_at: string;
-  kocs: {
-    name: string;
-    avatar_url: string | null;
-  } | null;
-  cloned_voice_name: string | null;
-};
+import { AutomationCampaign } from "@/lib/apiClient";
+// Use the shared type from apiClient
+export type Campaign = AutomationCampaign;
 
 type CampaignCardProps = {
   campaign: Campaign;
@@ -36,11 +27,7 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
 
   const updateStatusMutation = useMutation({
     mutationFn: async (newStatus: 'active' | 'paused') => {
-      const { error } = await supabase
-        .from('automation_campaigns')
-        .update({ status: newStatus })
-        .eq('id', campaign.id);
-      if (error) throw error;
+      await api.automation.update(campaign.id, { status: newStatus });
     },
     onSuccess: (_, newStatus) => {
       showSuccess(`Chiến dịch đã được ${newStatus === 'active' ? 'kích hoạt' : 'tạm dừng'}.`);
@@ -51,8 +38,7 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('automation_campaigns').delete().eq('id', campaign.id);
-      if (error) throw error;
+      await api.automation.delete(campaign.id);
     },
     onSuccess: () => {
       showSuccess("Xóa chiến dịch thành công!");
@@ -76,12 +62,12 @@ export const CampaignCard = ({ campaign }: CampaignCardProps) => {
       <CardContent className="flex-grow space-y-4">
         <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/50">
           <Avatar className="h-10 w-10 border">
-            <AvatarImage src={campaign.kocs?.avatar_url || undefined} />
-            <AvatarFallback>{campaign.kocs ? getInitials(campaign.kocs.name) : '?'}</AvatarFallback>
+            <AvatarImage src={campaign.koc?.avatar_url || undefined} />
+            <AvatarFallback>{campaign.koc ? getInitials(campaign.koc.name) : '?'}</AvatarFallback>
           </Avatar>
           <div>
             <p className="text-sm text-muted-foreground">KOC</p>
-            <p className="font-semibold">{campaign.kocs?.name || 'Không rõ'}</p>
+            <p className="font-semibold">{campaign.koc?.name || 'Không rõ'}</p>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 rounded-md border bg-muted/50">

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -10,6 +9,7 @@ import { Loader2, Copy } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { api, AiPromptTemplate } from "@/lib/apiClient";
 
 const DEFAULT_PROMPT = `
 **ROLE:** You are a top-tier content strategist for TikTok.
@@ -115,26 +115,25 @@ type PromptEditorProps = {
 const PromptEditor = ({ templateType }: PromptEditorProps) => {
   const { user } = useSession();
   const queryClient = useQueryClient();
-  
+
   const isMoreIdeasPrompt = templateType === 'generate_more_ideas_gpt';
   const defaultPrompt = isMoreIdeasPrompt ? MORE_IDEAS_DEFAULT_PROMPT : DEFAULT_PROMPT;
   const dynamicVariables = isMoreIdeasPrompt ? MORE_IDEAS_DYNAMIC_VARIABLES : DYNAMIC_VARIABLES;
 
   const [prompt, setPrompt] = useState(defaultPrompt);
-  const [apiProvider, setApiProvider] = useState<'gpt-custom' | 'gemini-custom'>('gpt-custom');
+  const [apiProvider, setApiProvider] = useState<'gpt-custom' | 'gemini-custom' | 'troll-llm'>('troll-llm');
 
   const { data, isLoading } = useQuery({
     queryKey: ['prompt_template', user?.id, templateType],
     queryFn: async () => {
-      if (!user) return null;
-      const { data, error } = await supabase
-        .from('prompt_templates')
-        .select('content, api_provider')
-        .eq('user_id', user.id)
-        .eq('template_type', templateType)
-        .single();
-      if (error && error.code !== 'PGRST116') throw error;
-      return data;
+      // api.aiTemplates.get returns AiPromptTemplate
+      // If it fails (404), it throws? Or return null?
+      // We wrap in try-catch to return null if not found
+      try {
+        return await api.aiTemplates.get(templateType);
+      } catch (e) {
+        return null;
+      }
     },
     enabled: !!user,
   });
@@ -142,23 +141,25 @@ const PromptEditor = ({ templateType }: PromptEditorProps) => {
   useEffect(() => {
     if (data) {
       setPrompt(data.content || defaultPrompt);
-      setApiProvider(data.api_provider || 'gpt-custom');
+      // Force default to troll-llm (API Gemini) if not set, or preserve existing if valid
+      // User request: "Adjust to all default toward API Gemini" 
+      // For new or undefined templates, default to troll-llm (API Gemini).
+      const savedProvider = (data as any).api_provider;
+      setApiProvider(savedProvider || 'troll-llm');
     } else {
       setPrompt(defaultPrompt);
-      setApiProvider('gpt-custom');
+      setApiProvider('troll-llm');
     }
   }, [data, defaultPrompt]);
 
   const upsertMutation = useMutation({
     mutationFn: async ({ newContent, newApiProvider }: { newContent: string, newApiProvider: string }) => {
       if (!user) throw new Error("User not authenticated");
-      const { error } = await supabase.from('prompt_templates').upsert({
-        user_id: user.id,
-        template_type: templateType,
+      // Use update. Backend should handle upsert logic or we ignore creation if simple update
+      await api.aiTemplates.update(templateType, {
         content: newContent,
         api_provider: newApiProvider,
-      }, { onConflict: 'user_id, template_type' });
-      if (error) throw error;
+      });
     },
     onSuccess: () => {
       showSuccess("Lưu prompt thành công!");
@@ -179,17 +180,13 @@ const PromptEditor = ({ templateType }: PromptEditorProps) => {
           <Label className="font-semibold">API Provider</Label>
           <RadioGroup
             value={apiProvider}
-            onValueChange={(value) => setApiProvider(value as 'gpt-custom' | 'gemini-custom')}
+            onValueChange={(value) => setApiProvider(value as any)}
             className="flex gap-4 mt-2"
             disabled={isLoading}
           >
             <div className="flex items-center space-x-2">
-              <RadioGroupItem value="gpt-custom" id={`gpt-${templateType}`} />
-              <Label htmlFor={`gpt-${templateType}`}>API GPT Custom</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="gemini-custom" id={`gemini-${templateType}`} />
-              <Label htmlFor={`gemini-${templateType}`}>API Gemini Custom</Label>
+              <RadioGroupItem value="troll-llm" id={`troll-llm-${templateType}`} />
+              <Label htmlFor={`troll-llm-${templateType}`}>API Gemini</Label>
             </div>
           </RadioGroup>
         </div>

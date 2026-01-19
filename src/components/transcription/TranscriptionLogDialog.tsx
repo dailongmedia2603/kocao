@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, ServerCrash } from "lucide-react";
+import { api } from "@/lib/apiClient";
 
 type LogDialogProps = {
   isOpen: boolean;
@@ -21,13 +21,9 @@ export const TranscriptionLogDialog = ({ isOpen, onOpenChange, task }: LogDialog
     queryKey: ['transcription_log', task?.id],
     queryFn: async () => {
       if (!task) return null;
-      const { data, error } = await supabase
-        .from('transcription_tasks')
-        .select('api_response_log')
-        .eq('id', task.id)
-        .single();
-      if (error) throw error;
-      return data?.api_response_log;
+      // Fetch logs from backend API
+      const response = await api.transcription.logs(task.id);
+      return response.api_response_log;
     },
     enabled: isOpen && !!task,
   });

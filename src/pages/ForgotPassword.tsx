@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Mail, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { showSuccess, showError } from "@/utils/toast";
+import { api } from "@/lib/apiClient";
 
 type Step = "enter-email" | "reset-password";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState<Step>("enter-email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,41 +19,42 @@ const ForgotPassword = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState("");
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setStep("reset-password");
-      }
-    });
+    // Check for token and email in URL (Laravel Password Reset structure)
+    const urlToken = searchParams.get('token');
+    const urlEmail = searchParams.get('email');
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
+    if (urlToken && urlEmail) {
+      setToken(urlToken);
+      setEmail(urlEmail);
+      setStep("reset-password");
+    }
+  }, [searchParams]);
 
 
   const handleSendResetLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + '/forgot-password',
-    });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      showError("Gửi link thất bại. Vui lòng kiểm tra lại email.");
-    } else {
+
+    try {
+      await api.auth.forgotPassword(email);
       showSuccess("Link khôi phục đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.");
+    } catch (err: any) {
+      setError(err.message || "Gửi link thất bại. Vui lòng kiểm tra lại email.");
+      showError(err.message || "Gửi link thất bại.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) {
-      setError("Mật khẩu phải có ít nhất 6 ký tự.");
-      showError("Mật khẩu phải có ít nhất 6 ký tự.");
+    if (password.length < 8) {
+      setError("Mật khẩu phải có ít nhất 8 ký tự.");
+      showError("Mật khẩu phải có ít nhất 8 ký tự.");
       return;
     }
     if (password !== confirmPassword) {
@@ -62,16 +64,21 @@ const ForgotPassword = () => {
     }
     setError("");
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      showError(error.message);
-    } else {
+
+    try {
+      await api.auth.resetPassword({
+        token,
+        email,
+        password,
+        password_confirmation: confirmPassword
+      });
       showSuccess("Đặt lại mật khẩu thành công! Vui lòng đăng nhập lại.");
-      // Đăng xuất khỏi phiên tạm thời và chuyển hướng về trang đăng nhập
-      await supabase.auth.signOut();
       navigate("/login");
+    } catch (err: any) {
+      setError(err.message || "Đặt lại mật khẩu thất bại.");
+      showError(err.message || "Đặt lại mật khẩu thất bại.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -105,6 +112,8 @@ const ForgotPassword = () => {
       case "reset-password":
         return (
           <form onSubmit={handleResetPassword} className="space-y-4">
+            <input type="hidden" name="token" value={token} />
+            <input type="hidden" name="email" value={email} />
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Mật khẩu mới</label>
               <div className="relative">
@@ -114,6 +123,7 @@ const ForgotPassword = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   className="h-12 pl-4 pr-10"
+                  minLength={8}
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none">
                   {showPassword ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
@@ -129,6 +139,7 @@ const ForgotPassword = () => {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                   className="h-12 pl-4 pr-10"
+                  minLength={8}
                 />
                 <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none">
                   {showConfirmPassword ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
@@ -152,7 +163,7 @@ const ForgotPassword = () => {
         <div className="flex-shrink-0">
           <img src="/logokocao.png" alt="Logo" className="h-20 w-auto mx-auto lg:mx-0" />
         </div>
-        
+
         <div className="flex-grow flex items-center justify-center">
           <div className="w-full max-w-sm">
             <div className="text-center lg:text-left mb-8">

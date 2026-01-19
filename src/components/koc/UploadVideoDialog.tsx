@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/apiClient";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -24,20 +24,10 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocId, use
 
   const uploadMutation = useMutation({
     mutationFn: async (files: File[]) => {
-      const uploadPromises = files.map(file => {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("folderPath", folderPath);
-        formData.append("fileName", file.name);
-        formData.append("kocId", kocId);
-        formData.append("userId", userId);
-
-        return supabase.functions.invoke("upload-koc-file", { body: formData })
-          .then(({ error }) => {
-            if (error) throw new Error(`Lỗi tải lên ${file.name}: ${error.message}`);
-          });
-      });
-      await Promise.all(uploadPromises);
+      // Upload files sequentially to avoid overwhelming the server
+      for (const file of files) {
+        await api.kocFiles.upload(kocId, file);
+      }
       return files.length;
     },
     onSuccess: (fileCount) => {
@@ -54,7 +44,7 @@ export const UploadVideoDialog = ({ isOpen, onOpenChange, folderPath, kocId, use
       setSelectedFiles(prev => [...prev, ...Array.from(event.target.files!)]);
     }
   };
-  
+
   const removeFile = (fileToRemove: File) => setSelectedFiles(prev => prev.filter(f => f !== fileToRemove));
   const handleUpload = () => uploadMutation.mutate(selectedFiles);
   const handleClose = () => {

@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 const formSchema = z.object({
-  name: z.string().min(1, "Tên không được để trống"),
   access_token: z.string().min(10, "Access Token không hợp lệ"),
   check_url: z.string().url("URL kiểm tra không hợp lệ").min(1, "URL kiểm tra không được để trống"),
 });
@@ -27,20 +26,16 @@ export const AddTiktokTokenDialog = ({ isOpen, onOpenChange }: AddTiktokTokenDia
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { name: "", access_token: "", check_url: "https://api.akng.io.vn/tiktok/user/info/" },
+    defaultValues: { access_token: "", check_url: "https://api.akng.io.vn/tiktok/user/info/" },
   });
 
   const addTokenMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      if (!user) throw new Error("User not authenticated");
-      const { error } = await supabase
-        .from("user_tiktok_tokens")
-        .insert({ user_id: user.id, name: values.name, access_token: values.access_token, check_url: values.check_url });
-      if (error) throw error;
+      await api.settings.saveTiktok(values.access_token, values.check_url);
     },
     onSuccess: () => {
-      showSuccess("Thêm Access Token thành công!");
-      queryClient.invalidateQueries({ queryKey: ["tiktok_tokens", user?.id] });
+      showSuccess("Cập nhật Access Token thành công!");
+      queryClient.invalidateQueries({ queryKey: ["tiktok_status", user?.id] });
       onOpenChange(false);
       form.reset();
     },
@@ -57,26 +52,13 @@ export const AddTiktokTokenDialog = ({ isOpen, onOpenChange }: AddTiktokTokenDia
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Thêm Access Token TikTok mới</DialogTitle>
+          <DialogTitle>Cấu hình Access Token TikTok</DialogTitle>
           <DialogDescription>
-            Nhập thông tin chi tiết và URL để kiểm tra kết nối cho token của bạn.
+            Nhập thông tin chi tiết và URL để kiểm tra kết nối cho token của bạn. Token cũ sẽ bị ghi đè.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tên gợi nhớ</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ví dụ: Token cho chiến dịch X" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
             <FormField
               control={form.control}
               name="access_token"
@@ -106,7 +88,7 @@ export const AddTiktokTokenDialog = ({ isOpen, onOpenChange }: AddTiktokTokenDia
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Hủy</Button>
               <Button type="submit" disabled={addTokenMutation.isPending}>
-                {addTokenMutation.isPending ? "Đang thêm..." : "Thêm Token"}
+                {addTokenMutation.isPending ? "Đang lưu..." : "Lưu Cấu Hình"}
               </Button>
             </DialogFooter>
           </form>

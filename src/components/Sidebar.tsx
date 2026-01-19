@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, LayoutDashboard, Settings, Video, Bot, Film, Users, ClipboardList, Layers } from "lucide-react";
+import { ChevronLeft, Settings, Video, Bot, Film, Users, ClipboardList, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
 import {
@@ -13,11 +13,6 @@ import {
 import { useSession } from "@/contexts/SessionContext";
 
 const menuItems = [
-  {
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    to: "/",
-  },
   { label: "KOCs Manager", icon: Video, to: "/list-koc" },
   { label: "Tạo kế hoạch", icon: ClipboardList, to: "/tao-ke-hoach" },
   { label: "Automation", icon: Bot, to: "/automation" },
@@ -81,7 +76,7 @@ const Sidebar = () => {
   );
 
   return (
-    <aside className={cn("bg-white border-r flex flex-col transition-all duration-300 relative", isCollapsed ? "w-20" : "w-64")}>
+    <aside className={cn("bg-gradient-to-br from-white to-primary/5 border-r flex flex-col transition-all duration-300 relative", isCollapsed ? "w-20" : "w-64")}>
       <div className={cn(
         "flex items-center h-16 border-b px-4 flex-shrink-0",
         isCollapsed ? "justify-center" : "justify-start"
@@ -93,7 +88,7 @@ const Sidebar = () => {
         )}
       </div>
 
-      <Button 
+      <Button
         variant="outline"
         size="icon"
         onClick={() => setIsCollapsed(!isCollapsed)}

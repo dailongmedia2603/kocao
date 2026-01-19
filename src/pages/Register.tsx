@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { api, setAuthToken } from "@/lib/apiClient";
 import { useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useSession } from "@/contexts/SessionContext";
@@ -10,42 +10,55 @@ import React from "react";
 
 const Register = () => {
   const navigate = useNavigate();
-  const { session } = useSession();
+  const { user, refreshUser } = useSession();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (session) {
+    if (user) {
       navigate("/");
     }
-  }, [session, navigate]);
+  }, [user, navigate]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (password !== passwordConfirmation) {
+      setError("Mật khẩu xác nhận không khớp");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Mật khẩu phải có ít nhất 8 ký tự");
+      return;
+    }
+
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-        },
-      },
-    });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-      showError(error.message);
-    } else {
-      showSuccess("Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.");
+
+    try {
+      const response = await api.auth.register({
+        name: `${lastName} ${firstName}`.trim(),
+        email,
+        password,
+        password_confirmation: passwordConfirmation,
+      });
+
+      // Account created but pending approval
+      showSuccess(response.message || "Đăng ký thành công! Tài khoản đang chờ phê duyệt.");
       navigate("/login");
+    } catch (err: any) {
+      const errorMessage = err.message || "Đăng ký thất bại. Vui lòng thử lại.";
+      setError(errorMessage);
+      showError(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -53,9 +66,9 @@ const Register = () => {
     <div className="flex h-screen overflow-hidden bg-white font-sans">
       <div className="w-full lg:w-1/2 flex flex-col p-8 sm:p-12">
         <div className="flex-shrink-0">
-            <img src="/logokocao.png" alt="Logo" className="h-20 w-auto" />
+          <img src="/logokocao.png" alt="Logo" className="h-20 w-auto" />
         </div>
-        
+
         <div className="flex-grow flex items-center justify-center">
           <div className="w-full max-w-sm">
             <div className="text-left mb-8">
@@ -64,32 +77,32 @@ const Register = () => {
             </div>
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="flex gap-4">
-                  <div className="flex-1">
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Họ</label>
-                      <div className="relative">
-                          <Input
-                          type="text"
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
-                          required
-                          className="h-12 pl-4 pr-10"
-                          />
-                          <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Họ</label>
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                      className="h-12 pl-4 pr-10"
+                    />
+                    <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                   </div>
-                  <div className="flex-1">
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Tên</label>
-                      <div className="relative">
-                          <Input
-                          type="text"
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                          required
-                          className="h-12 pl-4 pr-10"
-                          />
-                          <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      </div>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Tên</label>
+                  <div className="relative">
+                    <Input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                      className="h-12 pl-4 pr-10"
+                    />
+                    <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
                   </div>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Email Address</label>
@@ -112,11 +125,25 @@ const Register = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    minLength={8}
                     className="h-12 pl-4 pr-10"
                   />
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 focus:outline-none">
                     {showPassword ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
                   </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Confirm Password</label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={passwordConfirmation}
+                    onChange={(e) => setPasswordConfirmation(e.target.value)}
+                    required
+                    minLength={8}
+                    className="h-12 pl-4 pr-10"
+                  />
                 </div>
               </div>
               {error && <p className="text-red-500 text-sm text-center">{error}</p>}

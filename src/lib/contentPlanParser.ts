@@ -12,13 +12,41 @@ const extractContentByTag = (text: string, tag: string): string => {
   return match ? match[1].trim() : '';
 };
 
-export function parseContentPlan(text: string): ParsedContentPlan {
+export function parseContentPlan(input: string | any): ParsedContentPlan {
+  // If input is already an object (JSON), map it
+  if (typeof input === 'object' && input !== null) {
+    return parseFromJson(input);
+  }
+
+  const text = input as string;
   // Check if the content uses the new tag-based format
   if (text.includes('<TITLE>')) {
     return parseWithTags(text);
   }
   // Fallback to the old markdown-based format
   return parseWithMarkdown(text);
+}
+
+function parseFromJson(json: any): ParsedContentPlan {
+  const strategyText = [
+    json.analysis ? `**Phân tích:** ${json.analysis}` : '',
+    json.strategy?.direction ? `**Định hướng:** ${json.strategy.direction}` : '',
+    json.strategy?.tone_mood ? `**Tone & Mood:** ${json.strategy.tone_mood}` : ''
+  ].filter(Boolean).join('\n\n');
+
+  return {
+    title: 'Kế hoạch Nội dung AI', // JSON result doesn't explicitly have a title usually
+    strategy: strategyText || 'Chưa có chiến lược cụ thể.',
+    pillars: Array.isArray(json.content_pillars) ? json.content_pillars.map((p: any) => ({
+      title: `${p.name} (${p.ratio || ''})`,
+      content: p.description
+    })) : [],
+    schedule: json.schedule || 'Chưa có lịch đăng cụ thể trong kết quả JSON.',
+    ideas: Array.isArray(json.ideas) ? json.ideas.map((i: any) => ({
+      title: i.title,
+      script: `**Format:** ${i.format}\n\n${i.description}`
+    })) : []
+  };
 }
 
 function parseWithTags(text: string): ParsedContentPlan {
@@ -66,62 +94,62 @@ function parseWithTags(text: string): ParsedContentPlan {
 }
 
 function parseWithMarkdown(markdown: string): ParsedContentPlan {
-    const result: ParsedContentPlan = {
-        title: '',
-        strategy: '',
-        pillars: [],
-        schedule: '',
-        ideas: [],
-    };
+  const result: ParsedContentPlan = {
+    title: '',
+    strategy: '',
+    pillars: [],
+    schedule: '',
+    ideas: [],
+  };
 
-    const titleMatch = markdown.match(/^#\s*(.*)/);
-    result.title = titleMatch ? titleMatch[1].trim() : 'Kế hoạch nội dung';
+  const titleMatch = markdown.match(/^#\s*(.*)/);
+  result.title = titleMatch ? titleMatch[1].trim() : 'Kế hoạch nội dung';
 
-    const getContentBetween = (startHeading: RegExp, endHeading: RegExp): string => {
-        const startMatch = markdown.match(startHeading);
-        if (!startMatch) return '';
-        const startIndex = startMatch.index! + startMatch[0].length;
-        let content = markdown.substring(startIndex);
-        const endMatch = content.match(endHeading);
-        if (endMatch) {
-            content = content.substring(0, endMatch.index!);
-        }
-        return content.trim();
-    };
-
-    const strategyHeading = /\d+\.\s*\*\*Chiến lược tổng thể\*\*/i;
-    const pillarsHeading = /\d+\.\s*\*\*Các trụ cột nội dung chính\*\*/i;
-    const scheduleHeading = /\d+\.\s*\*\*Lịch đăng đề xuất\*\*/i;
-    const ideasHeading = /\d+\..*?\*\*.*?Ý tưởng video chi tiết\*\*/i;
-
-    result.strategy = getContentBetween(strategyHeading, pillarsHeading);
-    const pillarsBlock = getContentBetween(pillarsHeading, scheduleHeading);
-    result.schedule = getContentBetween(scheduleHeading, ideasHeading);
-    const ideasBlock = getContentBetween(ideasHeading, /(\n\s*Hy vọng kế hoạch này|\n\s*$)/i);
-
-    if (pillarsBlock) {
-        const pillarRegex = /\d+\.\s*\*\*\"([^\"]+)\"\*\*:\s*([\s\S]*?)(?=\n\d+\.\s*\*\*|\n*$)/g;
-        let match;
-        while ((match = pillarRegex.exec(pillarsBlock)) !== null) {
-            result.pillars.push({
-                title: `Cột ${result.pillars.length + 1}: "${match[1]}"`,
-                content: match[2].trim(),
-            });
-        }
+  const getContentBetween = (startHeading: RegExp, endHeading: RegExp): string => {
+    const startMatch = markdown.match(startHeading);
+    if (!startMatch) return '';
+    const startIndex = startMatch.index! + startMatch[0].length;
+    let content = markdown.substring(startIndex);
+    const endMatch = content.match(endHeading);
+    if (endMatch) {
+      content = content.substring(0, endMatch.index!);
     }
+    return content.trim();
+  };
 
-    if (ideasBlock) {
-        const ideaSplits = ideasBlock.split(/\n\s*\*\*(?:Ý|Y) tưởng \d+:/i).filter(s => s.trim() !== '');
-        ideaSplits.forEach(split => {
-            const titleMatch = split.match(/\*\*Tiêu đề:\*\*\s*(.*)/);
-            const scriptMatch = split.match(/\*\*Kịch bản:\*\*\s*([\s\S]*)/);
-            const title = titleMatch ? titleMatch[1].trim() : '';
-            const script = scriptMatch ? scriptMatch[1].trim() : '';
-            if (title && script) {
-                result.ideas.push({ title, script });
-            }
-        });
+  const strategyHeading = /\d+\.\s*\*\*Chiến lược tổng thể\*\*/i;
+  const pillarsHeading = /\d+\.\s*\*\*Các trụ cột nội dung chính\*\*/i;
+  const scheduleHeading = /\d+\.\s*\*\*Lịch đăng đề xuất\*\*/i;
+  const ideasHeading = /\d+\..*?\*\*.*?Ý tưởng video chi tiết\*\*/i;
+
+  result.strategy = getContentBetween(strategyHeading, pillarsHeading);
+  const pillarsBlock = getContentBetween(pillarsHeading, scheduleHeading);
+  result.schedule = getContentBetween(scheduleHeading, ideasHeading);
+  const ideasBlock = getContentBetween(ideasHeading, /(\n\s*Hy vọng kế hoạch này|\n\s*$)/i);
+
+  if (pillarsBlock) {
+    const pillarRegex = /\d+\.\s*\*\*\"([^\"]+)\"\*\*:\s*([\s\S]*?)(?=\n\d+\.\s*\*\*|\n*$)/g;
+    let match;
+    while ((match = pillarRegex.exec(pillarsBlock)) !== null) {
+      result.pillars.push({
+        title: `Cột ${result.pillars.length + 1}: "${match[1]}"`,
+        content: match[2].trim(),
+      });
     }
+  }
 
-    return result;
+  if (ideasBlock) {
+    const ideaSplits = ideasBlock.split(/\n\s*\*\*(?:Ý|Y) tưởng \d+:/i).filter(s => s.trim() !== '');
+    ideaSplits.forEach(split => {
+      const titleMatch = split.match(/\*\*Tiêu đề:\*\*\s*(.*)/);
+      const scriptMatch = split.match(/\*\*Kịch bản:\*\*\s*([\s\S]*)/);
+      const title = titleMatch ? titleMatch[1].trim() : '';
+      const script = scriptMatch ? scriptMatch[1].trim() : '';
+      if (title && script) {
+        result.ideas.push({ title, script });
+      }
+    });
+  }
+
+  return result;
 }

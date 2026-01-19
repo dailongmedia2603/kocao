@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { ContentPlan } from "@/types/contentPlan";
+
+import { ContentPlan, api } from "@/lib/apiClient";
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useSession } from "@/contexts/SessionContext";
@@ -41,57 +41,120 @@ const TaoKeHoachDetail = () => {
     queryKey: ['content_plan_detail', planId],
     queryFn: async () => {
       if (!planId) return null;
-      const { data, error } = await supabase.from('content_plans').select('*').eq('id', planId).single();
-      if (error) throw error;
-      return data;
+      return api.contentPlan.get(planId);
     },
-    enabled: !isNew,
+    enabled: !isNew && !!planId,
+  });
+
+  const { data: template } = useQuery({
+    queryKey: ['prompt_template', 'content_plan_gpt'],
+    queryFn: async () => {
+      try {
+        return await api.aiTemplates.get('content_plan_gpt');
+      } catch (e) {
+        return null;
+      }
+    },
+    staleTime: 5 * 60 * 1000,
   });
 
   const regenerateMutation = useMutation({
     mutationFn: async () => {
-      if (!plan || !plan.inputs || !user) {
+      if (!plan || !plan.content?.inputs || !user) {
         throw new Error("Dữ liệu kế hoạch không đầy đủ để tạo lại.");
       }
-      const { data: koc, error: kocError } = await supabase.from('kocs').select('name').eq('id', plan.koc_id).single();
-      if (kocError || !koc) throw new Error("Không tìm thấy KOC liên quan đến kế hoạch này.");
+
+      const kocId = plan.content.kocId || plan.content.koc_id;
+      if (!kocId) throw new Error("Không tìm thấy KOC ID trong kế hoạch.");
+
+      // Fetch KOC name
+      const koc = await api.kocs.get(kocId);
+      if (!koc) throw new Error("Không tìm thấy KOC liên quan đến kế hoạch này.");
 
       const toastId = showLoading("AI đang phân tích và tạo lại kế hoạch...");
 
       try {
-        const functionName = 'generate-content-plan-gpt';
-        const { data: functionData, error: functionError } = await supabase.functions.invoke(functionName, {
-          body: { inputs: plan.inputs, kocName: koc.name }
-        });
+        const values = plan.content.inputs;
 
-        if (functionError) throw functionError;
-        if (!functionData.success || !functionData.results || !functionData.results.content) {
-          throw new Error(functionData.error || "Phản hồi từ AI không hợp lệ hoặc không chứa nội dung.");
+        // Construct Prompt
+        let promptTemplate = template?.content;
+
+        if (!promptTemplate) {
+          promptTemplate = `
+**ROLE:** You are a top-tier content strategist for TikTok.
+
+**CONTEXT:** You are creating a content plan for a KOC named "{{KOC_NAME}}". Here is the provided information:
+- **Main Topic:** {{TOPIC}}
+- **Target Audience:** {{TARGET_AUDIENCE}}
+- **KOC Persona (Personality & Style):** {{KOC_PERSONA}}
+- **Channel Goals:** {{GOALS}}
+
+**TASK:** Based on the context above, create a comprehensive, detailed, and easy-to-read content plan.
+
+**OUTPUT REQUIREMENTS:**
+You MUST format the output to be a valid JSON object.
+Do NOT use Markdown.
+Structure:
+{
+  "analysis": "string",
+  "strategy": { "direction": "string", "tone_mood": "string" },
+  "content_pillars": [ { "name": "string", "ratio": "string", "description": "string" } ],
+  "schedule": "string",
+  "ideas": [ { "title": "string", "format": "string", "description": "string" } ]
+}
+`.trim();
         }
 
-        const newContent = functionData.results.content;
-        
+        const prompt = promptTemplate
+          .replace('{{KOC_NAME}}', koc.name)
+          .replace('{{TOPIC}}', values.topic)
+          .replace('{{TARGET_AUDIENCE}}', values.target_audience)
+          .replace('{{KOC_PERSONA}}', values.koc_persona)
+          .replace('{{GOALS}}', values.goals || 'Xây dựng thương hiệu');
+
+        // Call AI API
+        const aiResponse = await api.ai.generateText(prompt, {
+          provider: (template as any)?.api_provider || 'troll-llm'
+        });
+
+        if (!aiResponse.text) throw new Error("AI không trả về kết quả.");
+
+        // Parse JSON
+        let aiResults;
+        try {
+          const cleanText = aiResponse.text.replace(/```json/g, '').replace(/```/g, '').trim();
+          aiResults = JSON.parse(cleanText);
+        } catch (e) {
+          console.error("JSON Parse Error:", e, aiResponse.text);
+          throw new Error("Lỗi xử lý dữ liệu từ AI.");
+        }
+
+        const newContent = aiResults;
+
         const newLogEntry = {
-          ...(functionData.results.logs?.[0] || {}),
           action: 'regenerate',
           timestamp: new Date().toISOString(),
+          prompt: prompt,
+          model_used: (template as any)?.api_provider || 'troll-llm'
         };
 
-        const oldLogs = plan.results?.logs || [];
+        const oldLogs = plan.content.results?.logs || [];
         const combinedLogs = [...oldLogs, newLogEntry];
 
         const updatedResults = {
-          ...plan.results,
+          ...plan.content.results,
           content: newContent,
           logs: combinedLogs,
         };
 
-        const { error: updateError } = await supabase
-          .from('content_plans')
-          .update({ results: updatedResults, status: 'completed' })
-          .eq('id', plan.id);
-          
-        if (updateError) throw updateError;
+        // Update plan via API
+        await api.contentPlan.update(plan.id, {
+          status: 'completed',
+          content: {
+            ...plan.content,
+            results: updatedResults
+          }
+        });
 
         dismissToast(toastId);
         showSuccess("Tạo lại kế hoạch thành công!");
@@ -108,17 +171,12 @@ const TaoKeHoachDetail = () => {
 
   const generateMoreIdeasMutation = useMutation({
     mutationFn: async () => {
-      if (!planId || !plan || !plan.inputs) throw new Error("Dữ liệu kế hoạch không đầy đủ.");
-      
-      const functionName = 'generate-more-video-ideas-gpt';
+      if (!planId || !plan) throw new Error("Dữ liệu kế hoạch không đầy đủ.");
 
       const toastId = showLoading("AI đang tạo thêm ý tưởng...");
       try {
-        const { data, error } = await supabase.functions.invoke(functionName, {
-          body: { planId }
-        });
-        if (error) throw error;
-        if (!data.success) throw new Error(data.error);
+        await api.contentPlan.generateMoreIdeas(planId);
+
         dismissToast(toastId);
         showSuccess("Đã tạo thêm 10 ý tưởng mới!");
       } catch (error) {
@@ -132,7 +190,7 @@ const TaoKeHoachDetail = () => {
     },
   });
 
-  const logs = plan?.results?.logs || [];
+  const logs = plan?.content?.results?.logs || [];
 
   return (
     <div className="p-6 lg:p-8">
@@ -190,7 +248,7 @@ const TaoKeHoachDetail = () => {
             <CardDescription>Chiến lược nội dung do AI đề xuất sẽ được hiển thị ở đây.</CardDescription>
           </CardHeader>
           <CardContent>
-            <PlanResultDisplay 
+            <PlanResultDisplay
               planId={isNew ? null : planId}
               onGenerateMore={() => generateMoreIdeasMutation.mutate()}
               isGeneratingMore={generateMoreIdeasMutation.isPending}

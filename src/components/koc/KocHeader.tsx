@@ -37,7 +37,7 @@ const KocHeader = () => {
     );
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-white px-6 flex-shrink-0">
+    <header className="flex h-16 items-center justify-between border-b bg-gradient-to-br from-white to-primary/5 px-6 flex-shrink-0">
       <nav className="flex items-center gap-4">
         <NavLink to="/list-koc" end className={navLinkClasses}>
           {({ isActive }) => (
@@ -59,7 +59,7 @@ const KocHeader = () => {
             </>
           )}
         </NavLink>
-        
+
         <NavLink to="/tao-content" className={navLinkClasses}>
           {({ isActive }) => (
             <>

@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -26,7 +26,7 @@ type CreateCampaignDialogProps = {
 };
 
 type Koc = { id: string; name: string; };
-type ClonedVoice = { voice_id: string; voice_name: string; };
+type ClonedVoice = { voice_id: string; voice_name: string; sample_audio: string | null; };
 
 export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDialogProps) => {
   const queryClient = useQueryClient();
@@ -36,8 +36,7 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
     queryKey: ['kocs_for_automation', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase.from('kocs').select('id, name').eq('user_id', user.id);
-      if (error) throw error;
+      const data = await api.kocs.list();
       return data;
     },
     enabled: !!user,
@@ -47,13 +46,9 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
     queryKey: ['cloned_voices_for_user', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase
-        .from('cloned_voices')
-        .select('voice_id, voice_name')
-        .eq('user_id', user.id)
-        .not('sample_audio', 'is', null); // Chỉ hiển thị các voice đã sẵn sàng
-      if (error) throw error;
-      return data as ClonedVoice[];
+      const data = await api.voice.clonedVoices();
+      // Only show voices that are ready (have sample audio)
+      return data.filter(v => v.sample_audio !== null);
     },
     enabled: !!user,
   });
@@ -69,30 +64,15 @@ export const CreateCampaignDialog = ({ isOpen, onOpenChange }: CreateCampaignDia
       const selectedVoice = voices?.find(v => v.voice_id === values.clonedVoiceId);
       if (!selectedVoice) throw new Error("Giọng nói đã chọn không hợp lệ.");
 
-      const { data: newProject, error: projectError } = await supabase
-        .from("projects")
-        .insert({ user_id: user.id, name: `Project for: ${values.name}` })
-        .select("id")
-        .single();
-
-      if (projectError) throw new Error(`Lỗi tạo project: ${projectError.message}`);
-
-      // Gửi dữ liệu, trigger sẽ tự động điền ai_prompt_template_id và ai_prompt
-      const { error: campaignError } = await supabase.from("automation_campaigns").insert({
-        user_id: user.id,
-        project_id: newProject.id,
+      // Backend handles project creation if needed, and default template assignment
+      await api.automation.create({
         name: values.name,
         description: values.description,
         koc_id: values.kocId,
         cloned_voice_id: values.clonedVoiceId,
         cloned_voice_name: selectedVoice.voice_name,
+        // Status defaults to 'paused' usually, or whatever backend sets
       });
-
-      if (campaignError) {
-        // Nếu có lỗi (ví dụ: trigger báo không tìm thấy prompt), xóa project đã tạo
-        await supabase.from("projects").delete().eq("id", newProject.id);
-        throw new Error(campaignError.message);
-      }
     },
     onSuccess: () => {
       showSuccess("Tạo chiến dịch thành công!");

@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
@@ -12,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Loader2 } from "lucide-react";
-import { SubscriptionPlan } from "./SubscriptionPlans";
+import { api, SubscriptionPlan } from "@/lib/apiClient";
 
 const formSchema = z.object({
   name: z.string().min(1, "Tên gói không được để trống"),
@@ -37,6 +36,7 @@ const formatNumber = (value: number | string) => {
 };
 
 const parseNumber = (value: string) => {
+  if (value === '') return 0; // Handle empty string as 0 or handle validation elsewhere
   return parseInt(value.replace(/\D/g, ''), 10) || 0;
 };
 
@@ -59,7 +59,14 @@ export const AddEditPlanDialog = ({ isOpen, onOpenChange, plan }: AddEditPlanDia
   useEffect(() => {
     if (isOpen) {
       if (plan) {
-        form.reset(plan);
+        form.reset({
+          name: plan.name,
+          description: plan.description || "",
+          monthly_video_limit: plan.monthly_video_limit,
+          monthly_voice_limit: plan.monthly_voice_limit,
+          price: plan.price,
+          is_active: plan.is_active,
+        });
       } else {
         form.reset({ name: "", description: "", monthly_video_limit: 0, monthly_voice_limit: 0, price: 0, is_active: true });
       }
@@ -68,9 +75,12 @@ export const AddEditPlanDialog = ({ isOpen, onOpenChange, plan }: AddEditPlanDia
 
   const upsertMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      const payload = { ...values, id: plan?.id };
-      const { error } = await supabase.from("subscription_plans").upsert(payload);
-      if (error) throw error;
+      // If edit mode and valid ID, update, else create
+      if (isEditMode && plan?.id) {
+        await api.admin.plans.update(plan.id, values);
+      } else {
+        await api.admin.plans.create(values);
+      }
     },
     onSuccess: () => {
       showSuccess(isEditMode ? "Cập nhật gói cước thành công!" : "Tạo gói cước thành công!");
@@ -96,8 +106,8 @@ export const AddEditPlanDialog = ({ isOpen, onOpenChange, plan }: AddEditPlanDia
             <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Tên gói</FormLabel><FormControl><Input placeholder="Ví dụ: Gói Cơ bản" {...field} /></FormControl><FormMessage /></FormItem>)} />
             <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel>Mô tả</FormLabel><FormControl><Textarea placeholder="Mô tả ngắn về gói cước..." {...field} /></FormControl><FormMessage /></FormItem>)} />
             <div className="grid grid-cols-2 gap-4">
-              <FormField control={form.control} name="monthly_video_limit" render={({ field }) => (<FormItem><FormLabel>Giới hạn Video/Tháng</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="monthly_voice_limit" render={({ field }) => (<FormItem><FormLabel>Giới hạn Voice/Tháng</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="monthly_video_limit" render={({ field }) => (<FormItem><FormLabel>Giới hạn Video/Tháng</FormLabel><FormControl><Input type="number" {...field} value={field.value} onChange={e => field.onChange(parseInt(e.target.value) || 0)} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="monthly_voice_limit" render={({ field }) => (<FormItem><FormLabel>Giới hạn Voice/Tháng</FormLabel><FormControl><Input type="number" {...field} value={field.value} onChange={e => field.onChange(parseInt(e.target.value) || 0)} /></FormControl><FormMessage /></FormItem>)} />
             </div>
             <FormField
               control={form.control}

@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,41 +12,17 @@ import { CampaignCard, type Campaign } from "@/components/automation/CampaignCar
 const Automation = () => {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const { user } = useSession();
-  const queryClient = useQueryClient();
 
   const { data: campaigns = [], isLoading } = useQuery<Campaign[]>({
     queryKey: ["automation_campaigns", user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase
-        .from("automation_campaigns")
-        .select("*, kocs(name, avatar_url)")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
+      const data = await api.automation.list();
+      return data;
     },
     enabled: !!user,
+    refetchInterval: 5000, // Poll every 5s instead of realtime subscription
   });
-
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel('automation-campaigns-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'automation_campaigns', filter: `user_id=eq.${user.id}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['automation_campaigns', user.id] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, queryClient]);
 
   return (
     <>

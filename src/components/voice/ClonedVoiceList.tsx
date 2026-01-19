@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { callVoiceApi } from "@/lib/voiceApi";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import { showError, showSuccess } from "@/utils/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,40 +12,14 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { VoiceCloneLogDialog } from "./VoiceCloneLogDialog";
 
-const fetchClonedVoices = async (userId: string) => {
-  if (!userId) return [];
-  const { data, error } = await supabase
-    .from('cloned_voices')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data;
-};
-
 const VoiceItem = ({ voice }: { voice: any }) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
 
   const deleteMutation = useMutation({
     mutationFn: async (voiceId: string) => {
-      try {
-        // First, attempt to delete from the external API
-        await callVoiceApi({ path: `v1m/voice/clone/${voiceId}`, method: "DELETE" });
-      } catch (error: any) {
-        // If the error is "Voice not found", we can ignore it and proceed.
-        // Any other error should be re-thrown.
-        if (error.message && error.message.toLowerCase().includes('voice not found')) {
-          console.warn(`Voice ${voiceId} not found on external API, proceeding with local deletion.`);
-        } else {
-          // Re-throw other errors
-          throw error;
-        }
-      }
-      
-      // Then, delete from our database regardless of the external API result (if it was a 'not found' error)
-      const { error: dbError } = await supabase.from('cloned_voices').delete().eq('voice_id', voiceId);
-      if (dbError) throw dbError;
+      // API handles both external and internal deletion
+      await api.voice.deleteClonedVoice(voiceId);
     },
     onSuccess: () => {
       showSuccess("Xóa giọng nói thành công!");
@@ -100,7 +73,7 @@ export const ClonedVoiceList = () => {
 
   const { data: voices, isLoading, isError, error, isFetching } = useQuery({
     queryKey: ["cloned_voices_db", user?.id],
-    queryFn: () => fetchClonedVoices(user!.id),
+    queryFn: () => api.voice.clonedVoices(),
     enabled: !!user,
     refetchInterval: (query) => {
       const data = query.state.data as any[];
@@ -110,17 +83,7 @@ export const ClonedVoiceList = () => {
 
   const { data: logs } = useQuery({
     queryKey: ["voice_clone_logs", user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from("voice_clone_logs")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw new Error(error.message);
-      return data;
-    },
+    queryFn: () => api.voice.logs(),
     enabled: !!user && isLogOpen,
   });
 
@@ -143,9 +106,9 @@ export const ClonedVoiceList = () => {
         </CardHeader>
         <CardContent>
           {isLoading ? <div className="space-y-4">{[...Array(2)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}</div>
-          : isError ? <div className="text-center py-10 text-destructive"><AlertCircle className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-medium">Không thể tải danh sách</h3><p className="mt-1 text-sm">{(error as Error).message}</p></div>
-          : voices && voices.length > 0 ? <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">{voices.map((voice: any) => <VoiceItem key={voice.voice_id} voice={voice} />)}</div>
-          : <div className="text-center py-10 border-2 border-dashed rounded-lg"><Mic className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-4 text-lg font-medium">Chưa có giọng nói nào</h3><p className="mt-1 text-sm text-muted-foreground">Hãy bắt đầu clone giọng nói đầu tiên của bạn!</p></div>}
+            : isError ? <div className="text-center py-10 text-destructive"><AlertCircle className="mx-auto h-12 w-12" /><h3 className="mt-4 text-lg font-medium">Không thể tải danh sách</h3><p className="mt-1 text-sm">{(error as Error).message}</p></div>
+              : voices && voices.length > 0 ? <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">{voices.map((voice: any) => <VoiceItem key={voice.voice_id} voice={voice} />)}</div>
+                : <div className="text-center py-10 border-2 border-dashed rounded-lg"><Mic className="mx-auto h-12 w-12 text-muted-foreground" /><h3 className="mt-4 text-lg font-medium">Chưa có giọng nói nào</h3><p className="mt-1 text-sm text-muted-foreground">Hãy bắt đầu clone giọng nói đầu tiên của bạn!</p></div>}
         </CardContent>
       </Card>
       <VoiceCloneLogDialog isOpen={isLogOpen} onOpenChange={setIsLogOpen} logs={logs} />

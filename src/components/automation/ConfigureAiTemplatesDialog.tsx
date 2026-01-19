@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api, AiTemplate } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -11,17 +11,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, MoreHorizontal, Edit, Trash2, Check, Star, Lightbulb, Loader2, User, Shield } from "lucide-react";
 import { AddEditAiTemplateDialog } from "./AddEditAiTemplateDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-
-type Template = {
-  id: string;
-  name: string;
-  model: string | null;
-  word_count: number | null;
-  is_default: boolean;
-  user_id: string;
-  is_public: boolean;
-  [key: string]: any; 
-};
 
 type ConfigureAiTemplatesDialogProps = {
   isOpen: boolean;
@@ -35,25 +24,25 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange, kocId, defaul
   const queryClient = useQueryClient();
   const [isAddEditOpen, setAddEditOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<AiTemplate | null>(null);
 
   const queryKey = ["available_ai_prompt_templates", user?.id];
 
-  const { data: templates = [], isLoading } = useQuery<Template[]>({
+  const { data: templates = [], isLoading } = useQuery<AiTemplate[]>({
     queryKey,
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await supabase.rpc('get_available_prompt_templates');
-      if (error) throw error;
-      return data || [];
+      const data = await api.aiTemplates.list();
+      return data;
     },
     enabled: !!user && isOpen,
   });
 
   const { userTemplates, adminTemplates } = useMemo(() => {
-    const userT: Template[] = [];
-    const adminT: Template[] = [];
+    const userT: AiTemplate[] = [];
+    const adminT: AiTemplate[] = [];
     templates.forEach(t => {
+      // Assuming 'user_id' is null for admin/public templates or matches current user
       if (t.user_id === user?.id) {
         userT.push(t);
       } else {
@@ -65,24 +54,22 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange, kocId, defaul
 
   const setDefaultMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      const { error } = await supabase.rpc('set_default_prompt_for_koc', {
-        p_koc_id: kocId,
-        p_template_id: templateId,
-      });
-      if (error) throw error;
+      // Use api.kocs.update to set the default template for the specific KOC
+      await api.kocs.update(kocId, { default_prompt_template_id: templateId });
     },
     onSuccess: () => {
       showSuccess("Đặt template mặc định cho KOC này thành công!");
       queryClient.invalidateQueries({ queryKey: ["koc", kocId] });
       queryClient.invalidateQueries({ queryKey: ["onboarding_kocs", user?.id] });
+      // Invalidate list to refresh UI checkmarks if needed, though props update should handle it
+      queryClient.invalidateQueries({ queryKey: ["kocs"] });
     },
     onError: (error: Error) => showError(error.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      const { error } = await supabase.from("ai_prompt_templates").delete().eq("id", templateId);
-      if (error) throw error;
+      await api.aiTemplates.delete(templateId);
     },
     onSuccess: () => {
       showSuccess("Xóa template thành công!");
@@ -97,17 +84,17 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange, kocId, defaul
     setAddEditOpen(true);
   };
 
-  const handleEdit = (template: Template) => {
+  const handleEdit = (template: AiTemplate) => {
     setSelectedTemplate(template);
     setAddEditOpen(true);
   };
 
-  const handleDelete = (template: Template) => {
+  const handleDelete = (template: AiTemplate) => {
     setSelectedTemplate(template);
     setDeleteOpen(true);
   };
 
-  const TemplateCard = ({ template, isUserTemplate }: { template: Template, isUserTemplate: boolean }) => {
+  const TemplateCard = ({ template, isUserTemplate }: { template: AiTemplate, isUserTemplate: boolean }) => {
     const isDefaultForKoc = template.id === defaultTemplateIdForKoc;
     return (
       <Card className="border-2 border-transparent data-[default=true]:border-green-500 transition-colors" data-default={isDefaultForKoc}>
@@ -119,7 +106,7 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange, kocId, defaul
                 Model: {template.model || 'N/A'} | Tối đa: {template.word_count || 'N/A'} từ
               </p>
             </div>
-            
+
             <div className="flex items-center gap-1 flex-shrink-0">
               {isDefaultForKoc ? (
                 <div className="bg-green-600 text-white rounded-md px-3 py-1 text-xs font-semibold flex items-center h-8">
@@ -141,7 +128,7 @@ export const ConfigureAiTemplatesDialog = ({ isOpen, onOpenChange, kocId, defaul
                   Đặt làm mặc định
                 </Button>
               )}
-              
+
               {isUserTemplate && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

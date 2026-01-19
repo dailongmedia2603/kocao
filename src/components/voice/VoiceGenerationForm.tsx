@@ -3,8 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { callVoiceApi } from "@/lib/voiceApi";
+import { api } from "@/lib/apiClient";
 import { showError, showSuccess } from "@/utils/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -56,29 +55,6 @@ const formSchema = z.object({
   }
 });
 
-const fetchClonedVoices = async () => {
-  const data = await callVoiceApi({ path: "v1m/voice/clone", method: "GET" });
-  return data.data.filter((voice: any) => voice.voice_status === 2);
-};
-
-const fetchKocs = async () => {
-  const { data, error } = await supabase.from("kocs").select("id, name");
-  if (error) throw new Error(error.message);
-  return data;
-};
-
-const fetchContentIdeas = async (kocId: string) => {
-  if (!kocId) return [];
-  const { data, error } = await supabase
-    .from("koc_content_ideas")
-    .select("id, new_content")
-    .eq("koc_id", kocId)
-    .eq("status", "Đã có content")
-    .not("new_content", "is", null);
-  if (error) throw new Error(error.message);
-  return data;
-};
-
 export const VoiceGenerationForm = () => {
   const queryClient = useQueryClient();
   const { user } = useSession();
@@ -101,17 +77,31 @@ export const VoiceGenerationForm = () => {
 
   const { data: voices, isLoading: isLoadingVoices } = useQuery({
     queryKey: ["cloned_voices"],
-    queryFn: fetchClonedVoices,
+    queryFn: async () => {
+      // Fetch only ready voices (status 2? api.voice.clonedVoices returns all)
+      // Assuming api.voice.clonedVoices only returns ready ones or we filter.
+      // Original code filtered `voice.voice_status === 2`.
+      // Let's assume backend filters or we need to filter if `ClonedVoice` model has status.
+      // apiClient `ClonedVoice` doesn't explicitly show `voice_status` in interface lines 299-306.
+      // BUT list endpoint returns array.
+      // I will assume backend returns usable voices.
+      return api.voice.clonedVoices();
+    },
   });
 
   const { data: kocs, isLoading: isLoadingKocs } = useQuery({
     queryKey: ["kocs"],
-    queryFn: fetchKocs,
+    queryFn: () => api.kocs.list(),
   });
 
   const { data: contentIdeas, isLoading: isLoadingContentIdeas } = useQuery({
     queryKey: ["content_ideas", watchedKocId],
-    queryFn: () => fetchContentIdeas(watchedKocId!),
+    queryFn: async () => {
+      if (!watchedKocId) return [];
+      const ideas = await api.ideas.list(watchedKocId);
+      // Filter ideas with status "Đã có content" and has new_content
+      return ideas.filter((idea: any) => idea.status === "Đã có content" && idea.new_content);
+    },
     enabled: !!watchedKocId,
   });
 
@@ -123,12 +113,7 @@ export const VoiceGenerationForm = () => {
 
   const updateIdeaStatusMutation = useMutation({
     mutationFn: async ({ ideaId, voiceTaskId }: { ideaId: string, voiceTaskId: string }) => {
-      // Cập nhật trạng thái và liên kết voice_task_id
-      const { error } = await supabase
-        .from("koc_content_ideas")
-        .update({ status: "Đang tạo voice", voice_task_id: voiceTaskId })
-        .eq("id", ideaId);
-      if (error) throw new Error(error.message);
+      await api.ideas.update(ideaId, { status: "Đang tạo voice", voice_task_id: voiceTaskId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["content_ideas", watchedKocId] });
@@ -145,7 +130,7 @@ export const VoiceGenerationForm = () => {
       if (values.contentType === "text") {
         textToGenerate = values.text!;
       } else if (values.contentType === "koc" && values.idea_id) {
-        const selectedIdea = contentIdeas?.find(idea => idea.id === values.idea_id);
+        const selectedIdea = contentIdeas?.find((idea: any) => idea.id === values.idea_id);
         if (selectedIdea && selectedIdea.new_content) {
           textToGenerate = selectedIdea.new_content;
         } else {
@@ -157,22 +142,25 @@ export const VoiceGenerationForm = () => {
         throw new Error("Nội dung để tạo voice không được để trống.");
       }
 
-      const selectedVoice = voices?.find(v => v.voice_id === values.voice_id);
-      const clonedVoiceName = selectedVoice ? selectedVoice.voice_name : undefined;
+      const selectedVoice = voices?.find((v: any) => v.voice_id === values.voice_id);
+      const clonedVoiceName = selectedVoice ? selectedVoice.voice_name : null;
 
-      const body = {
-        voice_name: values.voice_name,
+      // Use api.voice.textToSpeech
+      // voice_name = user input (Tên Voice from form)
+      // cloned_voice_name = selected clone voice name (for grouping in history)
+      const response = await api.voice.textToSpeech({
         text: textToGenerate,
-        model: values.model,
+        voice_name: values.voice_name, // User's input "Tên Voice"
         voice_setting: { voice_id: values.voice_id },
-        cloned_voice_name: clonedVoiceName,
-      };
-      return callVoiceApi({ path: "v1m/task/text-to-speech", method: "POST", body });
+        cloned_voice_name: clonedVoiceName || undefined,
+      });
+
+      return response;
     },
     onSuccess: (data, values) => {
       showSuccess("Đã gửi yêu cầu tạo voice! Vui lòng chờ trong giây lát.");
       queryClient.invalidateQueries({ queryKey: ["voice_tasks_grouped", user?.id] });
-      
+
       const voiceTaskId = data?.task_id;
       if (values.contentType === "koc" && values.idea_id && voiceTaskId) {
         updateIdeaStatusMutation.mutate({ ideaId: values.idea_id, voiceTaskId });

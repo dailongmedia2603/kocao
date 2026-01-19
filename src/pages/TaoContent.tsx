@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import KocMobileNav from "@/components/koc/KocMobileNav";
+import { api, Koc, ContentPlan } from "@/lib/apiClient";
 
 // UI Components
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +22,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 // Icons
 import { Bot, Wand2, FileSignature, UserCircle, Sigma, MessageSquare, Loader2, AlignLeft, Settings2, Trash2, Edit, MoreHorizontal, Check, ChevronsUpDown, CheckSquare, Eye, BrainCircuit } from "lucide-react";
@@ -33,13 +32,13 @@ import { cn } from "@/lib/utils";
 import { showSuccess, showError } from "@/utils/toast";
 
 // Type Definitions
-type Koc = { id: string; name: string; };
 type VideoScript = {
   id: string;
   name: string;
   script_content: string | null;
   created_at: string;
   kocs: { name: string } | null;
+  kocId?: string;
 };
 
 // Form Schema
@@ -57,18 +56,6 @@ const scriptFormSchema = z.object({
   exampleDialogue: z.string().optional(),
 });
 
-// Data Fetching Functions
-const fetchKocs = async (userId: string) => {
-  const { data, error } = await supabase.from('kocs').select('id, name').eq('user_id', userId).order('name', { ascending: true });
-  if (error) throw error;
-  return data as Koc[];
-};
-const fetchVideoScripts = async (userId: string) => {
-  const { data, error } = await supabase.from('video_scripts').select('*, kocs(name)').eq('user_id', userId).order('created_at', { ascending: false });
-  if (error) throw error;
-  return data as VideoScript[];
-};
-
 const TaoContent = () => {
   const [generatedScript, setGeneratedScript] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -81,19 +68,34 @@ const TaoContent = () => {
 
   const { data: kocs = [], isLoading: isLoadingKocs } = useQuery<Koc[]>({
     queryKey: ['kocs_for_script', user?.id],
-    queryFn: () => fetchKocs(user!.id),
+    queryFn: () => api.kocs.list(),
     enabled: !!user,
   });
+
   const { data: scripts = [], isLoading: isLoadingScripts } = useQuery<VideoScript[]>({
     queryKey: ['video_scripts', user?.id],
-    queryFn: () => fetchVideoScripts(user!.id),
-    enabled: !!user,
+    queryFn: async () => {
+      const plans = await api.contentPlan.list();
+      const scriptPlans = plans.filter(p => p.content?.type === 'script');
+
+      return scriptPlans.map(plan => {
+        const kocName = kocs.find(k => k.id === plan.content?.kocId)?.name || 'N/A';
+        return {
+          id: plan.id,
+          name: plan.name,
+          script_content: plan.content?.script_content || null,
+          created_at: plan.created_at,
+          kocId: plan.content?.kocId,
+          kocs: { name: kocName }
+        };
+      });
+    },
+    enabled: !!user && kocs.length > 0,
   });
 
   const deleteScriptMutation = useMutation({
     mutationFn: async (scriptId: string) => {
-      const { error } = await supabase.from('video_scripts').delete().eq('id', scriptId);
-      if (error) throw error;
+      await api.contentPlan.delete(scriptId);
     },
     onSuccess: () => {
       showSuccess("Xóa kịch bản thành công!");
@@ -105,9 +107,9 @@ const TaoContent = () => {
 
   const form = useForm<z.infer<typeof scriptFormSchema>>({
     resolver: zodResolver(scriptFormSchema),
-    defaultValues: { 
-      name: "", 
-      kocId: "", 
+    defaultValues: {
+      name: "",
+      kocId: "",
       content: "",
       model: "gemini-2.5-pro",
       toneOfVoice: "hài hước",
@@ -127,58 +129,58 @@ const TaoContent = () => {
       if (!selectedKoc) throw new Error("Không tìm thấy KOC đã chọn.");
 
       const detailedPromptFromUser = `
-- Tông giọng: ${values.toneOfVoice || 'chuyên nghiệp, hấp dẫn'}
-- Văn phong: ${values.writingStyle || 'kể chuyện, sử dụng văn nói'}
-- Cách viết: ${values.writingMethod || 'sử dụng câu ngắn, đi thẳng vào vấn đề'}
-- Vai trò AI: ${values.aiRole || 'Một chuyên gia sáng tạo nội dung'}
-- Yêu cầu bắt buộc: ${values.mandatoryRequirements || 'Không có'}
-${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn phong): ${values.exampleDialogue}` : ''}
-      `.trim();
+  - Tông giọng: ${values.toneOfVoice || 'chuyên nghiệp, hấp dẫn'}
+  - Văn phong: ${values.writingStyle || 'kể chuyện, sử dụng văn nói'}
+  - Cách viết: ${values.writingMethod || 'sử dụng câu ngắn, đi thẳng vào vấn đề'}
+  - Vai trò AI: ${values.aiRole || 'Một chuyên gia sáng tạo nội dung'}
+  - Yêu cầu bắt buộc: ${values.mandatoryRequirements || 'Không có'}
+  ${values.exampleDialogue ? `- Lời thoại ví dụ (để tham khảo văn phong): ${values.exampleDialogue}` : ''}
+        `.trim();
 
       const fullPrompt = `
-Bạn là một chuyên gia sáng tạo nội dung cho các video ngắn trên mạng xã hội.
-Dựa vào thông tin sau đây, hãy tạo một kịch bản video hấp dẫn.
-**Tên KOC (người dẫn chuyện):** ${selectedKoc.name}
-**Nội dung tin tức gốc:**
----
-${values.content}
----
-**Yêu cầu chi tiết từ người dùng:**
----
-${detailedPromptFromUser}
----
-**Yêu cầu hệ thống:**
-- ${values.maxWords ? `Độ dài kịch bản không được vượt quá ${values.maxWords} từ.` : 'Giữ kịch bản ngắn gọn, súc tích.'}
-- Chỉ trả về nội dung kịch bản, không thêm bất kỳ lời giải thích hay ghi chú nào khác.
-      `;
+  Bạn là một chuyên gia sáng tạo nội dung cho các video ngắn trên mạng xã hội.
+  Dựa vào thông tin sau đây, hãy tạo một kịch bản video hấp dẫn.
+  **Tên KOC (người dẫn chuyện):** ${selectedKoc.name}
+  **Nội dung tin tức gốc:**
+  ---
+  ${values.content}
+  ---
+  **Yêu cầu chi tiết từ người dùng:**
+  ---
+  ${detailedPromptFromUser}
+  ---
+  **Yêu cầu hệ thống:**
+  - ${values.maxWords ? `Độ dài kịch bản không được vượt quá ${values.maxWords} từ.` : 'Giữ kịch bản ngắn gọn, súc tích.'}
+  - Chỉ trả về nội dung kịch bản, không thêm bất kỳ lời giải thích hay ghi chú nào khác.
+        `;
 
-      const formData = new FormData();
-      formData.append("prompt", fullPrompt);
+      // Using api.ai.generateText
+      const response = await api.ai.generateText(fullPrompt);
+      if (!response.text) throw new Error("Không nhận được nội dung từ AI.");
 
-      const { data, error } = await supabase.functions.invoke("gemini-custom-proxy", { body: formData });
-
-      if (error) throw new Error(error.message);
-      if (data.error) throw new Error(data.error);
-
-      return { scriptContent: data.answer, prompt: fullPrompt, values };
+      return { scriptContent: response.text, prompt: fullPrompt, values };
     },
     onSuccess: async ({ scriptContent, prompt, values }) => {
       setGeneratedScript(scriptContent);
-      
-      if (user) {
-        const { error: insertError } = await supabase.from('video_scripts').insert({
-          user_id: user.id,
-          name: values.name,
-          koc_id: values.kocId,
-          script_content: scriptContent,
-          ai_prompt: prompt,
-        });
 
-        if (insertError) {
-          showError(`Lưu kịch bản thất bại: ${insertError.message}`);
-        } else {
+      if (user) {
+        try {
+          await api.contentPlan.create({
+            name: values.name,
+            content: {
+              type: 'script',
+              kocId: values.kocId,
+              script_content: scriptContent,
+              original_content: values.content,
+              ai_prompt: prompt,
+              ...values
+            }
+          });
+
           showSuccess("Tạo và lưu kịch bản thành công!");
           queryClient.invalidateQueries({ queryKey: ['video_scripts', user?.id] });
+        } catch (insertError: any) {
+          showError(`Lưu kịch bản thất bại: ${insertError.message}`);
         }
       }
     },
@@ -203,7 +205,7 @@ ${detailedPromptFromUser}
           <KocMobileNav />
         </div>
         <header className="mb-8"><h1 className="text-3xl font-bold">Công cụ Content</h1><p className="text-muted-foreground mt-1">Sử dụng AI để tạo nội dung video từ nội dung có sẵn.</p></header>
-        
+
         <Accordion type="single" collapsible className="w-full" defaultValue="item-1">
           <AccordionItem value="item-1">
             <AccordionTrigger className="text-lg font-semibold p-4 bg-card rounded-lg border hover:no-underline data-[state=open]:rounded-b-none"><div className="flex items-center gap-3"><Wand2 className="h-5 w-5 text-primary" />Tạo kịch bản video</div></AccordionTrigger>
@@ -214,9 +216,9 @@ ${detailedPromptFromUser}
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                       <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><FileSignature className="h-4 w-4 mr-2" />Tên kịch bản</FormLabel><FormControl><Input placeholder="Ví dụ: Kịch bản tin tức Campuchia" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="kocId" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel className="flex items-center"><UserCircle className="h-4 w-4 mr-2" />Tạo cho KOC</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>{field.value ? kocs.find((koc) => koc.id === field.value)?.name : "Chọn KOC"}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Tìm KOC..." /><CommandList><CommandEmpty>Không tìm thấy KOC.</CommandEmpty><CommandGroup>{kocs.map((koc) => (<CommandItem value={koc.name} key={koc.id} onSelect={() => { form.setValue("kocId", koc.id);}}><Check className={cn("mr-2 h-4 w-4", koc.id === field.value ? "opacity-100" : "opacity-0")}/>{koc.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="kocId" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel className="flex items-center"><UserCircle className="h-4 w-4 mr-2" />Tạo cho KOC</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>{field.value ? kocs.find((koc) => koc.id === field.value)?.name : "Chọn KOC"}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Tìm KOC..." /><CommandList><CommandEmpty>Không tìm thấy KOC.</CommandEmpty><CommandGroup>{kocs.map((koc) => (<CommandItem value={koc.name} key={koc.id} onSelect={() => { form.setValue("kocId", koc.id); }}><Check className={cn("mr-2 h-4 w-4", koc.id === field.value ? "opacity-100" : "opacity-0")} />{koc.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="content" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><AlignLeft className="h-4 w-4 mr-2" />Nội dung gốc</FormLabel><FormControl><Textarea placeholder="Nhập nội dung bạn muốn AI chuyển thành kịch bản video..." {...field} rows={5} /></FormControl><FormMessage /></FormItem>)} />
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField control={form.control} name="model" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><BrainCircuit className="h-4 w-4 mr-2" />Model AI (Vertex)</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Chọn model AI" /></SelectTrigger></FormControl><SelectContent><SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem><SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="maxWords" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Sigma className="h-4 w-4 mr-2" />Số từ tối đa</FormLabel><FormControl><Input type="number" placeholder="Ví dụ: 300" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -227,7 +229,7 @@ ${detailedPromptFromUser}
                       <FormField control={form.control} name="aiRole" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Bot className="h-4 w-4 mr-2" />Vai trò AI</FormLabel><FormControl><Textarea placeholder="Ví dụ: Đóng vai là 1 người tự quay video tiktok để nói chuyện..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="mandatoryRequirements" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><CheckSquare className="h-4 w-4 mr-2" />Yêu cầu bắt buộc</FormLabel><FormControl><Textarea placeholder="Ví dụ: Không nhắc đến đối thủ cạnh tranh..." {...field} /></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="exampleDialogue" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><MessageSquare className="h-4 w-4 mr-2" />Lời thoại ví dụ</FormLabel><FormControl><Textarea placeholder="Ví dụ: 'Hello mọi người, lại là mình đây! Hôm nay có tin gì hot hòn họt nè...'" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                      
+
                       <Button type="submit" className="w-full" disabled={generateScriptMutation.isPending}>{generateScriptMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang xử lý...</> : <><Wand2 className="mr-2 h-4 w-4" /> Tạo kịch bản</>}</Button>
                     </form>
                   </Form>
@@ -237,8 +239,8 @@ ${detailedPromptFromUser}
                   <Card className="min-h-[400px] flex items-center justify-center">
                     <CardContent className="p-4 w-full">
                       {isGenerating ? <div className="space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-1/2" /></div>
-                      : generatedScript ? <pre className="whitespace-pre-wrap text-sm font-sans">{generatedScript}</pre>
-                      : <p className="text-center text-muted-foreground">Kết quả kịch bản sẽ hiển thị ở đây.</p>}
+                        : generatedScript ? <pre className="whitespace-pre-wrap text-sm font-sans">{generatedScript}</pre>
+                          : <p className="text-center text-muted-foreground">Kết quả kịch bản sẽ hiển thị ở đây.</p>}
                     </CardContent>
                   </Card>
                 </div>
@@ -254,22 +256,22 @@ ${detailedPromptFromUser}
                 <TableHeader><TableRow><TableHead className="w-[50px]"><Checkbox /></TableHead><TableHead>Tên kịch bản</TableHead><TableHead>KOC</TableHead><TableHead>Nội dung</TableHead><TableHead className="text-right">Hành động</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {isLoadingScripts ? <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" /></TableCell></TableRow>
-                  : scripts.length > 0 ? scripts.map((script) => (
-                    <TableRow key={script.id}>
-                      <TableCell><Checkbox /></TableCell>
-                      <TableCell className="font-medium">{script.name}</TableCell>
-                      <TableCell>{script.kocs?.name || 'N/A'}</TableCell>
-                      <TableCell><Button variant="link" className="p-0 h-auto" onClick={() => { setSelectedScript(script); setIsViewScriptOpen(true); }}>Xem chi tiết</Button></TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem><Edit className="mr-2 h-4 w-4" />Sửa</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => setScriptToDelete(script)}><Trash2 className="mr-2 h-4 w-4" />Xóa</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  )) : <TableRow><TableCell colSpan={5} className="h-24 text-center">Chưa có kịch bản nào được tạo.</TableCell></TableRow>}
+                    : scripts.length > 0 ? scripts.map((script) => (
+                      <TableRow key={script.id}>
+                        <TableCell><Checkbox /></TableCell>
+                        <TableCell className="font-medium">{script.name}</TableCell>
+                        <TableCell>{script.kocs?.name || 'N/A'}</TableCell>
+                        <TableCell><Button variant="link" className="p-0 h-auto" onClick={() => { setSelectedScript(script); setIsViewScriptOpen(true); }}>Xem chi tiết</Button></TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem><Edit className="mr-2 h-4 w-4" />Sửa</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onClick={() => setScriptToDelete(script)}><Trash2 className="mr-2 h-4 w-4" />Xóa</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )) : <TableRow><TableCell colSpan={5} className="h-24 text-center">Chưa có kịch bản nào được tạo.</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </div>

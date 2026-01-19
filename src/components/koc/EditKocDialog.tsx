@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api, ClonedVoice } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -35,23 +35,13 @@ type EditKocDialogProps = {
   koc: Koc | null;
 };
 
-type ClonedVoice = { voice_id: string; voice_name: string; };
-
 export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps) => {
   const queryClient = useQueryClient();
   const { user } = useSession();
 
   const { data: voices, isLoading: isLoadingVoices } = useQuery<ClonedVoice[]>({
     queryKey: ['cloned_voices_for_user', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from('cloned_voices')
-        .select('voice_id, voice_name')
-        .eq('user_id', user.id);
-      if (error) throw error;
-      return data as ClonedVoice[];
-    },
+    queryFn: () => api.voice.clonedVoices(),
     enabled: !!user && isOpen,
   });
 
@@ -75,20 +65,12 @@ export const EditKocDialog = ({ isOpen, onOpenChange, koc }: EditKocDialogProps)
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user || !koc) throw new Error("Dữ liệu không hợp lệ");
 
-      const selectedVoice = voices?.find(v => v.voice_id === values.default_cloned_voice_id);
-
-      const { error } = await supabase
-        .from("kocs")
-        .update({
-          name: values.name,
-          field: values.field,
-          channel_url: values.channel_url || null,
-          default_cloned_voice_id: selectedVoice?.voice_id || null,
-          default_cloned_voice_name: selectedVoice?.voice_name || null,
-        })
-        .eq("id", koc.id);
-
-      if (error) throw new Error(`Lỗi cập nhật KOC: ${error.message}`);
+      return api.kocs.update(koc.id, {
+        name: values.name,
+        field: values.field,
+        channel_url: values.channel_url || undefined,
+        default_cloned_voice_id: values.default_cloned_voice_id || undefined,
+      });
     },
     onSuccess: () => {
       showSuccess("Cập nhật KOC thành công!");

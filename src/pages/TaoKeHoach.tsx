@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/contexts/SessionContext";
 import { Link, useNavigate } from "react-router-dom";
+import { api, ContentPlan, Koc } from "@/lib/apiClient";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -26,25 +26,38 @@ const TaoKeHoach = () => {
   const [planToDelete, setPlanToDelete] = useState<ContentPlanWithKoc | null>(null);
   const [isConfigureOpen, setIsConfigureOpen] = useState(false);
 
-  const { data: plans = [], isLoading, isError, error } = useQuery<ContentPlanWithKoc[]>({
-    queryKey: ["content_plans", user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from("content_plans")
-        .select("*, kocs(name, avatar_url)")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data as any[];
-    },
+  const { data: kocs = [] } = useQuery<Koc[]>({
+    queryKey: ['kocs_for_plans', user?.id],
+    queryFn: () => api.kocs.list(),
     enabled: !!user,
   });
 
+  const { data: rawPlans = [], isLoading, isError, error } = useQuery<ContentPlan[]>({
+    queryKey: ["content_plans", user?.id],
+    queryFn: () => api.contentPlan.list(),
+    enabled: !!user,
+  });
+
+  const mappedPlans = useMemo(() => {
+    return rawPlans.map(plan => {
+      const kocId = plan.content?.kocId || plan.content?.koc_id; // Flexible key name
+      const koc = kocs.find(k => k.id === kocId);
+      return {
+        id: plan.id,
+        name: plan.name,
+        status: plan.status,
+        created_at: plan.created_at,
+        inputs: plan.content?.inputs || null,
+        results: plan.content?.results || null,
+        koc_id: kocId || '',
+        kocs: koc ? { name: koc.name, avatar_url: koc.avatar_url } : null
+      } as ContentPlanWithKoc;
+    });
+  }, [rawPlans, kocs]);
+
   const deletePlanMutation = useMutation({
     mutationFn: async (planId: string) => {
-      const { error } = await supabase.from('content_plans').delete().eq('id', planId);
-      if (error) throw error;
+      await api.contentPlan.delete(planId);
     },
     onSuccess: () => {
       showSuccess("Xóa kế hoạch thành công!");
@@ -98,11 +111,11 @@ const TaoKeHoach = () => {
           </Alert>
         )}
 
-        {!isLoading && !isError && plans.length > 0 && (
+        {!isLoading && !isError && mappedPlans.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {plans.map((plan) => (
-              <PlanCard 
-                key={plan.id} 
+            {mappedPlans.map((plan) => (
+              <PlanCard
+                key={plan.id}
                 plan={plan}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
@@ -111,7 +124,7 @@ const TaoKeHoach = () => {
           </div>
         )}
 
-        {!isLoading && !isError && plans.length === 0 && (
+        {!isLoading && !isError && mappedPlans.length === 0 && (
           <div className="text-center py-16 border-2 border-dashed rounded-lg">
             <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-xl font-semibold">Chưa có kế hoạch nào</h3>
@@ -145,7 +158,7 @@ const TaoKeHoach = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
+
       <ConfigurePromptDialog isOpen={isConfigureOpen} onOpenChange={setIsConfigureOpen} />
     </>
   );

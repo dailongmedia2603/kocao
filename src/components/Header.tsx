@@ -12,7 +12,7 @@ const Header = () => {
   };
 
   return (
-    <header className="flex h-16 items-center justify-end border-b bg-white px-6 flex-shrink-0">
+    <header className="flex h-16 items-center justify-end border-b bg-gradient-to-br from-white to-primary/5 px-6 flex-shrink-0">
       <div className="flex items-center">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

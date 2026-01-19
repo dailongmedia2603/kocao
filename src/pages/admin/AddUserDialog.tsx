@@ -2,7 +2,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { showSuccess, showError } from "@/utils/toast";
 import {
   Dialog,
@@ -23,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { api } from "@/lib/apiClient";
 
 const formSchema = z.object({
   first_name: z.string().min(1, "Tên không được để trống"),
@@ -51,12 +51,15 @@ export const AddUserDialog = ({ isOpen, onOpenChange }: AddUserDialogProps) => {
 
   const addUserMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      const { data, error } = await supabase.functions.invoke("create-user", {
-        body: values,
+      // Use api.admin.users.create endpoint
+      // Combine first_name and last_name into name for backend
+      await api.admin.users.create({
+        name: `${values.first_name} ${values.last_name}`.trim(),
+        email: values.email,
+        password: values.password,
+        first_name: values.first_name,
+        last_name: values.last_name,
       });
-      if (error) throw new Error(error.message);
-      if (data.error) throw new Error(data.error);
-      return data;
     },
     onSuccess: () => {
       showSuccess("Thêm người dùng thành công!");

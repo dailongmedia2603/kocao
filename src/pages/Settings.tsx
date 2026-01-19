@@ -4,26 +4,32 @@ import TiktokApiSettings from "@/components/settings/TiktokApiSettings";
 import FacebookApiSettings from "@/components/settings/FacebookApiSettings";
 import VoiceApiSettings from "@/components/settings/VoiceApiSettings";
 import DreamfaceApiSettings from "@/components/settings/DreamfaceApiSettings";
-import GptCustomApiSettings from "@/components/settings/GptCustomApiSettings";
-import GeminiCustomApiSettings from "@/components/settings/GeminiCustomApiSettings";
+import ImageGenApiSettings from "@/components/settings/ImageGenApiSettings";
+import R2ApiSettings from "@/components/settings/R2ApiSettings";
+
 import VertexAiSettings from "@/components/settings/VertexAiSettings";
-import { Mic, Film, BrainCircuit } from "lucide-react";
+import KlingApiSettings from "@/components/settings/KlingApiSettings";
+import { Mic, Film, BrainCircuit, Video, Image, Cloud } from "lucide-react";
 import { FaTiktok, FaFacebook } from "react-icons/fa";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+import TrollLlmApiSettings from "@/components/settings/TrollLlmApiSettings";
+
 const TABS_CONFIG = [
-  { value: "gpt-custom-api", label: "API GPT Custom", icon: BrainCircuit, component: <GptCustomApiSettings /> },
-  { value: "gemini-custom-api", label: "API Gemini Custom", icon: BrainCircuit, component: <GeminiCustomApiSettings /> },
+  { value: "troll-llm-api", label: "API Gemini", icon: BrainCircuit, component: <TrollLlmApiSettings /> },
   { value: "vertex-ai-api", label: "API Vertex AI", icon: BrainCircuit, component: <VertexAiSettings /> },
   { value: "tiktok-api", label: "API TikTok", icon: FaTiktok, component: <TiktokApiSettings /> },
   { value: "facebook-api", label: "API Facebook", icon: FaFacebook, component: <FacebookApiSettings /> },
   { value: "voice-api", label: "API Voice", icon: Mic, component: <VoiceApiSettings /> },
   { value: "dreamface-api", label: "API Tạo Video", icon: Film, component: <DreamfaceApiSettings /> },
+  { value: "kling-api", label: "API Kling", icon: Video, component: <KlingApiSettings /> },
+  { value: "image-gen-api", label: "API Gen Ảnh", icon: Image, component: <ImageGenApiSettings /> },
+  { value: "r2-storage", label: "Cloudflare R2", icon: Cloud, component: <R2ApiSettings /> },
 ];
 
 const Settings = () => {
-  const [activeTab, setActiveTab] = useState("gpt-custom-api");
+  const [activeTab, setActiveTab] = useState("troll-llm-api");
   const activeComponent = TABS_CONFIG.find(tab => tab.value === activeTab)?.component;
 
   return (
@@ -59,7 +65,7 @@ const Settings = () => {
           <h1 className="text-3xl font-bold">Cài đặt</h1>
           <p className="text-muted-foreground mt-1">Quản lý API Keys và các cấu hình hệ thống khác.</p>
         </header>
-        <Tabs defaultValue="gpt-custom-api" className="w-full">
+        <Tabs defaultValue="troll-llm-api" className="w-full">
           <TabsList className="flex flex-wrap justify-start bg-transparent p-0 gap-2 h-auto">
             {TABS_CONFIG.map(tab => (
               <TabsTrigger key={tab.value} value={tab.value} className="group flex items-center gap-2 p-2 rounded-md font-semibold text-gray-600 hover:bg-red-50 hover:text-red-600 data-[state=active]:bg-red-50 data-[state=active]:text-red-700 data-[state=active]:shadow-none transition-colors">

@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/apiClient";
 import { useSession } from "@/contexts/SessionContext";
 import { showSuccess, showError } from "@/utils/toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -61,16 +61,20 @@ export const AddEditIdeaDialog = ({ isOpen, onOpenChange, kocId, idea }: AddEdit
     mutationFn: async (values: z.infer<typeof formSchema>) => {
       if (!user) throw new Error("User not authenticated");
 
-      const payload = {
-        id: idea?.id,
-        koc_id: kocId,
-        user_id: user.id,
-        idea_content: values.idea_content,
-        new_content: values.new_content,
-      };
-
-      const { error } = await supabase.from("koc_content_ideas").upsert(payload);
-      if (error) throw error;
+      if (idea?.id) {
+        // Update existing idea
+        return api.ideas.update(idea.id, {
+          idea_content: values.idea_content,
+          new_content: values.new_content || undefined,
+        });
+      } else {
+        // Create new idea
+        return api.ideas.create({
+          koc_id: kocId,
+          idea_content: values.idea_content,
+          new_content: values.new_content || undefined,
+        });
+      }
     },
     onSuccess: () => {
       showSuccess(idea ? "Cập nhật idea thành công!" : "Thêm idea thành công!");

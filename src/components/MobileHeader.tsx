@@ -13,7 +13,7 @@ const MobileHeader = () => {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-white px-4 flex-shrink-0 z-40">
+    <header className="flex h-16 items-center justify-between border-b bg-gradient-to-br from-white to-primary/5 px-4 flex-shrink-0 z-40">
       <Logo />
       <div className="flex items-center">
         <DropdownMenu>

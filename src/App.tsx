@@ -1,6 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
-import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -24,6 +23,8 @@ import TaoKeHoach from "./pages/TaoKeHoach";
 import TaoKeHoachDetail from "./pages/TaoKeHoachDetail";
 import SubscriptionPlans from "./pages/admin/SubscriptionPlans";
 import SubscriptionPage from "./pages/Subscription";
+import VideoSelectionPage from "./pages/VideoSelectionPage";
+import CreateKocPage from "./pages/CreateKocPage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReloadPrompt } from "./components/ReloadPrompt";
 
@@ -46,7 +47,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
-            
+
             <Route element={<ProtectedRoute />}>
               <Route path="/pending-approval" element={<PendingApproval />} />
 
@@ -59,10 +60,14 @@ function App() {
               </Route>
 
               <Route element={<AppLayout />}>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/" element={<Navigate to="/list-koc" replace />} />
                 <Route path="/automation" element={<Automation />} />
                 <Route path="/automation/:campaignId" element={<AutomationDetail />} />
-                <Route path="/tao-video" element={<TaoVideo />} />
+
+                {/* Video Routes */}
+                <Route path="/tao-video" element={<VideoSelectionPage />} />
+                <Route path="/tao-video/clone" element={<TaoVideo />} />
+                <Route path="/tao-video/create-koc" element={<CreateKocPage />} />
                 <Route path="/tao-ke-hoach" element={<TaoKeHoach />} />
                 <Route path="/tao-ke-hoach/:planId" element={<TaoKeHoachDetail />} />
                 <Route path="/subscription" element={<SubscriptionPage />} />

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/apiClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -25,14 +25,9 @@ export const IdeaLogDialog = ({ isOpen, onOpenChange, kocId }: IdeaLogDialogProp
     queryKey: ['idea_logs', kocId],
     queryFn: async () => {
       if (!kocId) return [];
-      const { data, error } = await supabase
-        .from('koc_content_ideas')
-        .select('id, created_at, idea_content, ai_prompt_log')
-        .eq('koc_id', kocId)
-        .not('ai_prompt_log', 'is', null)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      const ideas = await api.ideas.list(kocId);
+      // Filter ideas that have ai_prompt_log
+      return ideas.filter((idea: any) => idea.ai_prompt_log != null) as IdeaLog[];
     },
     enabled: isOpen && !!kocId,
   });

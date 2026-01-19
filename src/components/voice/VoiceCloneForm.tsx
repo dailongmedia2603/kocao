@@ -2,7 +2,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/apiClient";
 import { showError, showSuccess } from "@/utils/toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -40,16 +40,11 @@ export const VoiceCloneForm = () => {
 
   const cloneVoiceMutation = useMutation({
     mutationFn: async (values: z.infer<typeof formSchema>) => {
-      const formData = new FormData();
-      formData.append("voice_name", values.voice_name);
-      formData.append("preview_text", values.preview_text);
-      formData.append("file", values.file[0]);
-
-      const { data, error } = await supabase.functions.invoke("voice-clone-proxy", { body: formData });
-      if (error) throw new Error(error.message);
-      if (data.error) throw new Error(data.error);
-      if (!data.success) throw new Error(data.message || "Clone voice thất bại.");
-      return data;
+      return api.voice.cloneVoice(
+        values.file[0],
+        values.voice_name,
+        values.preview_text
+      );
     },
     onSuccess: () => {
       showSuccess("Gửi yêu cầu clone thành công! Giọng nói sẽ sớm xuất hiện trong danh sách.");
@@ -82,7 +77,7 @@ export const VoiceCloneForm = () => {
                 <FormMessage />
               </FormItem>
             )} />
-             <FormField control={form.control} name="preview_text" render={({ field }) => (
+            <FormField control={form.control} name="preview_text" render={({ field }) => (
               <FormItem>
                 <FormLabel>Văn bản xem trước</FormLabel>
                 <FormControl><Textarea placeholder="Văn bản dùng để tạo file âm thanh mẫu..." className="min-h-[80px]" {...field} /></FormControl>
